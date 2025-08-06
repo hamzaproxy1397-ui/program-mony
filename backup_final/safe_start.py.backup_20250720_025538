@@ -1,0 +1,52 @@
+# -*- coding: utf-8 -*-
+"""
+سكريبت بدء التشغيل الآمن
+Safe Startup Script
+"""
+
+import sys
+
+def safe_startup():
+    """بدء تشغيل آمن للنظام"""
+    print("🚀 بدء تشغيل النظام المحاسبي...")
+    
+    try:
+        # فحص المتطلبات الأساسية
+        print("🔍 فحص المتطلبات...")
+        
+        # فحص Python
+        if sys.version_info < (3, 8):
+            print("❌ يتطلب Python 3.8 أو أحدث")
+            return False
+        
+        # فحص الملفات الأساسية
+        required_files = [
+            'main.py',
+            'config/settings.py',
+            'database/database_manager.py'
+        ]
+        
+        for file_path in required_files:
+            if not Path(file_path).exists():
+                print(f"❌ الملف مفقود: {file_path}")
+                return False
+        
+        print("✅ جميع المتطلبات متوفرة")
+        
+        # تشغيل النظام
+        print("🎯 تشغيل النظام الرئيسي...")
+        from ui.main_window import MainApplication
+    except Exception as e:
+        print(f"خطأ: {e}")
+from pathlib import Path
+        app = MainApplication()
+        app.run()
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ خطأ في بدء التشغيل: {e}")
+        return False
+
+if __name__ == "__main__":
+    safe_startup()

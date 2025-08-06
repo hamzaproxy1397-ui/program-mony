@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+اختبار لوحة التحكم الشاملة - وحدة الإدارة الاحترافية
+"""
+
+import sys
+import os
+from pathlib import Path
+
+# إضافة مسار المشروع إلى sys.path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
+
+# استيراد المكتبات المطلوبة
+import customtkinter as ctk
+
+# محاولة استيراد لوحة التحكم
+try:
+    from ui.advanced_settings_window import ComprehensiveAdminPanel
+    print("✅ تم استيراد لوحة التحكم بنجاح")
+except ImportError as e:
+    print(f"❌ خطأ في استيراد لوحة التحكم: {e}")
+    # استخدام الاسم القديم كبديل
+
+except Exception as e:
+
+    pass
+    try:
+        from ui.advanced_settings_window import AdvancedSettingsWindow as ComprehensiveAdminPanel
+        print("✅ تم استيراد النافذة القديمة كبديل")
+    except ImportError as e2:
+        print(f"❌ خطأ في استيراد النافذة البديلة: {e2}")
+        sys.exit(1)
+    except Exception as e:
+        pass
+
+def main():
+    """تشغيل لوحة التحكم الشاملة للاختبار"""
+
+    # إعداد customtkinter
+    ctk.set_appearance_mode("light")
+    ctk.set_default_color_theme("blue")
+
+    # إنشاء النافذة الرئيسية (مخفية)
+    root = ctk.CTk()
+    root.withdraw()  # إخفاء النافذة الرئيسية
+    root.title("لوحة التحكم الشاملة - اختبار")
+
+    # إنشاء لوحة التحكم
+    try:
+        print("🎛️ تشغيل لوحة التحكم الشاملة...")
+        print("📋 الميزات المتاحة:")
+        print("   🧩 الإعدادات العامة - معلومات الشركة والإعدادات الأساسية")
+        print("   💾 النسخ الاحتياطي - إدارة النسخ والاستعادة")
+        print("   👥 المستخدمون والصلاحيات - إدارة المستخدمين")
+        print("   🔄 التحكم بالبيانات - ضبط المصنع وإعادة التعيين")
+        print("   📥 استيراد وتصدير - إدارة البيانات من Excel")
+        print("   ⚙️ إعدادات النظام - تكوين النظام المتقدم")
+        print("   🛡️ الأمان والحماية - إعدادات الأمان")
+        print()
+
+    except Exception as e:
+
+        pass
+
+        # إنشاء مستخدم تجريبي
+        mock_user = {
+            'username': 'مدير النظام',
+            'role': 'admin'
+        }
+
+        # إنشاء لوحة التحكم
+        admin_panel = ComprehensiveAdminPanel()
+        admin_panel.current_user = mock_user
+
+        print("✅ تم تشغيل لوحة التحكم بنجاح!")
+        print("🎨 التصميم: واجهة عربية RTL احترافية")
+        print("🔧 الوظائف: 7 تبويبات شاملة للإدارة")
+        print("💡 الإشعارات: نظام Toast للتنبيهات")
+        print()
+
+        # تشغيل الحلقة الرئيسية
+        root.mainloop()
+
+    except Exception as e:
+        print(f"❌ خطأ في تشغيل لوحة التحكم: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+if __name__ == "__main__":
+    main()

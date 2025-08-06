@@ -1,0 +1,362 @@
+# -*- coding: utf-8 -*-
+# cSpell:disable
+"""
+نافذة نقطة البيع المبسطة والآمنة
+"""
+
+import customtkinter as ctk
+import tkinter as tk
+from tkinter import messagebox
+from datetime import datetime
+from database.hybrid_database_manager import HybridDatabaseManager
+from ui.window_utils import configure_window_fullscreen
+
+class SimplePOSWindow:
+    def __init__(self, parent):
+        self.parent = parent
+        self.window = None
+        self.cart_items = []
+        self.total_amount = 0.0
+        self.current_quantity = 1
+
+        # تهيئة مدير قاعدة البيانات المدمج
+        try:
+            self.db_manager = HybridDatabaseManager()
+            self.sales_manager = self.db_manager.sales_manager
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في تهيئة مدير المبيعات: {e}")
+            self.db_manager = None
+            self.sales_manager = None
+        
+        # جلب المنتجات من قاعدة البيانات
+        self.products = self.load_products()
+        
+        self.create_window()
+
+    def load_products(self):
+        """جلب المنتجات من قاعدة البيانات"""
+        try:
+            if self.db_manager:
+                products = self.db_manager.get_all_products()
+                # تحويل إلى التنسيق المطلوب
+                return [
+                    {
+                        "id": product['id'],
+                        "name": product['name'],
+                        "price": product.get('price', product.get('selling_price', 0)),
+                        "category": product.get('category', 'عام')
+                    }
+                    for product in products:
+                ]
+            else:
+                # منتجات افتراضية في حالة عدم توفر قاعدة البيانات
+                return [
+                    {"id": 1, "name": "كوكا كولا", "price": 150.0, "category": "مشروبات"},
+                    {"id": 2, "name": "بيبسي", "price": 140.0, "category": "مشروبات"},
+                    {"id": 3, "name": "عصير برتقال", "price": 200.0, "category": "مشروبات"},
+                    {"id": 4, "name": "شيبس", "price": 120.0, "category": "وجبات خفيفة"},
+                    {"id": 5, "name": "بسكويت", "price": 80.0, "category": "وجبات خفيفة"},
+                    {"id": 6, "name": "شوكولاتة", "price": 250.0, "category": "حلويات"},
+                    {"id": 7, "name": "حليب", "price": 300.0, "category": "منتجات ألبان"},
+                    {"id": 8, "name": "جبنة", "price": 400.0, "category": "منتجات ألبان"}
+                ]
+        except Exception as e:
+            pass
+        except Exception as e:
+            print(f"خطأ في جلب المنتجات: {e}")
+            # إرجاع منتجات افتراضية في حالة الخطأ
+            return [
+                {"id": 1, "name": "كوكا كولا", "price": 150.0, "category": "مشروبات"},
+                {"id": 2, "name": "بيبسي", "price": 140.0, "category": "مشروبات"}
+            ]
+
+    def create_window(self):
+        """إنشاء النافذة الرئيسية"""
+        try:
+            self.window = ctk.CTkToplevel(self.parent)
+        
+        except Exception as e:
+            print(f"خطأ: {e}")
+        # إعداد النافذة لتملأ الشاشة
+        configure_window_fullscreen(self.window, "نقطة البيع - POS - برنامج ست الكل للمحاسبة")
+            self.window
+            
+            # جعل النافذة في المقدمة
+            self.window.transient(self.parent)
+            self.window.grab_set()
+            
+            # إنشاء المحتوى
+            self.create_content()
+            
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في إنشاء النافذة: {str(e)}")
+            
+    def create_content(self):
+        """إنشاء محتوى النافذة"""
+        # الشريط العلوي
+        header = ctk.CTkFrame(self.window, height=60)
+        header.pack(fill="x", padx=10, pady=(10, 0))
+        header.pack_propagate(False)
+        
+        ctk.CTkLabel(header, text="🛒 نقطة البيع", font=("Arial", 20, "bold")).pack(side="right", padx=20, pady=15)
+        ctk.CTkButton(header, text="إغلاق", command=self.close_window, width=80).pack(side="left", padx=20, pady=15)
+        
+        # المحتوى الرئيسي
+        main_frame = ctk.CTkFrame(self.window)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # تقسيم إلى قسمين
+        # القسم الأيسر - المنتجات
+        products_frame = ctk.CTkFrame(main_frame)
+        products_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
+        
+        # القسم الأيمن - السلة والتحكم
+        control_frame = ctk.CTkFrame(main_frame, width=350)
+        control_frame.pack(side="right", fill="y", padx=(5, 0))
+        control_frame.pack_propagate(False)
+        
+        # إنشاء أقسام المحتوى
+        self.create_products_section(products_frame)
+        self.create_control_section(control_frame)
+        
+    def create_products_section(self, parent):
+        """إنشاء قسم المنتجات"""
+        # عنوان
+        ctk.CTkLabel(parent, text="المنتجات المتاحة", font=("Arial", 16, "bold")).pack(pady=10)
+        
+        # منطقة المنتجات مع التمرير
+        products_scroll = ctk.CTkScrollableFrame(parent)
+        products_scroll.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # عرض المنتجات في شبكة
+        row = 0
+        col = 0
+        for product in self.products:
+            product_frame = ctk.CTkFrame(products_scroll, width=180, height=120)
+            product_frame.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
+            product_frame.pack_propagate(False)
+            
+            # اسم المنتج
+            ctk.CTkLabel(product_frame, text=product['name'], font=("Arial", 12, "bold")).pack(pady=5)
+            
+            # السعر
+            ctk.CTkLabel(product_frame, text=f"{product['price']:.0f} ل.س", 
+                        font=("Arial", 14, "bold"), text_color="green").pack(pady=2)
+            
+            # الفئة
+            ctk.CTkLabel(product_frame, text=product['category'], 
+                        font=("Arial", 10), text_color="gray").pack(pady=2)
+            
+            # زر الإضافة
+            ctk.CTkButton(product_frame, text="إضافة للسلة", width=120, height=25,
+                        command=lambda p=product: self.add_to_cart(p)).pack(pady=5)
+            
+            col += 1
+            if col >= 3:  # 3 منتجات في كل صف:
+                col = 0
+                row += 1
+                
+        # تكوين الأعمدة
+        for i in range(3):
+            products_scroll.grid_columnconfigure(i, weight=1)
+            
+    def create_control_section(self, parent):
+        """إنشاء قسم التحكم والسلة"""
+        # قسم الكمية
+        qty_frame = ctk.CTkFrame(parent, height=80)
+        qty_frame.pack(fill="x", padx=10, pady=10)
+        qty_frame.pack_propagate(False)
+        
+        ctk.CTkLabel(qty_frame, text="الكمية:", font=("Arial", 12)).pack(pady=5)
+        
+        qty_control = ctk.CTkFrame(qty_frame)
+        qty_control.pack(pady=5)
+        
+        ctk.CTkButton(qty_control, text="-", width=40, command=self.decrease_qty).pack(side="left", padx=2)
+        self.qty_label = ctk.CTkLabel(qty_control, text="1", font=("Arial", 16, "bold"), width=60)
+        self.qty_label.pack(side="left", padx=5)
+        ctk.CTkButton(qty_control, text="+", width=40, command=self.increase_qty).pack(side="left", padx=2)
+        
+        # سلة المشتريات
+        cart_frame = ctk.CTkFrame(parent)
+        cart_frame.pack(fill="both", expand=True, padx=10, pady=5)
+        
+        ctk.CTkLabel(cart_frame, text="سلة المشتريات", font=("Arial", 14, "bold")).pack(pady=10)
+        
+        # قائمة المشتريات
+        self.cart_list = ctk.CTkScrollableFrame(cart_frame, height=200)
+        self.cart_list.pack(fill="both", expand=True, padx=10, pady=5)
+        
+        # الإجمالي
+        total_frame = ctk.CTkFrame(parent, height=60)
+        total_frame.pack(fill="x", padx=10, pady=5)
+        total_frame.pack_propagate(False)
+        
+        ctk.CTkLabel(total_frame, text="الإجمالي:", font=("Arial", 14, "bold")).pack(pady=5)
+        self.total_label = ctk.CTkLabel(total_frame, text="0.00 ل.س", 
+                                        font=("Arial", 16, "bold"), text_color="green")
+        self.total_label.pack(pady=5)
+        
+        # أزرار العمليات
+        buttons_frame = ctk.CTkFrame(parent)
+        buttons_frame.pack(fill="x", padx=10, pady=5)
+        
+        ctk.CTkButton(buttons_frame, text="مسح السلة", command=self.clear_cart,
+                    fg_color="red").pack(fill="x", pady=2)
+        ctk.CTkButton(buttons_frame, text="💳 إتمام الدفع", command=self.checkout,
+                    fg_color="green", height=40).pack(fill="x", pady=5)
+        
+    def add_to_cart(self, product):
+        """إضافة منتج للسلة"""
+        try:
+            # البحث عن المنتج في السلة
+            found = False
+            for item in self.cart_items:
+                if item['id'] == product['id']:
+                    item['quantity'] += self.current_quantity
+                    item['total'] = item['quantity'] * item['price']
+                    found = True
+                    break
+                    
+            # إضافة منتج جديد
+            if not found:
+                cart_item = {
+                    'id': product['id'],
+                    'name': product['name'],
+                    'price': product['price'],
+                    'quantity': self.current_quantity,
+                    'total': product['price'] * self.current_quantity
+                }
+                self.cart_items.append(cart_item)
+                
+            self.update_cart_display()
+            self.update_total()
+            
+        except Exception as e:
+            pass
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في إضافة المنتج: {str(e)}")
+            
+    def update_cart_display(self):
+        """تحديث عرض السلة"""
+        # مسح العرض السابق
+        for widget in self.cart_list.winfo_children():
+            widget.destroy()
+            
+        # عرض العناصر
+        for i, item in enumerate(self.cart_items):
+            item_frame = ctk.CTkFrame(self.cart_list, height=60)
+            item_frame.pack(fill="x", pady=2)
+            item_frame.pack_propagate(False)
+            
+            # اسم المنتج
+            ctk.CTkLabel(item_frame, text=item['name'], font=("Arial", 11, "bold")).pack(anchor="e", padx=5)
+            
+            # التفاصيل
+            details = f"الكمية: {item['quantity']} × {item['price']:.0f} = {item['total']:.0f} ل.س"
+            ctk.CTkLabel(item_frame, text=details, font=("Arial", 9)).pack(anchor="e", padx=5)
+            
+            # زر الحذف
+            ctk.CTkButton(item_frame, text="🗑️", width=30, height=25,
+                        command=lambda idx=i: self.remove_item(idx),
+                        fg_color="red").pack(side="left", padx=5, pady=5)
+                         
+    def update_total(self):
+        """تحديث الإجمالي"""
+        self.total_amount = sum(item['total'] for item in self.cart_items)
+        self.total_label.configure(text=f"{self.total_amount:.0f} ل.س")
+        
+    def remove_item(self, index):
+        """حذف عنصر من السلة"""
+        if 0 <= index < len(self.cart_items):
+            self.cart_items.pop(index)
+            self.update_cart_display()
+            self.update_total()
+            
+    def clear_cart(self):
+        """مسح السلة"""
+        if self.cart_items:
+            if messagebox.askyesno("تأكيد", "هل تريد مسح جميع العناصر؟"):
+                self.cart_items.clear()
+                self.update_cart_display()
+                self.update_total()
+                
+    def increase_qty(self):
+        """زيادة الكمية"""
+        self.current_quantity += 1
+        self.qty_label.configure(text=str(self.current_quantity))
+        
+    def decrease_qty(self):
+        """تقليل الكمية"""
+        if self.current_quantity > 1:
+            self.current_quantity -= 1
+            self.qty_label.configure(text=str(self.current_quantity))
+            
+    def checkout(self):
+        """إتمام الدفع باستخدام SalesManager"""
+        try:
+            if not self.cart_items:
+                messagebox.showwarning("تحذير", "السلة فارغة!")
+                return
+
+            # التحقق من وجود مدير المبيعات
+            if not self.sales_manager:
+                messagebox.showerror("خطأ", "مدير المبيعات غير متاح")
+                return
+
+            # رسالة تأكيد
+            message = f"إجمالي الفاتورة: {self.total_amount:.0f} ل.س\nعدد الأصناف: {len(self.cart_items)}"
+            if not messagebox.askyesno("تأكيد الدفع", message):
+                return
+
+            # تحضير بيانات الأصناف للمبيعات
+            items = []
+            for item in self.cart_items:
+                items.append({
+                    'product_id': item.get('id'),  # معرف المنتج من البيانات التجريبية
+                    'name': item['name'],
+                    'quantity': item['quantity'],
+                    'price': item['price']
+                })
+
+            # معالجة البيع باستخدام SalesManager
+            result = self.sales_manager.process_sale(
+                customer_name="عميل نقدي",  # يمكن تحسينه لاحقاً لاختيار العميل
+                items=items,
+                total_amount=self.total_amount,
+                payment_status='paid',
+                notes=f'بيع من نقطة البيع - {datetime.now().strftime("%Y-%m-%d %H:%M")}',
+                update_stock=True  # تحديث المخزون
+            )
+
+            if result['success']:
+                # رسالة نجاح مع تفاصيل
+                success_message = f"تم إتمام البيع بنجاح!\n"
+                success_message += f"رقم الفاتورة: {result['invoice_number']}\n"
+                success_message += f"المبلغ الإجمالي: {result['net_amount']:.2f} ل.س"
+
+                if result.get('inventory_updated'):
+                    success_message += f"\nتم تحديث مخزون {len(result['updated_products'])} منتج"
+
+                messagebox.showinfo("نجح", success_message)
+
+                # مسح السلة
+                self.cart_items.clear()
+                self.update_cart_display()
+                self.update_total()
+
+            else:
+                messagebox.showerror("خطأ", f"فشل في إتمام البيع:\n{result['message']}")
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            messagebox.showerror("خطأ", f"حدث خطأ أثناء إتمام البيع:\n{str(e)}")
+            
+    def close_window(self):
+        """إغلاق النافذة"""
+        if self.cart_items:
+            if messagebox.askyesno("تأكيد", "هناك عناصر في السلة. هل تريد الإغلاق؟"):
+                self.window.destroy()
+        else:
+            self.window.destroy()

@@ -1,0 +1,723 @@
+# -*- coding: utf-8 -*-
+# cSpell:disable
+"""
+نافذة بيان الأرباح والخسائر المهيكل
+Structured Profit & Loss Statement Window
+"""
+
+import customtkinter as ctk
+import tkinter as tk
+from tkinter import messagebox, ttk, filedialog
+from datetime import datetime, date, timedelta
+from database.profit_loss_structure_manager import ProfitLossStructureManager
+from database.database_manager import DatabaseManager
+try:
+    from themes.modern_theme import MODERN_COLORS, FONTS
+    from ui.window_utils import configure_window_fullscreen
+except ImportError:
+    MODERN_COLORS = {
+        'primary': '#1f538d',
+        'background': '#f0f0f0',
+        'surface': '#ffffff',
+        'text_primary': '#000000',
+        'success': '#28a745',
+        'error': '#dc3545',
+        'warning': '#ffc107',
+        'info': '#17a2b8'
+    }
+    FONTS = {'arabic': 'Arial'}
+
+class StructuredProfitLossWindow:
+    """نافذة بيان الأرباح والخسائر المهيكل وفقاً للمعايير المحاسبية"""
+    
+    def __init__(self, parent):
+        self.parent = parent
+        self.window = None
+        self.db_manager = DatabaseManager()
+        self.structure_manager = ProfitLossStructureManager(self.db_manager)
+        self.current_statement = None
+        
+        self.create_window()
+    
+    def create_window(self):
+        """إنشاء النافذة الرئيسية"""
+        self.window = ctk.CTkToplevel(self.parent)
+        
+        # إعداد النافذة لتملأ الشاشة
+        configure_window_fullscreen(self.window, "🧾 بيان الأرباح والخسائر المهيكل - برنامج ست الكل للمحاسبة")
+        self.window.configure(fg_color=MODERN_COLORS['background'])
+        
+        # جعل النافذة في المقدمة
+        self.window.transient(self.parent)
+        self.window.grab_set()
+        
+        # إنشاء المحتوى
+        self.create_header()
+        self.create_controls()
+        self.create_content_area()
+        self.create_buttons()
+        
+        # تحميل البيان الافتراضي
+        self.load_default_statement()
+    
+    def create_header(self):
+        """إنشاء رأس النافذة"""
+        header_frame = ctk.CTkFrame(self.window, height=80, fg_color=MODERN_COLORS['primary'])
+        header_frame.pack(fill="x", padx=10, pady=(10, 0))
+        header_frame.pack_propagate(False)
+        
+        # العنوان
+        title_label = ctk.CTkLabel(
+            header_frame,
+            text="🧾 بيان الأرباح والخسائر المهيكل",
+            font=(FONTS['arabic'], 24, "bold"),
+            text_color="white"
+        )
+        title_label.pack(side="right", padx=20, pady=20)
+        
+        # معلومات سريعة
+        info_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        info_frame.pack(side="left", padx=20, pady=15)
+        
+        self.period_label = ctk.CTkLabel(
+            info_frame,
+            text="الفترة: غير محددة",
+            font=(FONTS['arabic'], 12),
+            text_color="white"
+        )
+        self.period_label.pack()
+        
+        self.status_label = ctk.CTkLabel(
+            info_frame,
+            text="الحالة: جاهز",
+            font=(FONTS['arabic'], 12),
+            text_color="white"
+        )
+        self.status_label.pack()
+    
+    def create_controls(self):
+        """إنشاء عناصر التحكم"""
+        controls_frame = ctk.CTkFrame(self.window, height=100)
+        controls_frame.pack(fill="x", padx=10, pady=10)
+        controls_frame.pack_propagate(False)
+        
+        # إطار التواريخ
+        dates_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
+        dates_frame.pack(side="right", padx=20, pady=15)
+        
+        # تاريخ البداية
+        ctk.CTkLabel(dates_frame, text="من تاريخ:", font=(FONTS['arabic'], 12)).grid(row=0, column=0, padx=5, pady=5, sticky="e")
+        self.start_date_entry = ctk.CTkEntry(dates_frame, width=120, placeholder_text="YYYY-MM-DD")
+        self.start_date_entry.grid(row=0, column=1, padx=5, pady=5)
+        
+        # تاريخ النهاية
+        ctk.CTkLabel(dates_frame, text="إلى تاريخ:", font=(FONTS['arabic'], 12)).grid(row=1, column=0, padx=5, pady=5, sticky="e")
+        self.end_date_entry = ctk.CTkEntry(dates_frame, width=120, placeholder_text="YYYY-MM-DD")
+        self.end_date_entry.grid(row=1, column=1, padx=5, pady=5)
+        
+        # أزرار الفترات السريعة
+        quick_periods_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
+        quick_periods_frame.pack(side="left", padx=20, pady=15)
+        
+        ctk.CTkLabel(quick_periods_frame, text="فترات سريعة:", font=(FONTS['arabic'], 12, "bold")).pack(anchor="w")
+        
+        periods_buttons_frame = ctk.CTkFrame(quick_periods_frame, fg_color="transparent")
+        periods_buttons_frame.pack(fill="x", pady=5)
+        
+        # أزرار الفترات
+        ctk.CTkButton(periods_buttons_frame, text="هذا الشهر", command=self.set_current_month, width=80, height=30).pack(side="right", padx=2)
+        ctk.CTkButton(periods_buttons_frame, text="هذا العام", command=self.set_current_year, width=80, height=30).pack(side="right", padx=2)
+        ctk.CTkButton(periods_buttons_frame, text="الربع الحالي", command=self.set_current_quarter, width=80, height=30).pack(side="right", padx=2)
+        
+        # زر إنشاء البيان
+        generate_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
+        generate_frame.pack(side="left", padx=20, pady=15)
+        
+        self.generate_btn = ctk.CTkButton(
+            generate_frame,
+            text="🔄 إنشاء البيان",
+            command=self.generate_statement,
+            fg_color=MODERN_COLORS['success'],
+            width=120,
+            height=40
+        )
+        self.generate_btn.pack()
+    
+    def create_content_area(self):
+        """إنشاء منطقة عرض المحتوى"""
+        content_frame = ctk.CTkFrame(self.window)
+        content_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        
+        # إنشاء Notebook للتبويبات
+        self.notebook = ttk.Notebook(content_frame)
+        self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # تبويب البيان المهيكل
+        self.structured_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.structured_frame, text="البيان المهيكل")
+        
+        # تبويب الهيكل التنظيمي
+        self.structure_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.structure_frame, text="الهيكل التنظيمي")
+        
+        # تبويب التحقق من الأكواد
+        self.validation_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.validation_frame, text="التحقق من الأكواد")
+        
+        # إنشاء محتوى التبويبات
+        self.create_structured_tab()
+        self.create_structure_tab()
+        self.create_validation_tab()
+    
+    def create_structured_tab(self):
+        """إنشاء تبويب البيان المهيكل"""
+        # منطقة النص للبيان المهيكل
+        self.structured_text = tk.Text(
+            self.structured_frame,
+            font=('Courier New', 10),
+            wrap=tk.WORD,
+            bg='white',
+            fg='black',
+            direction='rtl'
+        )
+        
+        # شريط التمرير
+        structured_scrollbar = ttk.Scrollbar(self.structured_frame, orient="vertical", command=self.structured_text.yview)
+        self.structured_text.configure(yscrollcommand=structured_scrollbar.set)
+        
+        # تخطيط العناصر
+        self.structured_text.pack(side="right", fill="both", expand=True)
+        structured_scrollbar.pack(side="left", fill="y")
+    
+    def create_structure_tab(self):
+        """إنشاء تبويب الهيكل التنظيمي"""
+        # إطار للشجرة
+        tree_frame = ctk.CTkFrame(self.structure_frame)
+        tree_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # إنشاء Treeview للهيكل
+        columns = ("code", "description", "type")
+        self.structure_tree = ttk.Treeview(tree_frame, columns=columns, show="tree headings")
+        
+        # تعريف الأعمدة
+        self.structure_tree.heading("#0", text="العنصر")
+        self.structure_tree.heading("code", text="الكود")
+        self.structure_tree.heading("description", text="الوصف")
+        self.structure_tree.heading("type", text="النوع")
+        
+        # تحديد عرض الأعمدة
+        self.structure_tree.column("#0", width=300)
+        self.structure_tree.column("code", width=100)
+        self.structure_tree.column("description", width=400)
+        self.structure_tree.column("type", width=100)
+        
+        # شريط التمرير للشجرة
+        structure_scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.structure_tree.yview)
+        self.structure_tree.configure(yscrollcommand=structure_scrollbar.set)
+        
+        # تخطيط الشجرة
+        self.structure_tree.pack(side="right", fill="both", expand=True)
+        structure_scrollbar.pack(side="left", fill="y")
+        
+        # تحميل الهيكل التنظيمي
+        self.load_structure_tree()
+    
+    def create_validation_tab(self):
+        """إنشاء تبويب التحقق من الأكواد"""
+        validation_container = ctk.CTkScrollableFrame(self.validation_frame)
+        validation_container.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # عنوان التحقق
+        ctk.CTkLabel(
+            validation_container,
+            text="🔍 التحقق من أكواد الحسابات",
+            font=(FONTS['arabic'], 18, "bold")
+        ).pack(pady=(0, 20))
+        
+        # إطار النتائج
+        self.validation_results_frame = ctk.CTkFrame(validation_container)
+        self.validation_results_frame.pack(fill="x", pady=10)
+        
+        # زر التحقق
+        validate_btn = ctk.CTkButton(
+            validation_container,
+            text="🔍 تشغيل التحقق",
+            command=self.validate_account_codes,
+            fg_color=MODERN_COLORS['info'],
+            width=150
+        )
+        validate_btn.pack(pady=10)
+    
+    def create_buttons(self):
+        """إنشاء أزرار النافذة"""
+        buttons_frame = ctk.CTkFrame(self.window, height=60, fg_color="transparent")
+        buttons_frame.pack(fill="x", padx=10, pady=(0, 10))
+        buttons_frame.pack_propagate(False)
+        
+        # زر تصدير Excel
+        export_excel_btn = ctk.CTkButton(
+            buttons_frame,
+            text="📊 تصدير Excel",
+            command=self.export_to_excel,
+            fg_color=MODERN_COLORS['success'],
+            width=120
+        )
+        export_excel_btn.pack(side="right", padx=5, pady=15)
+        
+        # زر حفظ نصي
+        save_text_btn = ctk.CTkButton(
+            buttons_frame,
+            text="📄 حفظ نصي",
+            command=self.save_as_text,
+            fg_color=MODERN_COLORS['info'],
+            width=100
+        )
+        save_text_btn.pack(side="right", padx=5, pady=15)
+        
+        # زر طباعة
+        print_btn = ctk.CTkButton(
+            buttons_frame,
+            text="🖨️ طباعة",
+            command=self.print_statement,
+            fg_color=MODERN_COLORS['warning'],
+            width=100
+        )
+        print_btn.pack(side="right", padx=5, pady=15)
+        
+        # زر إغلاق
+        close_btn = ctk.CTkButton(
+            buttons_frame,
+            text="❌ إغلاق",
+            command=self.close_window,
+            fg_color=MODERN_COLORS['error'],
+            width=100
+        )
+        close_btn.pack(side="left", padx=5, pady=15)
+        
+        # زر تحديث
+        refresh_btn = ctk.CTkButton(
+            buttons_frame,
+            text="🔄 تحديث",
+            command=self.generate_statement,
+            fg_color=MODERN_COLORS['primary'],
+            width=100
+        )
+        refresh_btn.pack(side="left", padx=5, pady=15)
+    
+    def set_current_month(self):
+        """تعيين الشهر الحالي"""
+        today = date.today()
+        start_date = date(today.year, today.month, 1)
+        end_date = today
+        
+        self.start_date_entry.delete(0, "end")
+        self.start_date_entry.insert(0, start_date.strftime('%Y-%m-%d'))
+        
+        self.end_date_entry.delete(0, "end")
+        self.end_date_entry.insert(0, end_date.strftime('%Y-%m-%d'))
+    
+    def set_current_year(self):
+        """تعيين العام الحالي"""
+        today = date.today()
+        start_date = date(today.year, 1, 1)
+        end_date = today
+        
+        self.start_date_entry.delete(0, "end")
+        self.start_date_entry.insert(0, start_date.strftime('%Y-%m-%d'))
+        
+        self.end_date_entry.delete(0, "end")
+        self.end_date_entry.insert(0, end_date.strftime('%Y-%m-%d'))
+    
+    def set_current_quarter(self):
+        """تعيين الربع الحالي"""
+        today = date.today()
+        quarter = (today.month - 1) // 3 + 1
+        start_month = (quarter - 1) * 3 + 1
+        start_date = date(today.year, start_month, 1)
+        end_date = today
+        
+        self.start_date_entry.delete(0, "end")
+        self.start_date_entry.insert(0, start_date.strftime('%Y-%m-%d'))
+        
+        self.end_date_entry.delete(0, "end")
+        self.end_date_entry.insert(0, end_date.strftime('%Y-%m-%d'))
+    
+    def load_default_statement(self):
+        """تحميل البيان الافتراضي"""
+        # تعيين الشهر الحالي كافتراضي
+        self.set_current_month()
+        # إنشاء البيان
+        self.generate_statement()
+
+    def generate_statement(self):
+        """إنشاء بيان الأرباح والخسائر المهيكل"""
+        try:
+            # جلب التواريخ
+            start_date_str = self.start_date_entry.get().strip()
+            end_date_str = self.end_date_entry.get().strip()
+
+            # التحقق من صحة التواريخ
+            if not start_date_str or not end_date_str:
+                messagebox.showwarning("تحذير", "يرجى إدخال تاريخ البداية والنهاية")
+                return
+
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                messagebox.showerror("خطأ", "تنسيق التاريخ غير صحيح. استخدم YYYY-MM-DD")
+                return
+
+            if start_date > end_date:
+                messagebox.showerror("خطأ", "تاريخ البداية يجب أن يكون قبل تاريخ النهاية")
+                return
+
+            # تحديث حالة النافذة
+            self.status_label.configure(text="الحالة: جاري إنشاء البيان...")
+            self.generate_btn.configure(state="disabled", text="جاري الإنشاء...")
+            self.window.update()
+
+            # إنشاء البيان المهيكل
+            self.current_statement = self.structure_manager.get_detailed_profit_loss_statement(start_date, end_date)
+
+            # تحديث عرض البيان
+            self.update_structured_display()
+
+            # تحديث معلومات الفترة
+            period_text = f"الفترة: من {start_date_str} إلى {end_date_str}"
+            self.period_label.configure(text=period_text)
+
+            # تحديث الحالة
+            self.status_label.configure(text="الحالة: تم إنشاء البيان بنجاح")
+            self.generate_btn.configure(state="normal", text="🔄 إنشاء البيان")
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في إنشاء البيان: {e}")
+            self.status_label.configure(text="الحالة: خطأ في إنشاء البيان")
+            self.generate_btn.configure(state="normal", text="🔄 إنشاء البيان")
+
+    def update_structured_display(self):
+        """تحديث عرض البيان المهيكل"""
+        if not self.current_statement:
+            return
+
+        # مسح المحتوى السابق
+        self.structured_text.delete(1.0, tk.END)
+
+        # إنشاء البيان النصي المهيكل
+        start_date = datetime.strptime(self.current_statement['period']['start_date'], '%Y-%m-%d').date()
+        end_date = datetime.strptime(self.current_statement['period']['end_date'], '%Y-%m-%d').date()
+
+        structured_text = self.structure_manager.generate_structured_statement_text(start_date, end_date)
+
+        # إدراج النص
+        self.structured_text.insert(tk.END, structured_text)
+
+        # تنسيق النص
+        self.structured_text.tag_configure("header", font=('Courier New', 12, 'bold'))
+        self.structured_text.tag_configure("section", font=('Courier New', 11, 'bold'), background='lightblue')
+        self.structured_text.tag_configure("total", font=('Courier New', 11, 'bold'), background='lightgreen')
+
+    def load_structure_tree(self):
+        """تحميل الهيكل التنظيمي في الشجرة"""
+        try:
+            # مسح الشجرة
+            for item in self.structure_tree.get_children():
+                self.structure_tree.delete(item)
+
+            # جلب تعريف الهيكل
+            structure = self.structure_manager.get_structure_definition()
+
+            # إضافة العناصر الرئيسية
+            for section_key, section_data in structure.items():
+                section_id = self.structure_tree.insert(
+                    "", "end",
+                    text=section_data['title'],
+                    values=(section_data.get('code_prefix', ''), '', section_data.get('type', ''))
+                )
+
+                # إضافة العناصر الفرعية
+                if 'items' in section_data:
+                    self._add_items_to_tree(section_id, section_data['items'])
+                elif 'categories' in section_data:
+                    self._add_categories_to_tree(section_id, section_data['categories'])
+                elif 'calculation' in section_data:
+                    self._add_calculation_to_tree(section_id, section_data['calculation'])
+                elif section_key == 'non_operating_items':
+                    # معالجة خاصة للعمليات غير التشغيلية
+                    income_id = self.structure_tree.insert(
+                        section_id, "end",
+                        text=section_data['income']['title'],
+                        values=('42', '', 'credit')
+                    )
+                    self._add_items_to_tree(income_id, section_data['income']['items'])
+
+                    expenses_id = self.structure_tree.insert(
+                        section_id, "end",
+                        text=section_data['expenses']['title'],
+                        values=('53', '', 'debit')
+                    )
+                    self._add_items_to_tree(expenses_id, section_data['expenses']['items'])
+
+            # توسيع جميع العقد
+            self._expand_all_nodes()
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في تحميل الهيكل التنظيمي: {e}")
+
+    def _add_items_to_tree(self, parent_id, items):
+        """إضافة العناصر إلى الشجرة"""
+        for item_key, item_data in items.items():
+            codes_str = ", ".join(item_data.get('codes', []))
+            item_id = self.structure_tree.insert(
+                parent_id, "end",
+                text=item_data['title'],
+                values=(codes_str, item_data.get('description', ''), '')
+            )
+
+    def _add_categories_to_tree(self, parent_id, categories):
+        """إضافة الفئات إلى الشجرة"""
+        for category_key, category_data in categories.items():
+            codes_str = ", ".join(category_data.get('codes', []))
+            category_id = self.structure_tree.insert(
+                parent_id, "end",
+                text=category_data['title'],
+                values=(codes_str, '', '')
+            )
+
+            # إضافة الفئات الفرعية إذا وجدت
+            if 'subcategories' in category_data:
+                for subcat_key, subcat_title in category_data['subcategories'].items():
+                    self.structure_tree.insert(
+                        category_id, "end",
+                        text=subcat_title,
+                        values=('', '', '')
+                    )
+
+    def _add_calculation_to_tree(self, parent_id, calculation):
+        """إضافة عناصر الحساب إلى الشجرة"""
+        for calc_key, calc_data in calculation.items():
+            codes_str = ", ".join(calc_data.get('codes', []))
+            calc_id = self.structure_tree.insert(
+                parent_id, "end",
+                text=calc_data['title'],
+                values=(codes_str, calc_data.get('description', ''), '')
+            )
+
+    def _expand_all_nodes(self):
+        """توسيع جميع عقد الشجرة"""
+        def expand_node(node):
+            self.structure_tree.item(node, open=True)
+            for child in self.structure_tree.get_children(node):
+                expand_node(child)
+
+        for item in self.structure_tree.get_children():
+            expand_node(item)
+
+    def validate_account_codes(self):
+        """التحقق من أكواد الحسابات"""
+        try:
+            # مسح النتائج السابقة
+            for widget in self.validation_results_frame.winfo_children():
+                if widget and hasattr(widget, "destroy"):
+
+                    widget.destroy()
+
+            # تشغيل التحقق
+            validation_result = self.structure_manager.validate_account_codes()
+
+            # عرض النتائج
+            if validation_result.get('error'):
+                error_label = ctk.CTkLabel(
+                    self.validation_results_frame,
+                    text=f"❌ خطأ في التحقق: {validation_result['error']}",
+                    font=(FONTS['arabic'], 12),
+                    text_color=MODERN_COLORS['error']
+                )
+                error_label.pack(pady=5)
+                return
+
+            # إحصائيات عامة
+            stats_frame = ctk.CTkFrame(self.validation_results_frame)
+            stats_frame.pack(fill="x", pady=10)
+
+            ctk.CTkLabel(
+                stats_frame,
+                text=f"📊 إحصائيات التحقق",
+                font=(FONTS['arabic'], 14, "bold")
+            ).pack(pady=5)
+
+            ctk.CTkLabel(
+                stats_frame,
+                text=f"إجمالي الأكواد: {validation_result['total_codes']}",
+                font=(FONTS['arabic'], 12)
+            ).pack()
+
+            ctk.CTkLabel(
+                stats_frame,
+                text=f"الأكواد الموجودة: {len(validation_result['existing_codes'])}",
+                font=(FONTS['arabic'], 12),
+                text_color=MODERN_COLORS['success']
+            ).pack()
+
+            ctk.CTkLabel(
+                stats_frame,
+                text=f"الأكواد المفقودة: {len(validation_result['missing_codes'])}",
+                font=(FONTS['arabic'], 12),
+                text_color=MODERN_COLORS['error']
+            ).pack()
+
+            ctk.CTkLabel(
+                stats_frame,
+                text=f"نسبة التغطية: {validation_result['coverage_percentage']:.1f}%",
+                font=(FONTS['arabic'], 12, "bold"),
+                text_color=MODERN_COLORS['success'] if validation_result['coverage_percentage'] > 80 else MODERN_COLORS['warning']
+            ).pack()
+
+            # الأكواد المفقودة
+            if validation_result['missing_codes']:
+                missing_frame = ctk.CTkFrame(self.validation_results_frame)
+                missing_frame.pack(fill="x", pady=10)
+
+                ctk.CTkLabel(
+                    missing_frame,
+                    text="❌ الأكواد المفقودة:",
+                    font=(FONTS['arabic'], 12, "bold"),
+                    text_color=MODERN_COLORS['error']
+                ).pack(pady=5)
+
+                missing_text = ", ".join(validation_result['missing_codes'])
+                ctk.CTkLabel(
+                    missing_frame,
+                    text=missing_text,
+                    font=(FONTS['arabic'], 10),
+                    wraplength=600
+                ).pack(pady=5)
+
+            # الأكواد الموجودة (عينة)
+            if validation_result['existing_codes']:
+                existing_frame = ctk.CTkFrame(self.validation_results_frame)
+                existing_frame.pack(fill="x", pady=10)
+
+                ctk.CTkLabel(
+                    existing_frame,
+                    text="✅ عينة من الأكواد الموجودة:",
+                    font=(FONTS['arabic'], 12, "bold"),
+                    text_color=MODERN_COLORS['success']
+                ).pack(pady=5)
+
+                # عرض أول 10 أكواد
+                for i, code_info in enumerate(validation_result['existing_codes'][:10]):
+                    ctk.CTkLabel(
+                        existing_frame,
+                        text=f"{code_info['code']}: {code_info['name']} ({code_info['type']})",
+                        font=(FONTS['arabic'], 10)
+                    ).pack(anchor="w", padx=10)
+
+                if len(validation_result['existing_codes']) > 10:
+                    ctk.CTkLabel(
+                        existing_frame,
+                        text=f"... و {len(validation_result['existing_codes']) - 10} أكواد أخرى",
+                        font=(FONTS['arabic'], 10),
+                        text_color="gray"
+                    ).pack(anchor="w", padx=10)
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في التحقق من الأكواد: {e}")
+
+    def export_to_excel(self):
+        """تصدير البيان إلى Excel"""
+        if not self.current_statement:
+            messagebox.showwarning("تحذير", "لا يوجد بيان لتصديره")
+            return
+
+        try:
+            # اختيار مكان الحفظ
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+                title="حفظ بيان الأرباح والخسائر المهيكل"
+            )
+
+            if filename:
+                # يمكن إضافة تصدير Excel هنا
+                messagebox.showinfo("معلومات", "ميزة تصدير Excel ستكون متاحة قريباً")
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في تصدير البيان: {e}")
+
+    def save_as_text(self):
+        """حفظ البيان كملف نصي"""
+        if not self.current_statement:
+            messagebox.showwarning("تحذير", "لا يوجد بيان لحفظه")
+            return
+
+        try:
+            # اختيار مكان الحفظ
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".txt",
+                filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+                title="حفظ بيان الأرباح والخسائر كنص"
+            )
+
+            if filename:
+                # جلب النص من منطقة العرض
+                content = self.structured_text.get(1.0, tk.END)
+
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(content)
+
+                messagebox.showinfo("نجح", f"تم حفظ البيان في {filename}")
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في حفظ البيان: {e}")
+
+    def print_statement(self):
+        """طباعة البيان"""
+        if not self.current_statement:
+            messagebox.showwarning("تحذير", "لا يوجد بيان للطباعة")
+            return
+
+        try:
+            # إنشاء نافذة معاينة الطباعة
+            print_window = ctk.CTkToplevel(self.window)
+            print_window.title("معاينة الطباعة")
+            print_window
+
+            # منطقة النص للطباعة
+            print_text = tk.Text(print_window, font=('Courier New', 10), wrap=tk.WORD)
+            print_text.pack(fill="both", expand=True, padx=10, pady=10)
+
+            # إدراج محتوى البيان
+            content = self.structured_text.get(1.0, tk.END)
+            print_text.insert(tk.END, content)
+
+            # أزرار الطباعة
+            buttons_frame = ctk.CTkFrame(print_window)
+            buttons_frame.pack(fill="x", padx=10, pady=10)
+
+            ctk.CTkButton(buttons_frame, text="طباعة",
+                        command=lambda: messagebox.showinfo("طباعة", "تم إرسال البيان للطباعة")).pack(side="right", padx=5)
+            ctk.CTkButton(buttons_frame, text="إغلاق",
+                        command=print_window.destroy).pack(side="left", padx=5)
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في معاينة الطباعة: {e}")
+
+    def close_window(self):
+        """إغلاق النافذة"""
+        self.if window and hasattr(window, "destroy"):
+    if window and hasattr(window, "destroy"):
+    window.destroy()

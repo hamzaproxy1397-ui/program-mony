@@ -1,0 +1,277 @@
+# -*- coding: utf-8 -*-
+"""
+مدير الخطوط العربية
+Font Manager for Arabic Fonts
+"""
+
+import customtkinter as ctk
+import logging
+import tkinter.font as tkFont
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+class FontManager:
+    """مدير الخطوط العربية"""
+
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+        self.fonts_dir = Path("assets/fonts")
+        self.loaded_fonts = {}
+        self.available_fonts = {}
+
+        # تحميل الخطوط المتاحة
+        self._load_available_fonts()
+        self.logger.info("تم تهيئة مدير الخطوط")
+
+    def _load_available_fonts(self):
+        """تحميل قائمة الخطوط المتاحة"""
+        try:
+            # الخطوط العربية المدعومة
+            self.available_fonts = {
+                "cairo": {
+                    "name": "Cairo",
+                    "display_name": "القاهرة",
+                    "files": {
+                        "regular": "Cairo-Regular.ttf",
+                        "bold": "Cairo-Bold.ttf",
+                        "light": "Cairo-Light.ttf",
+                        "medium": "Cairo-Medium.ttf",
+                        "semibold": "Cairo-SemiBold.ttf"
+                    },
+                    "description": "خط حديث وأنيق مناسب للواجهات",
+                    "type": "sans-serif"
+                },
+
+                "amiri": {
+                    "name": "Amiri", 
+                    "display_name": "أميري",
+                    "files": {
+                        "regular": "Amiri-Regular.ttf",
+                        "bold": "Amiri-Bold.ttf",
+                        "italic": "Amiri-Italic.ttf",
+                        "bold_italic": "Amiri-BoldItalic.ttf"
+                    },
+                    "description": "خط تقليدي جميل مناسب للنصوص الطويلة",
+                    "type": "serif"
+                },
+
+                "noto_naskh": {
+                    "name": "Noto Naskh Arabic",
+                    "display_name": "نوتو نسخ عربي", 
+                    "files": {
+                        "regular": "NotoNaskhArabic-Regular.ttf",
+                        "bold": "NotoNaskhArabic-Bold.ttf",
+                        "medium": "NotoNaskhArabic-Medium.ttf",
+                        "semibold": "NotoNaskhArabic-SemiBold.ttf"
+                    },
+                    "description": "خط واضح ومقروء من Google",
+                    "type": "serif"
+                }
+            }
+
+            # التحقق من وجود ملفات الخطوط
+            for font_key, font_info in self.available_fonts.items():
+                available_files = {}
+                for style, filename in font_info["files"].items():
+                    font_path = self.fonts_dir / filename
+                    if font_path.exists():
+                        available_files[style] = str(font_path)
+
+                if available_files:
+                    font_info["available_files"] = available_files
+                    font_info["is_available"] = True
+                else:
+                    font_info["is_available"] = False
+
+        except Exception as e:
+            self.logger.error(f"خطأ في تحميل الخطوط المتاحة: {e}")
+
+    def get_available_fonts(self) -> List[Dict]:
+        """الحصول على قائمة الخطوط المتاحة"""
+        available = []
+        for font_key, font_info in self.available_fonts.items():
+            if font_info.get("is_available", False):
+                available.append({
+                    "key": font_key,
+                    "name": font_info["name"],
+                    "display_name": font_info["display_name"],
+                    "description": font_info["description"],
+                    "type": font_info["type"]
+                })
+        return available
+
+    def get_font_path(self, font_family: str, style: str = "regular") -> Optional[str]:
+        """الحصول على مسار ملف الخط"""
+        try:
+            if font_family not in self.available_fonts:
+                return None
+
+            font_info = self.available_fonts[font_family]
+            if not font_info.get("is_available", False):
+                return None
+
+            available_files = font_info.get("available_files", {})
+
+            # البحث عن النمط المطلوب
+            if style in available_files:
+                return available_files[style]
+
+            # إرجاع النمط العادي كبديل
+            if "regular" in available_files:
+                return available_files["regular"]
+
+            # إرجاع أول ملف متاح
+            if available_files:
+                return list(available_files.values())[0]
+
+            return None
+
+        except Exception as e:
+            self.logger.error(f"خطأ في الحصول على مسار الخط: {e}")
+            return None
+
+    def create_font(self, font_family: str, size: int, style: str = "regular") -> ctk.CTkFont:
+        """إنشاء خط مخصص"""
+        try:
+            # الحصول على مسار الخط
+            font_path = self.get_font_path(font_family, style)
+
+            if font_path:
+                # إنشاء خط مخصص من ملف
+                font_name = self.available_fonts[font_family]["name"]
+
+                # تحميل الخط إذا لم يكن محملاً
+                if font_path not in self.loaded_fonts:
+                    try:
+                        # محاولة تحميل الخط
+                        import tkinter as tk
+                        root = tk._default_root or tk.Tk()
+                        root.tk.call("font", "create", font_name, "-file", font_path, "-size", size)
+                        self.loaded_fonts[font_path] = font_name
+                        self.logger.info(f"تم تحميل الخط: {font_name}")
+                    except Exception as e:
+                        self.logger.warning(f"فشل في تحميل الخط من الملف: {e}")
+                        # استخدام اسم الخط فقط
+                        font_name = self.available_fonts[font_family]["name"]
+
+                # إنشاء خط CTk
+                weight = "bold" if "bold" in style else "normal"
+                slant = "italic" if "italic" in style else "roman"
+
+                return ctk.CTkFont(
+                    family=font_name,
+                    size=size,
+                    weight=weight,
+                    slant=slant
+                )
+            else:
+                # استخدام خط افتراضي
+                self.logger.warning(f"الخط {font_family} غير متاح، استخدام الخط الافتراضي")
+                return ctk.CTkFont(family="Arial", size=size)
+
+        except Exception as e:
+            self.logger.error(f"خطأ في إنشاء الخط: {e}")
+            return ctk.CTkFont(family="Arial", size=size)
+
+    def get_font_tuple(self, font_family: str, size: int, style: str = "regular") -> Tuple[str, int, str]:
+        """الحصول على tuple للخط (للاستخدام مع tkinter العادي)"""
+        try:
+            font_path = self.get_font_path(font_family, style)
+
+            if font_path and font_family in self.available_fonts:
+                font_name = self.available_fonts[font_family]["name"]
+                weight = "bold" if "bold" in style else "normal"
+                slant = "italic" if "italic" in style else "roman"
+
+                if weight == "bold" and slant == "italic":
+                    return (font_name, size, "bold italic")
+                elif weight == "bold":
+                    return (font_name, size, "bold")
+                elif slant == "italic":
+                    return (font_name, size, "italic")
+                else:
+                    return (font_name, size, "normal")
+            else:
+                return ("Arial", size, "normal")
+
+        except Exception as e:
+            self.logger.error(f"خطأ في الحصول على tuple الخط: {e}")
+            return ("Arial", size, "normal")
+
+    def is_font_available(self, font_family: str) -> bool:
+        """التحقق من توفر خط معين"""
+        return (font_family in self.available_fonts and 
+                self.available_fonts[font_family].get("is_available", False))
+
+    def get_default_font(self) -> str:
+        """الحصول على الخط الافتراضي المتاح"""
+        # ترتيب الأولوية للخطوط
+        priority_fonts = ["cairo", "noto_naskh", "amiri"]
+
+        for font_key in priority_fonts:
+            if self.is_font_available(font_key):
+                return font_key
+
+        # إذا لم يتوفر أي خط عربي، استخدم النظام الافتراضي
+        return "system"
+
+    def create_font_set(self, base_font: str, base_size: int) -> Dict[str, ctk.CTkFont]:
+        """إنشاء مجموعة خطوط بأحجام مختلفة"""
+        try:
+            font_set = {
+                "small": self.create_font(base_font, base_size - 2),
+                "normal": self.create_font(base_font, base_size),
+                "medium": self.create_font(base_font, base_size + 2),
+                "large": self.create_font(base_font, base_size + 4),
+                "title": self.create_font(base_font, base_size + 6, "bold"),
+                "header": self.create_font(base_font, base_size + 8, "bold"),
+                "button": self.create_font(base_font, base_size, "medium"),
+                "label": self.create_font(base_font, base_size - 1)
+            }
+
+            return font_set
+
+        except Exception as e:
+            self.logger.error(f"خطأ في إنشاء مجموعة الخطوط: {e}")
+            return {}
+
+    def get_font_info(self, font_family: str) -> Optional[Dict]:
+        """الحصول على معلومات خط معين"""
+        if font_family in self.available_fonts:
+            return self.available_fonts[font_family].copy()
+        return None
+
+    def test_fonts(self) -> Dict[str, bool]:
+        """اختبار جميع الخطوط المتاحة"""
+        results = {}
+
+        for font_key, font_info in self.available_fonts.items():
+            try:
+                # محاولة إنشاء خط للاختبار
+                test_font = self.create_font(font_key, 12)
+                results[font_key] = test_font is not None
+
+            except Exception as e:
+                self.logger.error(f"فشل اختبار الخط {font_key}: {e}")
+                results[font_key] = False
+
+        return results
+
+# إنشاء مثيل عام من مدير الخطوط
+font_manager = FontManager()
+
+# دوال مساعدة للاستخدام السريع
+def get_arabic_font(size: int = 12, style: str = "regular", font_family: str = None) -> ctk.CTkFont:
+    """الحصول على خط عربي"""
+    if font_family is None:
+        font_family = font_manager.get_default_font()
+
+    return font_manager.create_font(font_family, size, style)
+
+def get_available_arabic_fonts() -> List[Dict]:
+    """الحصول على قائمة الخطوط العربية المتاحة"""
+    return font_manager.get_available_fonts()
+
+def is_arabic_font_available(font_family: str) -> bool:
+    """التحقق من توفر خط عربي"""
+    return font_manager.is_font_available(font_family)

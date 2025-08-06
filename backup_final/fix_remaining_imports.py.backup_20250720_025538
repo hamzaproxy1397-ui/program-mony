@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+إصلاح الاستيرادات المتبقية بعد التنظيف
+"""
+
+import os
+import re
+from pathlib import Path
+from typing import Any
+
+def fix_imports():
+    """إصلاح الاستيرادات المفقودة"""
+    
+    fixes = [
+        # core/error_handler.py
+        {
+            "file": "core/error_handler.py",
+            "pattern": r"from typing import Optional, Any, Dict",
+            "replacement": "from typing import Optional, Any, Dict",
+            "line_after": "from pathlib import Path"
+        },
+        
+        # database/database_manager.py
+        {
+            "file": "database/database_manager.py", 
+            "add_imports": ["from pathlib import Path"],
+            "after_line": "import logging"
+        },
+        
+        # themes/theme_manager.py
+        {
+            "file": "themes/theme_manager.py",
+            "add_imports": ["import os", "from pathlib import Path"],
+            "after_line": "import customtkinter as ctk"
+        },
+        
+        # ui/simple_welcome_window.py
+        {
+            "file": "ui/simple_welcome_window.py",
+            "add_imports": ["from pathlib import Path", "from PIL import Image, ImageTk, ImageDraw"],
+            "after_line": "import time"
+        }
+    ]
+    
+    for fix in fixes:
+        file_path = Path(fix["file"])
+        
+        if not file_path.exists():
+            print(f"❌ الملف غير موجود: {file_path}")
+            continue
+            
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            lines = content.split('\n')
+            new_lines = []
+            
+            if "add_imports" in fix:
+                imports_added = False
+                for line in lines:
+                    new_lines.append(line)
+                    if not imports_added and fix["after_line"] in line:
+                        for import_line in fix["add_imports"]:
+                            new_lines.append(import_line)
+                        imports_added = True
+            else:
+                new_lines = lines
+            
+            # كتابة الملف المحدث
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(new_lines))
+            
+            print(f"✅ تم إصلاح: {file_path}")
+            
+        except Exception as e:
+            print(f"❌ خطأ في إصلاح {file_path}: {e}")
+
+def main():
+    """الدالة الرئيسية"""
+    print("🔧 إصلاح الاستيرادات المتبقية...")
+    fix_imports()
+    print("✅ تم الانتهاء من الإصلاح")
+
+if __name__ == "__main__":
+    main()

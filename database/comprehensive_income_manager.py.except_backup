@@ -1,0 +1,624 @@
+# -*- coding: utf-8 -*-
+"""
+مدير المعادلة المحاسبية الشاملة
+Professional Comprehensive Income Manager
+"""
+
+import logging
+from datetime import datetime, date
+from database.database_manager import DatabaseManager
+
+class ComprehensiveIncomeManager:
+    """مدير حساب الدخل الشامل وفقاً للمعايير المحاسبية المهنية"""
+    
+    def __init__(self, db_manager: DatabaseManager = None):
+        self.db_manager = db_manager or DatabaseManager()
+        self.logger = logging.getLogger(__name__)
+    
+    def calculate_comprehensive_income(self, start_date: date = None, end_date: date = None) -> Dict:
+        """
+        حساب الدخل الشامل وفقاً للمعادلة المحاسبية المهنية
+        
+        المعادلة الشاملة:
+        الدخل الشامل = الإيرادات - تكلفة البضاعة المباعة - المصروفات التشغيلية 
+                        ± الإيرادات والمصاريف الأخرى - الضرائب ± الدخل الشامل الآخر
+        """
+        try:
+            # تحديد الفترة الافتراضية (السنة الحالية)
+            if not start_date:
+                start_date = date(datetime.now().year, 1, 1)
+            if not end_date:
+                end_date = date.today()
+            
+            # 1. حساب الإيرادات (Revenues)
+            revenues = self._calculate_revenues(start_date, end_date)
+            
+            # 2. حساب تكلفة البضاعة المباعة (COGS)
+            cogs = self._calculate_cogs(start_date, end_date)
+            
+            # 3. حساب مجمل الربح (Gross Profit)
+            gross_profit = revenues - cogs
+            
+            # 4. حساب المصروفات التشغيلية (Operating Expenses)
+            operating_expenses = self._calculate_operating_expenses(start_date, end_date)
+            
+            # 5. حساب الربح التشغيلي (Operating Profit)
+            operating_profit = gross_profit - operating_expenses
+            
+            # 6. حساب الإيرادات والمصاريف الأخرى (Non-Operating Income/Expenses)
+            non_operating_income = self._calculate_non_operating_income(start_date, end_date)
+            non_operating_expenses = self._calculate_non_operating_expenses(start_date, end_date)
+            net_non_operating = non_operating_income - non_operating_expenses
+            
+            # 7. حساب صافي الربح قبل الضريبة (Earnings Before Tax - EBT)
+            earnings_before_tax = operating_profit + net_non_operating
+            
+            # 8. حساب الضرائب (Taxes)
+            taxes = self._calculate_taxes(start_date, end_date, earnings_before_tax)
+            
+            # 9. حساب صافي الربح (Net Profit)
+            net_profit = earnings_before_tax - taxes
+            
+            # 10. حساب الدخل الشامل الآخر (Other Comprehensive Income)
+            other_comprehensive_income = self._calculate_other_comprehensive_income(start_date, end_date)
+            
+            # 11. حساب الدخل الشامل النهائي (Total Comprehensive Income)
+            total_comprehensive_income = net_profit + other_comprehensive_income
+            
+            # إنشاء التقرير الشامل
+            comprehensive_report = {
+                'period': {
+                    'start_date': start_date.strftime('%Y-%m-%d'),
+                    'end_date': end_date.strftime('%Y-%m-%d'),
+                    'period_days': (end_date - start_date).days + 1
+                },
+                'revenues': {
+                    'total_revenues': revenues,
+                    'details': self._get_revenue_details(start_date, end_date)
+                },
+                'cost_of_goods_sold': {
+                    'total_cogs': cogs,
+                    'details': self._get_cogs_details(start_date, end_date)
+                },
+                'gross_profit': gross_profit,
+                'operating_expenses': {
+                    'total_operating_expenses': operating_expenses,
+                    'details': self._get_operating_expenses_details(start_date, end_date)
+                },
+                'operating_profit': operating_profit,
+                'non_operating': {
+                    'income': non_operating_income,
+                    'expenses': non_operating_expenses,
+                    'net': net_non_operating,
+                    'details': self._get_non_operating_details(start_date, end_date)
+                },
+                'earnings_before_tax': earnings_before_tax,
+                'taxes': {
+                    'total_taxes': taxes,
+                    'details': self._get_tax_details(start_date, end_date)
+                },
+                'net_profit': net_profit,
+                'other_comprehensive_income': {
+                    'total_oci': other_comprehensive_income,
+                    'details': self._get_oci_details(start_date, end_date)
+                },
+                'total_comprehensive_income': total_comprehensive_income,
+                'financial_ratios': self._calculate_financial_ratios(revenues, gross_profit, operating_profit, net_profit),
+                'calculated_at': datetime.now().isoformat()
+            }
+            
+            self.logger.info(f"تم حساب الدخل الشامل للفترة {start_date} إلى {end_date}")
+            return comprehensive_report
+            
+        except Exception as e:
+        except Exception as e:
+            self.logger.error(f"خطأ في حساب الدخل الشامل: {e}")
+            return self._get_empty_report(start_date, end_date)
+    
+    def _calculate_revenues(self, start_date: date, end_date: date) -> float:
+        """حساب إجمالي الإيرادات"""
+        try:
+            query = """
+                SELECT COALESCE(SUM(jed.credit_amount), 0) as total_revenues
+                FROM journal_entries je
+                JOIN journal_entry_details jed ON je.id = jed.journal_entry_id
+                JOIN chart_of_accounts ca ON jed.account_id = ca.id
+                WHERE ca.account_type = 'revenue'
+                AND je.entry_date BETWEEN ? AND ?
+                AND je.status = 'posted'
+            """
+            result = self.db_manager.fetch_one(query, (start_date, end_date))
+            return result['total_revenues'] if result else 0.0
+        except Exception as e:
+        except Exception as e:
+            self.logger.error(f"خطأ في حساب الإيرادات: {e}")
+            return 0.0
+    
+    def _calculate_cogs(self, start_date: date, end_date: date) -> float:
+        """حساب تكلفة البضاعة المباعة"""
+        try:
+            query = """
+                SELECT COALESCE(SUM(jed.debit_amount), 0) as total_cogs
+                FROM journal_entries je
+                JOIN journal_entry_details jed ON je.id = jed.journal_entry_id
+                JOIN chart_of_accounts ca ON jed.account_id = ca.id
+                WHERE ca.account_code = '5100'  -- تكلفة البضاعة المباعة
+                AND je.entry_date BETWEEN ? AND ?
+                AND je.status = 'posted'
+            """
+            result = self.db_manager.fetch_one(query, (start_date, end_date))
+            return result['total_cogs'] if result else 0.0
+        except Exception as e:
+        except Exception as e:
+            self.logger.error(f"خطأ في حساب تكلفة البضاعة المباعة: {e}")
+            return 0.0
+    
+    def _calculate_operating_expenses(self, start_date: date, end_date: date) -> float:
+        """حساب المصروفات التشغيلية"""
+        try:
+            query = """
+                SELECT COALESCE(SUM(jed.debit_amount), 0) as total_operating_expenses
+                FROM journal_entries je
+                JOIN journal_entry_details jed ON je.id = jed.journal_entry_id
+                JOIN chart_of_accounts ca ON jed.account_id = ca.id
+                WHERE ca.account_type = 'expense'
+                AND ca.account_code LIKE '52%'  -- مصروفات التشغيل
+                AND je.entry_date BETWEEN ? AND ?
+                AND je.status = 'posted'
+            """
+            result = self.db_manager.fetch_one(query, (start_date, end_date))
+            return result['total_operating_expenses'] if result else 0.0
+        except Exception as e:
+        except Exception as e:
+            self.logger.error(f"خطأ في حساب المصروفات التشغيلية: {e}")
+            return 0.0
+    
+    def _calculate_non_operating_income(self, start_date: date, end_date: date) -> float:
+        """حساب الإيرادات غير التشغيلية"""
+        try:
+            query = """
+                SELECT COALESCE(SUM(jed.credit_amount), 0) as non_operating_income
+                FROM journal_entries je
+                JOIN journal_entry_details jed ON je.id = jed.journal_entry_id
+                JOIN chart_of_accounts ca ON jed.account_id = ca.id
+                WHERE ca.account_code = '4200'  -- إيرادات أخرى
+                AND je.entry_date BETWEEN ? AND ?
+                AND je.status = 'posted'
+            """
+            result = self.db_manager.fetch_one(query, (start_date, end_date))
+            return result['non_operating_income'] if result else 0.0
+        except Exception as e:
+        except Exception as e:
+            self.logger.error(f"خطأ في حساب الإيرادات غير التشغيلية: {e}")
+            return 0.0
+    
+    def _calculate_non_operating_expenses(self, start_date: date, end_date: date) -> float:
+        """حساب المصروفات غير التشغيلية"""
+        try:
+            query = """
+                SELECT COALESCE(SUM(jed.debit_amount), 0) as non_operating_expenses
+                FROM journal_entries je
+                JOIN journal_entry_details jed ON je.id = jed.journal_entry_id
+                JOIN chart_of_accounts ca ON jed.account_id = ca.id
+                WHERE ca.account_type = 'expense'
+                AND ca.account_code LIKE '53%'  -- مصروفات أخرى
+                AND je.entry_date BETWEEN ? AND ?
+                AND je.status = 'posted'
+            """
+            result = self.db_manager.fetch_one(query, (start_date, end_date))
+            return result['non_operating_expenses'] if result else 0.0
+        except Exception as e:
+        except Exception as e:
+            self.logger.error(f"خطأ في حساب المصروفات غير التشغيلية: {e}")
+            return 0.0
+    
+    def _calculate_taxes(self, start_date: date, end_date: date, earnings_before_tax: float) -> float:
+        """حساب الضرائب"""
+        try:
+            # حساب الضرائب المدفوعة فعلياً
+            query = """
+                SELECT COALESCE(SUM(jed.debit_amount), 0) as actual_taxes
+                FROM journal_entries je
+                JOIN journal_entry_details jed ON je.id = jed.journal_entry_id
+                JOIN chart_of_accounts ca ON jed.account_id = ca.id
+                WHERE ca.account_code LIKE '54%'  -- مصروفات الضرائب
+                AND je.entry_date BETWEEN ? AND ?
+                AND je.status = 'posted'
+            """
+            result = self.db_manager.fetch_one(query, (start_date, end_date))
+            actual_taxes = result['actual_taxes'] if result else 0.0
+            
+            # إذا لم تكن هناك ضرائب مدفوعة، احسب الضريبة المقدرة (25% من الأرباح الموجبة)
+            if actual_taxes == 0 and earnings_before_tax > 0:
+                estimated_tax_rate = 0.25  # 25% معدل ضريبة افتراضي
+                return earnings_before_tax * estimated_tax_rate
+            
+            return actual_taxes
+        except Exception as e:
+        except Exception as e:
+            self.logger.error(f"خطأ في حساب الضرائب: {e}")
+            return 0.0
+    
+    def _calculate_other_comprehensive_income(self, start_date: date, end_date: date) -> float:
+        """حساب الدخل الشامل الآخر"""
+        try:
+            # الدخل الشامل الآخر يشمل:
+            # - أرباح/خسائر إعادة تقييم الأصول
+            # - أرباح/خسائر ترجمة العملات الأجنبية
+            # - أرباح/خسائر الاستثمارات المتاحة للبيع
+            
+            query = """
+                SELECT COALESCE(SUM(jed.credit_amount - jed.debit_amount), 0) as oci
+                FROM journal_entries je
+                JOIN journal_entry_details jed ON je.id = jed.journal_entry_id
+                JOIN chart_of_accounts ca ON jed.account_id = ca.id
+                WHERE ca.account_code LIKE '39%'  -- حسابات الدخل الشامل الآخر
+                AND je.entry_date BETWEEN ? AND ?
+                AND je.status = 'posted'
+            """
+            result = self.db_manager.fetch_one(query, (start_date, end_date))
+            return result['oci'] if result else 0.0
+        except Exception as e:
+        except Exception as e:
+            self.logger.error(f"خطأ في حساب الدخل الشامل الآخر: {e}")
+            return 0.0
+    
+    def _calculate_financial_ratios(self, revenues: float, gross_profit: float,:
+                                    operating_profit: float, net_profit: float) -> Dict:
+        """حساب النسب المالية الأساسية"""
+        try:
+            ratios = {}
+            
+            if revenues > 0:
+                ratios['gross_profit_margin'] = (gross_profit / revenues) * 100
+                ratios['operating_profit_margin'] = (operating_profit / revenues) * 100
+                ratios['net_profit_margin'] = (net_profit / revenues) * 100
+            else:
+                ratios['gross_profit_margin'] = 0.0
+                ratios['operating_profit_margin'] = 0.0
+                ratios['net_profit_margin'] = 0.0
+            
+            return ratios
+        except Exception as e:
+        except Exception as e:
+            self.logger.error(f"خطأ في حساب النسب المالية: {e}")
+            return {}
+    
+    def _get_revenue_details(self, start_date: date, end_date: date) -> List[Dict]:
+        """جلب تفاصيل الإيرادات"""
+        try:
+            query = """
+                SELECT ca.account_name, ca.account_code,
+                        COALESCE(SUM(jed.credit_amount), 0) as amount
+                FROM journal_entries je
+                JOIN journal_entry_details jed ON je.id = jed.journal_entry_id
+                JOIN chart_of_accounts ca ON jed.account_id = ca.id
+                WHERE ca.account_type = 'revenue'
+                AND je.entry_date BETWEEN ? AND ?
+                AND je.status = 'posted'
+                GROUP BY ca.id, ca.account_name, ca.account_code
+                HAVING amount > 0
+                ORDER BY amount DESC
+            """
+            return [dict(row) for row in self.db_manager.fetch_all(query, (start_date, end_date))]
+        except Exception as e:
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب تفاصيل الإيرادات: {e}")
+            return []
+
+    def _get_cogs_details(self, start_date: date, end_date: date) -> List[Dict]:
+        """جلب تفاصيل تكلفة البضاعة المباعة"""
+        try:
+            query = """
+                SELECT ca.account_name, ca.account_code,
+                        COALESCE(SUM(jed.debit_amount), 0) as amount
+                FROM journal_entries je
+                JOIN journal_entry_details jed ON je.id = jed.journal_entry_id
+                JOIN chart_of_accounts ca ON jed.account_id = ca.id
+                WHERE ca.account_code = '5100'
+                AND je.entry_date BETWEEN ? AND ?
+                AND je.status = 'posted'
+                GROUP BY ca.id, ca.account_name, ca.account_code
+                HAVING amount > 0
+                ORDER BY amount DESC
+            """
+            return [dict(row) for row in self.db_manager.fetch_all(query, (start_date, end_date))]
+        except Exception as e:
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب تفاصيل تكلفة البضاعة المباعة: {e}")
+            return []
+
+    def _get_operating_expenses_details(self, start_date: date, end_date: date) -> List[Dict]:
+        """جلب تفاصيل المصروفات التشغيلية"""
+        try:
+            query = """
+                SELECT ca.account_name, ca.account_code,
+                        COALESCE(SUM(jed.debit_amount), 0) as amount
+                FROM journal_entries je
+                JOIN journal_entry_details jed ON je.id = jed.journal_entry_id
+                JOIN chart_of_accounts ca ON jed.account_id = ca.id
+                WHERE ca.account_type = 'expense'
+                AND ca.account_code LIKE '52%'
+                AND je.entry_date BETWEEN ? AND ?
+                AND je.status = 'posted'
+                GROUP BY ca.id, ca.account_name, ca.account_code
+                HAVING amount > 0
+                ORDER BY amount DESC
+            """
+            return [dict(row) for row in self.db_manager.fetch_all(query, (start_date, end_date))]
+        except Exception as e:
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب تفاصيل المصروفات التشغيلية: {e}")
+            return []
+
+    def _get_non_operating_details(self, start_date: date, end_date: date) -> Dict:
+        """جلب تفاصيل الإيرادات والمصروفات غير التشغيلية"""
+        try:
+            # الإيرادات غير التشغيلية
+            income_query = """
+                SELECT ca.account_name, ca.account_code,
+                        COALESCE(SUM(jed.credit_amount), 0) as amount
+                FROM journal_entries je
+                JOIN journal_entry_details jed ON je.id = jed.journal_entry_id
+                JOIN chart_of_accounts ca ON jed.account_id = ca.id
+                WHERE ca.account_code = '4200'
+                AND je.entry_date BETWEEN ? AND ?
+                AND je.status = 'posted'
+                GROUP BY ca.id, ca.account_name, ca.account_code
+                HAVING amount > 0
+                ORDER BY amount DESC
+            """
+
+            # المصروفات غير التشغيلية
+            expenses_query = """
+                SELECT ca.account_name, ca.account_code,
+                        COALESCE(SUM(jed.debit_amount), 0) as amount
+                FROM journal_entries je
+                JOIN journal_entry_details jed ON je.id = jed.journal_entry_id
+                JOIN chart_of_accounts ca ON jed.account_id = ca.id
+                WHERE ca.account_type = 'expense'
+                AND ca.account_code LIKE '53%'
+                AND je.entry_date BETWEEN ? AND ?
+                AND je.status = 'posted'
+                GROUP BY ca.id, ca.account_name, ca.account_code
+                HAVING amount > 0
+                ORDER BY amount DESC
+            """
+
+            income_details = [dict(row) for row in self.db_manager.fetch_all(income_query, (start_date, end_date))]
+            expenses_details = [dict(row) for row in self.db_manager.fetch_all(expenses_query, (start_date, end_date))]
+
+            return {
+                'income_details': income_details,
+                'expenses_details': expenses_details
+            }
+        except Exception as e:
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب تفاصيل العمليات غير التشغيلية: {e}")
+            return {'income_details': [], 'expenses_details': []}
+
+    def _get_tax_details(self, start_date: date, end_date: date) -> List[Dict]:
+        """جلب تفاصيل الضرائب"""
+        try:
+            query = """
+                SELECT ca.account_name, ca.account_code,
+                        COALESCE(SUM(jed.debit_amount), 0) as amount
+                FROM journal_entries je
+                JOIN journal_entry_details jed ON je.id = jed.journal_entry_id
+                JOIN chart_of_accounts ca ON jed.account_id = ca.id
+                WHERE ca.account_code LIKE '54%'
+                AND je.entry_date BETWEEN ? AND ?
+                AND je.status = 'posted'
+                GROUP BY ca.id, ca.account_name, ca.account_code
+                HAVING amount > 0
+                ORDER BY amount DESC
+            """
+            return [dict(row) for row in self.db_manager.fetch_all(query, (start_date, end_date))]
+        except Exception as e:
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب تفاصيل الضرائب: {e}")
+            return []
+
+    def _get_oci_details(self, start_date: date, end_date: date) -> List[Dict]:
+        """جلب تفاصيل الدخل الشامل الآخر"""
+        try:
+            query = """
+                SELECT ca.account_name, ca.account_code,
+                        COALESCE(SUM(jed.credit_amount - jed.debit_amount), 0) as amount
+                FROM journal_entries je
+                JOIN journal_entry_details jed ON je.id = jed.journal_entry_id
+                JOIN chart_of_accounts ca ON jed.account_id = ca.id
+                WHERE ca.account_code LIKE '39%'
+                AND je.entry_date BETWEEN ? AND ?
+                AND je.status = 'posted'
+                GROUP BY ca.id, ca.account_name, ca.account_code
+                HAVING amount != 0
+                ORDER BY amount DESC
+            """
+            return [dict(row) for row in self.db_manager.fetch_all(query, (start_date, end_date))]
+        except Exception as e:
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب تفاصيل الدخل الشامل الآخر: {e}")
+            return []
+
+    def _get_empty_report(self, start_date: date, end_date: date) -> Dict:
+        """إرجاع تقرير فارغ في حالة الخطأ"""
+        return {
+            'period': {
+                'start_date': start_date.strftime('%Y-%m-%d') if start_date else '',
+                'end_date': end_date.strftime('%Y-%m-%d') if end_date else '',
+                'period_days': 0
+            },
+            'revenues': {'total_revenues': 0.0, 'details': []},
+            'cost_of_goods_sold': {'total_cogs': 0.0, 'details': []},
+            'gross_profit': 0.0,
+            'operating_expenses': {'total_operating_expenses': 0.0, 'details': []},
+            'operating_profit': 0.0,
+            'non_operating': {'income': 0.0, 'expenses': 0.0, 'net': 0.0, 'details': {'income_details': [], 'expenses_details': []}},
+            'earnings_before_tax': 0.0,
+            'taxes': {'total_taxes': 0.0, 'details': []},
+            'net_profit': 0.0,
+            'other_comprehensive_income': {'total_oci': 0.0, 'details': []},
+            'total_comprehensive_income': 0.0,
+            'financial_ratios': {'gross_profit_margin': 0.0, 'operating_profit_margin': 0.0, 'net_profit_margin': 0.0},
+            'calculated_at': datetime.now().isoformat(),
+            'error': True
+        }
+
+    def generate_comprehensive_income_statement(self, start_date: date = None, end_date: date = None) -> str:
+        """إنشاء قائمة الدخل الشامل بصيغة نصية"""
+        try:
+            report = self.calculate_comprehensive_income(start_date, end_date)
+
+            statement = f"""
+        except Exception as e:
+            print(f"خطأ: {e}")
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           قائمة الدخل الشامل                                ║
+║                      COMPREHENSIVE INCOME STATEMENT                         ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ الفترة: من {report['period']['start_date']} إلى {report['period']['end_date']} ({report['period']['period_days']} يوم)
+╠══════════════════════════════════════════════════════════════════════════════╣
+
+📊 الإيرادات (REVENUES)
+    إجمالي الإيرادات                                    {report['revenues']['total_revenues']:>15,.2f}
+
+📦 تكلفة البضاعة المباعة (COST OF GOODS SOLD)
+    تكلفة البضاعة المباعة                              ({report['cost_of_goods_sold']['total_cogs']:>15,.2f})
+    ────────────────────────────────────────────────────────────────────────────
+💰 مجمل الربح (GROSS PROFIT)                          {report['gross_profit']:>15,.2f}
+
+🏢 المصروفات التشغيلية (OPERATING EXPENSES)
+    إجمالي المصروفات التشغيلية                        ({report['operating_expenses']['total_operating_expenses']:>15,.2f})
+    ────────────────────────────────────────────────────────────────────────────
+⚙️ الربح التشغيلي (OPERATING PROFIT)                   {report['operating_profit']:>15,.2f}
+
+🔄 العمليات غير التشغيلية (NON-OPERATING)
+    الإيرادات غير التشغيلية                            {report['non_operating']['income']:>15,.2f}
+    المصروفات غير التشغيلية                           ({report['non_operating']['expenses']:>15,.2f})
+    صافي العمليات غير التشغيلية                        {report['non_operating']['net']:>15,.2f}
+    ────────────────────────────────────────────────────────────────────────────
+💼 الربح قبل الضريبة (EARNINGS BEFORE TAX)             {report['earnings_before_tax']:>15,.2f}
+
+🏛️ الضرائب (TAXES)
+    إجمالي الضرائب                                    ({report['taxes']['total_taxes']:>15,.2f})
+    ────────────────────────────────────────────────────────────────────────────
+💎 صافي الربح (NET PROFIT)                           {report['net_profit']:>15,.2f}
+
+🌟 الدخل الشامل الآخر (OTHER COMPREHENSIVE INCOME)
+    إجمالي الدخل الشامل الآخر                          {report['other_comprehensive_income']['total_oci']:>15,.2f}
+    ════════════════════════════════════════════════════════════════════════════
+✅ الدخل الشامل النهائي (TOTAL COMPREHENSIVE INCOME)   {report['total_comprehensive_income']:>15,.2f}
+
+📈 النسب المالية (FINANCIAL RATIOS)
+    هامش مجمل الربح                                   {report['financial_ratios']['gross_profit_margin']:>14.2f}%
+    هامش الربح التشغيلي                               {report['financial_ratios']['operating_profit_margin']:>14.2f}%
+    هامش صافي الربح                                   {report['financial_ratios']['net_profit_margin']:>14.2f}%
+
+╚══════════════════════════════════════════════════════════════════════════════╝
+تم إنشاء التقرير في: {report['calculated_at']}
+            """
+
+            return statement
+
+        except Exception as e:
+            self.logger.error(f"خطأ في إنشاء قائمة الدخل الشامل: {e}")
+            return f"خطأ في إنشاء التقرير: {e}"
+
+    def export_to_excel(self, start_date: date = None, end_date: date = None, filename: str = None) -> Dict:
+        """تصدير قائمة الدخل الشامل إلى Excel"""
+        try:
+            import openpyxl
+            from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        except Exception as e:
+            print(f"خطأ: {e}")
+from typing import Dict
+from typing import List
+from typing import List, Dict, Optional, Tuple, Any, Union, Callable
+
+            report = self.calculate_comprehensive_income(start_date, end_date)
+
+            if not filename:
+                filename = f"comprehensive_income_{report['period']['start_date']}_{report['period']['end_date']}.xlsx"
+
+            # إنشاء ملف Excel
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "قائمة الدخل الشامل"
+
+            # تنسيق الخلايا
+            header_font = Font(bold=True, size=14, color="FFFFFF")
+            header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            title_font = Font(bold=True, size=16)
+            border = Border(left=Side(style='thin'), right=Side(style='thin'),
+                            top=Side(style='thin'), bottom=Side(style='thin'))
+
+            # العنوان الرئيسي
+            ws.merge_cells('A1:C1')
+            ws['A1'] = "قائمة الدخل الشامل"
+            ws['A1'].font = title_font
+            ws['A1'].alignment = Alignment(horizontal='center')
+
+            # الفترة
+            ws.merge_cells('A2:C2')
+            ws['A2'] = f"الفترة: من {report['period']['start_date']} إلى {report['period']['end_date']}"
+            ws['A2'].alignment = Alignment(horizontal='center')
+
+            # البيانات
+            row = 4
+            data = [
+                ("البند", "التفاصيل", "المبلغ"),
+                ("الإيرادات", "إجمالي الإيرادات", report['revenues']['total_revenues']),
+                ("تكلفة البضاعة المباعة", "تكلفة البضاعة المباعة", -report['cost_of_goods_sold']['total_cogs']),
+                ("مجمل الربح", "", report['gross_profit']),
+                ("المصروفات التشغيلية", "إجمالي المصروفات التشغيلية", -report['operating_expenses']['total_operating_expenses']),
+                ("الربح التشغيلي", "", report['operating_profit']),
+                ("الإيرادات غير التشغيلية", "", report['non_operating']['income']),
+                ("المصروفات غير التشغيلية", "", -report['non_operating']['expenses']),
+                ("الربح قبل الضريبة", "", report['earnings_before_tax']),
+                ("الضرائب", "إجمالي الضرائب", -report['taxes']['total_taxes']),
+                ("صافي الربح", "", report['net_profit']),
+                ("الدخل الشامل الآخر", "", report['other_comprehensive_income']['total_oci']),
+                ("الدخل الشامل النهائي", "", report['total_comprehensive_income'])
+            ]
+
+            for i, (item, detail, amount) in enumerate(data):
+                ws[f'A{row + i}'] = item
+                ws[f'B{row + i}'] = detail
+                if isinstance(amount, (int, float)):
+                    ws[f'C{row + i}'] = amount
+                    ws[f'C{row + i}'].number_format = '#,##0.00'
+                else:
+                    ws[f'C{row + i}'] = amount
+
+                # تنسيق الصف الأول (العناوين)
+                if i == 0:
+                    for col in ['A', 'B', 'C']:
+                        ws[f'{col}{row + i}'].font = header_font
+                        ws[f'{col}{row + i}'].fill = header_fill
+
+                # إضافة حدود
+                for col in ['A', 'B', 'C']:
+                    ws[f'{col}{row + i}'].border = border
+
+            # تعديل عرض الأعمدة
+            ws.column_dimensions['A'].width = 25
+            ws.column_dimensions['B'].width = 30
+            ws.column_dimensions['C'].width = 20
+
+            # حفظ الملف
+            wb.save(filename)
+
+            return {
+                'success': True,
+                'filename': filename,
+                'message': f'تم تصدير قائمة الدخل الشامل إلى {filename}'
+            }
+
+        except Exception as e:
+            self.logger.error(f"خطأ في تصدير قائمة الدخل الشامل: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'message': f'فشل في تصدير قائمة الدخل الشامل: {e}'
+            }

@@ -1,0 +1,1292 @@
+# -*- coding: utf-8 -*-
+# cSpell:disable
+"""
+نافذة التقارير المالية المتقدمة
+Advanced Financial Reports Window
+"""
+
+import customtkinter as ctk
+import tkinter as tk
+from tkinter import messagebox, ttk
+
+# استيراد matplotlib مع معالجة الأخطاء
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+    import matplotlib.patches as mpatches
+    import matplotlib.font_manager as fm
+    import matplotlib as mpl
+    import os
+    from pathlib import Path
+
+    MATPLOTLIB_AVAILABLE = True
+    print("✅ تم تحميل matplotlib بنجاح")
+
+except ImportError as e:
+    print(f"⚠️ تعذر تحميل matplotlib: {e}")
+    MATPLOTLIB_AVAILABLE = False
+
+# استيراد مكتبات معالجة النص العربي
+try:
+    import arabic_reshaper
+    from bidi.algorithm import get_display
+    ARABIC_SUPPORT = True
+    print("✅ تم تحميل مكتبات دعم العربية")
+except ImportError:
+    ARABIC_SUPPORT = False
+    print("⚠️ مكتبات دعم العربية غير متوفرة - سيتم استخدام النص كما هو")
+
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+
+try:
+    from themes.modern_theme import MODERN_COLORS, FONTS
+    from ui.window_utils import configure_window_fullscreen
+    from database.hybrid_database_manager import HybridDatabaseManager
+    import os
+    import re
+except ImportError:
+    # ألوان افتراضية في حالة عدم وجود الثيم
+    MODERN_COLORS = {
+        'primary': '#1f538d',
+        'background': '#f8f9fa',
+        'surface': '#ffffff',
+        'text_primary': '#212529',
+        'success': '#28a745',
+        'error': '#dc3545',
+        'warning': '#ffc107',
+        'info': '#17a2b8',
+        'secondary': '#6c757d',
+        'card': '#ffffff',
+        'border': '#dee2e6'
+    }
+    FONTS = {'arabic': 'Arial'}
+
+# ألوان التقارير المالية المتخصصة
+FINANCIAL_COLORS = {
+    'revenue': '#28a745',      # أخضر للإيرادات
+    'expense': '#dc3545',      # أحمر للمصروفات
+    'profit': '#007bff',       # أزرق للربح
+    'asset': '#17a2b8',        # أزرق فاتح للأصول
+    'liability': '#fd7e14',    # برتقالي للخصوم
+    'equity': '#6f42c1',       # بنفسجي لحقوق الملكية
+    'cash_in': '#20c997',      # أخضر فاتح للتدفق الداخل
+    'cash_out': '#e83e8c',     # وردي للتدفق الخارج
+    'paid': '#28a745',         # أخضر للمدفوع
+    'unpaid': '#dc3545',       # أحمر لغير المدفوع
+    'partial': '#ffc107'       # أصفر للجزئي
+}
+
+class AdvancedFinancialReportsWindow:
+    def __init__(self, parent):
+        self.parent = parent
+        self.window = None
+        self.current_theme = 'light'  # light أو dark
+
+        # تهيئة قاعدة البيانات
+        try:
+            self.db_manager = HybridDatabaseManager()
+        except Exception as e:
+            print(f"خطأ في تهيئة قاعدة البيانات: {e}")
+            self.db_manager = None
+
+        # بيانات تجريبية للتقارير
+        self.sample_data = self.generate_sample_data()
+
+        # إعداد الخط العربي لـ matplotlib
+        self.setup_arabic_font()
+
+        # اختبار الخطوط العربية (اختياري للتشخيص)
+        # self.test_arabic_fonts()
+
+        self.create_window()
+
+    def setup_arabic_font(self):
+        """إعداد الخط العربي المتقدم لـ matplotlib"""
+        if not MATPLOTLIB_AVAILABLE:
+            print("matplotlib غير متوفر - تم تخطي إعداد الخط العربي")
+            return
+
+        try:
+            # قائمة الخطوط العربية المفضلة
+            arabic_fonts = [
+                'Cairo',
+                'Amiri',
+                'Tahoma',
+                'Arial Unicode MS',
+                'Microsoft Sans Serif',
+                'Segoe UI',
+                'Arial',
+                'DejaVu Sans'
+            ]
+
+            # البحث عن خطوط TTF في النظام
+            system_fonts = self.find_arabic_system_fonts()
+            arabic_fonts.extend(system_fonts)
+
+            available_font = None
+            font_path = None
+
+            # محاولة العثور على خط عربي متاح
+            for font_name in arabic_fonts:
+                try:
+                    # البحث عن مسار الخط
+                    font_path = self.get_font_path(font_name)
+
+                    if font_path and os.path.exists(font_path):
+                        # تسجيل الخط في matplotlib
+                        fm.fontManager.addfont(font_path)
+                        font_prop = fm.FontProperties(fname=font_path)
+                        font_family = font_prop.get_name()
+
+                        # تطبيق الخط
+                        plt.rcParams['font.family'] = [font_family]
+                        available_font = font_family
+                        print(f"✅ تم تعيين الخط العربي: {font_family} من {font_path}")
+                        break
+                    else:
+                        # محاولة استخدام اسم الخط مباشرة
+                        plt.rcParams['font.family'] = [font_name]
+                        available_font = font_name
+                        print(f"✅ تم تعيين الخط العربي: {font_name}")
+                        break
+
+                except Exception as font_error:
+                    print(f"⚠️ فشل في تحميل الخط {font_name}: {font_error}")
+                    continue
+
+            if available_font:
+                # إعداد matplotlib للعربية مع خطوط أكبر
+                plt.rcParams['font.size'] = 16  # زيادة الحجم الأساسي
+                plt.rcParams['axes.titlesize'] = 18  # عنوان الرسم البياني
+                plt.rcParams['axes.labelsize'] = 14  # تسميات المحاور
+                plt.rcParams['xtick.labelsize'] = 13  # تسميات المحور السيني
+                plt.rcParams['ytick.labelsize'] = 13  # تسميات المحور الصادي
+                plt.rcParams['legend.fontsize'] = 14  # حجم خط المفتاح
+                plt.rcParams['figure.titlesize'] = 20  # عنوان الشكل
+
+                # إعدادات خاصة بالعربية
+                plt.rcParams['axes.unicode_minus'] = False
+                plt.rcParams['font.weight'] = 'normal'
+
+                # إعداد اتجاه النص للعربية
+                mpl.rcParams['text.usetex'] = False
+
+                print(f"🎯 تم إعداد matplotlib للعربية بخط أكبر")
+
+            else:
+                print("❌ لم يتم العثور على خط عربي مناسب")
+                # استخدام إعدادات افتراضية محسنة
+                plt.rcParams['font.size'] = 16
+                plt.rcParams['axes.titlesize'] = 18
+                plt.rcParams['axes.labelsize'] = 14
+
+        except Exception as e:
+            print(f"❌ خطأ في إعداد الخط العربي: {e}")
+
+    def find_arabic_system_fonts(self):
+        """البحث عن الخطوط العربية في النظام"""
+        arabic_fonts = []
+
+        try:
+            # مسارات الخطوط في Windows
+            windows_fonts_paths = [
+                "C:/Windows/Fonts/",
+                "C:/Windows/System32/Fonts/",
+                os.path.expanduser("~/AppData/Local/Microsoft/Windows/Fonts/")
+            ]
+
+            # أسماء ملفات الخطوط العربية الشائعة
+            arabic_font_files = [
+                'cairo.ttf', 'Cairo-Regular.ttf', 'Cairo-Bold.ttf',
+                'amiri-regular.ttf', 'Amiri-Regular.ttf', 'Amiri-Bold.ttf',
+                'tahoma.ttf', 'Tahoma.ttf', 'tahomabd.ttf',
+                'arial.ttf', 'Arial.ttf', 'arialbd.ttf',
+                'NotoSansArabic-Regular.ttf', 'NotoSansArabic-Bold.ttf'
+            ]
+
+            for fonts_path in windows_fonts_paths:
+                if os.path.exists(fonts_path):
+                    for font_file in arabic_font_files:
+                        font_path = os.path.join(fonts_path, font_file)
+                        if os.path.exists(font_path):
+                            try:
+                                font_prop = fm.FontProperties(fname=font_path)
+                                font_name = font_prop.get_name()
+                                if font_name not in arabic_fonts:
+                                    arabic_fonts.append(font_name)
+                                    print(f"🔍 تم العثور على خط عربي: {font_name}")
+                            except:
+                                continue
+
+        except Exception as e:
+            print(f"⚠️ خطأ في البحث عن الخطوط: {e}")
+
+        return arabic_fonts
+
+    def get_font_path(self, font_name):
+        """الحصول على مسار الخط"""
+        try:
+            # البحث في خطوط النظام
+            font_paths = fm.findSystemFonts()
+
+            for font_path in font_paths:
+                try:
+                    font_prop = fm.FontProperties(fname=font_path)
+                    if font_prop.get_name().lower() == font_name.lower():
+                        return font_path
+                except:
+                    continue
+
+            # مسارات إضافية للبحث
+            additional_paths = [
+                f"C:/Windows/Fonts/{font_name}.ttf",
+                f"C:/Windows/Fonts/{font_name.lower()}.ttf",
+                f"C:/Windows/System32/Fonts/{font_name}.ttf"
+            ]
+
+            for path in additional_paths:
+                if os.path.exists(path):
+                    return path
+
+        except Exception as e:
+            print(f"⚠️ خطأ في البحث عن مسار الخط {font_name}: {e}")
+
+        return None
+
+    def create_arabic_chart(self, chart_type, data, labels, title, colors=None, ax=None):
+        """إنشاء رسم بياني محسن للعربية"""
+        if not MATPLOTLIB_AVAILABLE:
+            return None
+
+        try:
+            if colors is None:
+                colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+
+            # إصلاح النصوص العربية
+            fixed_labels = self.fix_arabic_labels(labels)
+            fixed_title = self.fix_arabic_text(title)
+
+            if chart_type == 'pie':
+                # رسم دائري محسن للعربية
+                wedges, texts, autotexts = ax.pie(
+                    data,
+                    labels=fixed_labels,  # استخدام التسميات المُصلحة
+                    autopct='%1.1f%%',
+                    colors=colors,
+                    textprops={
+                        'fontsize': 14,
+                        'fontweight': 'bold',
+                        'family': plt.rcParams['font.family']
+                    },
+                    startangle=90,
+                    counterclock=False,  # اتجاه مناسب للعربية
+                    explode=[0.05] * len(data)  # فصل خفيف للوضوح
+                )
+
+                # تحسين النصوص
+                for text in texts:
+                    text.set_fontsize(15)
+                    text.set_fontweight('bold')
+                    text.set_horizontalalignment('center')
+
+                for autotext in autotexts:
+                    autotext.set_color('white')
+                    autotext.set_fontsize(13)
+                    autotext.set_fontweight('bold')
+
+            elif chart_type == 'bar':
+                # رسم عمودي محسن للعربية
+                bars = ax.bar(range(len(data)), data, color=colors,
+                             edgecolor='white', linewidth=1.5,
+                             alpha=0.8)
+
+                # تطبيق التسميات المُصلحة على المحور السيني
+                ax.set_xticks(range(len(fixed_labels)))
+                ax.set_xticklabels(fixed_labels, rotation=45, ha='right')
+
+                # إضافة قيم على الأعمدة
+                for bar, value in zip(bars, data):
+                    height = bar.get_height()
+                    ax.text(bar.get_x() + bar.get_width()/2., height + max(data)*0.01,
+                           f'{value:,}', ha='center', va='bottom',
+                           fontsize=12, fontweight='bold',
+                           family=plt.rcParams['font.family'])
+
+                # تحسين المحاور
+                ax.tick_params(axis='x', rotation=45, labelsize=13)
+                ax.tick_params(axis='y', labelsize=12)
+
+                # إضافة شبكة
+                ax.grid(True, alpha=0.3, axis='y')
+                ax.set_axisbelow(True)
+
+            # تطبيق العنوان المُصلح
+            ax.set_title(fixed_title, fontsize=20, fontweight='bold', pad=25,
+                        family=plt.rcParams['font.family'])
+
+            return ax
+
+        except Exception as e:
+            print(f"خطأ في إنشاء الرسم البياني العربي: {e}")
+            return None
+
+    def test_arabic_fonts(self):
+        """اختبار وعرض الخطوط العربية المتاحة"""
+        if not MATPLOTLIB_AVAILABLE:
+            print("matplotlib غير متوفر لاختبار الخطوط")
+            return
+
+        print("\n🔍 اختبار الخطوط العربية المتاحة:")
+        print("=" * 50)
+
+        test_fonts = [
+            'Cairo', 'Amiri', 'Tahoma', 'Arial Unicode MS',
+            'Microsoft Sans Serif', 'Segoe UI', 'Arial'
+        ]
+
+        working_fonts = []
+
+        for font_name in test_fonts:
+            try:
+                # محاولة تطبيق الخط
+                plt.rcParams['font.family'] = [font_name]
+
+                # إنشاء رسم اختبار صغير
+                fig, ax = plt.subplots(figsize=(4, 3))
+                ax.text(0.5, 0.5, 'اختبار النص العربي',
+                       fontsize=16, ha='center', va='center',
+                       transform=ax.transAxes)
+                ax.set_title('اختبار الخط العربي', fontsize=14)
+
+                # إغلاق الرسم
+                plt.close(fig)
+
+                working_fonts.append(font_name)
+                print(f"✅ {font_name} - يعمل بشكل صحيح")
+
+            except Exception as e:
+                print(f"❌ {font_name} - لا يعمل: {str(e)[:50]}...")
+
+        print(f"\n📊 النتيجة: {len(working_fonts)} خط يعمل من أصل {len(test_fonts)}")
+
+        if working_fonts:
+            print(f"🎯 أفضل خط متاح: {working_fonts[0]}")
+            return working_fonts[0]
+        else:
+            print("⚠️ لم يتم العثور على خط عربي يعمل بشكل صحيح")
+            return None
+
+    def fix_arabic_text(self, text):
+        """إصلاح النص العربي للعرض الصحيح في matplotlib"""
+        if not ARABIC_SUPPORT:
+            return text
+
+        try:
+            # إعادة تشكيل النص العربي
+            reshaped_text = arabic_reshaper.reshape(text)
+            # تطبيق خوارزمية BiDi للاتجاه الصحيح
+            bidi_text = get_display(reshaped_text)
+            return bidi_text
+        except Exception as e:
+            print(f"خطأ في معالجة النص العربي: {e}")
+            return text
+
+    def fix_arabic_labels(self, labels):
+        """إصلاح قائمة من التسميات العربية"""
+        if not isinstance(labels, (list, tuple)):
+            return self.fix_arabic_text(str(labels))
+
+        fixed_labels = []
+        for label in labels:
+            fixed_labels.append(self.fix_arabic_text(str(label)))
+        return fixed_labels
+
+    def generate_sample_data(self):
+        """إنشاء بيانات تجريبية للتقارير"""
+        return {
+            'profit_loss': {
+                'revenues': 150000,
+                'expenses': 95000,
+                'net_profit': 55000,
+                'revenue_breakdown': {
+                    'مبيعات المنتجات': 120000,
+                    'خدمات': 20000,
+                    'إيرادات أخرى': 10000
+                },
+                'expense_breakdown': {
+                    'رواتب': 45000,
+                    'إيجار': 15000,
+                    'مواد خام': 25000,
+                    'مصاريف أخرى': 10000
+                }
+            },
+            'balance_sheet': {
+                'assets': {
+                    'الأصول المتداولة': {
+                        'النقدية': 50000,
+                        'المخزون': 75000,
+                        'العملاء': 30000
+                    },
+                    'الأصول الثابتة': {
+                        'المعدات': 120000,
+                        'المباني': 200000,
+                        'السيارات': 80000
+                    }
+                },
+                'liabilities': {
+                    'الخصوم المتداولة': {
+                        'الموردين': 25000,
+                        'قروض قصيرة': 15000
+                    },
+                    'الخصوم طويلة الأجل': {
+                        'قروض طويلة': 100000
+                    }
+                },
+                'equity': {
+                    'رأس المال': 300000,
+                    'الأرباح المحتجزة': 215000
+                }
+            },
+            'cash_flow': {
+                'operating': {
+                    'التحصيلات من العملاء': 140000,
+                    'المدفوعات للموردين': -80000,
+                    'الرواتب المدفوعة': -45000
+                },
+                'investing': {
+                    'شراء معدات': -50000,
+                    'بيع أصول': 20000
+                },
+                'financing': {
+                    'قروض جديدة': 30000,
+                    'سداد قروض': -25000,
+                    'توزيعات أرباح': -10000
+                }
+            },
+            'invoices': [
+                {'id': 'INV-001', 'customer': 'شركة الأمل', 'amount': 15000, 'status': 'paid', 'date': '2024-01-15'},
+                {'id': 'INV-002', 'customer': 'مؤسسة النور', 'amount': 8500, 'status': 'unpaid', 'date': '2024-01-20'},
+                {'id': 'INV-003', 'customer': 'شركة المستقبل', 'amount': 12000, 'status': 'partial', 'date': '2024-01-25'},
+                {'id': 'INV-004', 'customer': 'مجموعة الفجر', 'amount': 20000, 'status': 'paid', 'date': '2024-02-01'},
+                {'id': 'INV-005', 'customer': 'شركة الإبداع', 'amount': 9500, 'status': 'unpaid', 'date': '2024-02-05'}
+            ]
+        }
+
+    def create_window(self):
+        """إنشاء النافذة الرئيسية"""
+        self.window = ctk.CTkToplevel(self.parent)
+
+        # إعداد النافذة لتملأ الشاشة
+        configure_window_fullscreen(self.window, "التقارير المالية المتقدمة - برنامج ست الكل للمحاسبة")
+        self.window.configure(fg_color=MODERN_COLORS['background'])
+
+        # جعل النافذة في المقدمة
+        self.window.transient(self.parent)
+        self.window.grab_set()
+
+        # إنشاء المحتوى
+        self.create_header()
+        self.create_main_content()
+
+    def create_header(self):
+        """إنشاء الشريط العلوي"""
+        header_frame = ctk.CTkFrame(self.window, height=100, fg_color=MODERN_COLORS['primary'])
+        header_frame.pack(fill="x", padx=10, pady=(10, 0))
+        header_frame.pack_propagate(False)
+
+        # العنوان الرئيسي
+        title_label = ctk.CTkLabel(
+            header_frame,
+            text="📊 التقارير المالية المتقدمة",
+            font=(FONTS['arabic'], 32, "bold"),
+            text_color="white"
+        )
+        title_label.pack(side="right", padx=30, pady=20)
+
+        # أزرار التحكم
+        controls_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        controls_frame.pack(side="left", padx=30, pady=20)
+
+        # زر تبديل الثيم
+        theme_btn = ctk.CTkButton(
+            controls_frame,
+            text="🌙 الوضع الداكن" if self.current_theme == 'light' else "☀️ الوضع الفاتح",
+            width=120,
+            height=35,
+            fg_color=MODERN_COLORS['secondary'],
+            hover_color=MODERN_COLORS['text_primary'],
+            command=self.toggle_theme,
+            font=(FONTS['arabic'], 12)
+        )
+        theme_btn.pack(side="top", pady=(0, 5))
+
+        # زر الرجوع
+        back_btn = ctk.CTkButton(
+            controls_frame,
+            text="🔙 رجوع",
+            width=120,
+            height=35,
+            fg_color=MODERN_COLORS['error'],
+            hover_color="#c82333",
+            command=self.close_window,
+            font=(FONTS['arabic'], 12)
+        )
+        back_btn.pack(side="top")
+
+    def create_main_content(self):
+        """إنشاء المحتوى الرئيسي"""
+        main_frame = ctk.CTkFrame(self.window, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # إنشاء التبويبات مع خط أكبر
+        self.tabview = ctk.CTkTabview(main_frame, width=1200, height=700)
+        self.tabview.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # تحديد حجم خط التبويبات (إزالة المعامل غير المدعوم)
+        # self.tabview.configure(text_font=(FONTS['arabic'], 16, "bold"))
+
+        # إضافة التبويبات
+        self.tabview.add("📈 الربح والخسارة")
+        self.tabview.add("⚖️ الميزانية العمومية")
+        self.tabview.add("💰 التدفقات النقدية")
+        self.tabview.add("📋 الفواتير والعملاء")
+
+        # إنشاء محتوى كل تبويب
+        self.create_profit_loss_tab()
+        self.create_balance_sheet_tab()
+        self.create_cash_flow_tab()
+        self.create_invoices_tab()
+
+    def create_profit_loss_tab(self):
+        """إنشاء تبويب الربح والخسارة"""
+        tab = self.tabview.tab("📈 الربح والخسارة")
+
+        # إطار البطاقات المالية
+        cards_frame = ctk.CTkFrame(tab, fg_color="transparent")
+        cards_frame.pack(fill="x", padx=20, pady=20)
+
+        # بطاقة الإيرادات
+        revenue_card = self.create_financial_card(
+            cards_frame, 
+            "💰 إجمالي الإيرادات", 
+            f"{self.sample_data['profit_loss']['revenues']:,} ريال",
+            FINANCIAL_COLORS['revenue'],
+            "⬆️ +12% عن الشهر الماضي"
+        )
+        revenue_card.pack(side="right", padx=10, fill="both", expand=True)
+
+        # بطاقة المصروفات
+        expense_card = self.create_financial_card(
+            cards_frame,
+            "💸 إجمالي المصروفات",
+            f"{self.sample_data['profit_loss']['expenses']:,} ريال", 
+            FINANCIAL_COLORS['expense'],
+            "⬇️ -5% عن الشهر الماضي"
+        )
+        expense_card.pack(side="right", padx=10, fill="both", expand=True)
+
+        # بطاقة صافي الربح
+        profit_card = self.create_financial_card(
+            cards_frame,
+            "📊 صافي الربح",
+            f"{self.sample_data['profit_loss']['net_profit']:,} ريال",
+            FINANCIAL_COLORS['profit'],
+            "⬆️ +25% عن الشهر الماضي"
+        )
+        profit_card.pack(side="right", padx=10, fill="both", expand=True)
+
+        # إطار الرسوم البيانية
+        charts_frame = ctk.CTkFrame(tab, fg_color=MODERN_COLORS['surface'])
+        charts_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+
+        # رسم بياني للإيرادات والمصروفات
+        self.create_profit_loss_chart(charts_frame)
+
+    def create_financial_card(self, parent, title, value, color, trend):
+        """إنشاء بطاقة مالية"""
+        card = ctk.CTkFrame(parent, height=120, fg_color=MODERN_COLORS['card'])
+        card.pack_propagate(False)
+
+        # شريط ملون في الأعلى
+        color_bar = ctk.CTkFrame(card, height=5, fg_color=color)
+        color_bar.pack(fill="x", padx=0, pady=0)
+
+        # محتوى البطاقة
+        content_frame = ctk.CTkFrame(card, fg_color="transparent")
+        content_frame.pack(fill="both", expand=True, padx=15, pady=10)
+
+        # العنوان
+        title_label = ctk.CTkLabel(
+            content_frame,
+            text=title,
+            font=(FONTS['arabic'], 16, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        title_label.pack(anchor="e", pady=(0, 8))
+
+        # القيمة
+        value_label = ctk.CTkLabel(
+            content_frame,
+            text=value,
+            font=(FONTS['arabic'], 24, "bold"),
+            text_color=color
+        )
+        value_label.pack(anchor="e", pady=(0, 8))
+
+        # الاتجاه
+        trend_label = ctk.CTkLabel(
+            content_frame,
+            text=trend,
+            font=(FONTS['arabic'], 12, "bold"),
+            text_color=MODERN_COLORS['secondary']
+        )
+        trend_label.pack(anchor="e")
+
+        return card
+
+    def create_profit_loss_chart(self, parent):
+        """إنشاء رسم بياني للربح والخسارة"""
+        # إطار الرسم البياني
+        chart_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        chart_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # عنوان الرسم البياني
+        chart_title = ctk.CTkLabel(
+            chart_frame,
+            text="📊 تحليل الإيرادات والمصروفات",
+            font=(FONTS['arabic'], 20, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        chart_title.pack(pady=(0, 15))
+
+        if not MATPLOTLIB_AVAILABLE:
+            # عرض رسالة بديلة إذا لم تكن matplotlib متوفرة
+            no_chart_label = ctk.CTkLabel(
+                chart_frame,
+                text="📊 الرسوم البيانية غير متوفرة\nيرجى تثبيت matplotlib لعرض الرسوم البيانية",
+                font=(FONTS['arabic'], 16),
+                text_color=MODERN_COLORS['secondary'],
+                justify="center"
+            )
+            no_chart_label.pack(expand=True, pady=50)
+
+            # عرض البيانات في شكل نصي
+            self.create_text_chart(chart_frame)
+            return
+
+        try:
+            # إنشاء الرسم البياني مع حجم أكبر
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
+            fig.patch.set_facecolor('white')
+
+            # رسم بياني دائري للإيرادات باستخدام الدالة المحسنة
+            revenue_data = self.sample_data['profit_loss']['revenue_breakdown']
+            revenue_labels = list(revenue_data.keys())
+            revenue_values = list(revenue_data.values())
+
+            self.create_arabic_chart(
+                'pie',
+                revenue_values,
+                revenue_labels,
+                'توزيع الإيرادات',
+                colors=['#28a745', '#17a2b8', '#ffc107'],
+                ax=ax1
+            )
+
+            # رسم بياني عمودي للمصروفات باستخدام الدالة المحسنة
+            expense_data = self.sample_data['profit_loss']['expense_breakdown']
+            expense_labels = list(expense_data.keys())
+            expense_values = list(expense_data.values())
+
+            self.create_arabic_chart(
+                'bar',
+                expense_values,
+                expense_labels,
+                'توزيع المصروفات',
+                colors=['#dc3545', '#fd7e14', '#6f42c1', '#e83e8c'],
+                ax=ax2
+            )
+
+            # تحسين التخطيط مع مساحة أكبر للنصوص العربية
+            plt.tight_layout(pad=4.0)
+
+            # إدراج الرسم البياني في النافذة
+            canvas = FigureCanvasTkAgg(fig, chart_frame)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill="both", expand=True)
+
+        except Exception as e:
+            print(f"خطأ في إنشاء الرسم البياني: {e}")
+            # عرض رسالة خطأ
+            error_label = ctk.CTkLabel(
+                chart_frame,
+                text=f"❌ خطأ في عرض الرسم البياني\n{str(e)}",
+                font=(FONTS['arabic'], 14),
+                text_color=MODERN_COLORS['error'],
+                justify="center"
+            )
+            error_label.pack(expand=True, pady=50)
+
+    def create_text_chart(self, parent):
+        """إنشاء عرض نصي للبيانات كبديل للرسم البياني"""
+        text_frame = ctk.CTkFrame(parent, fg_color=MODERN_COLORS['surface'])
+        text_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # الإيرادات
+        revenue_frame = ctk.CTkFrame(text_frame, fg_color="transparent")
+        revenue_frame.pack(side="right", fill="both", expand=True, padx=10, pady=20)
+
+        revenue_title = ctk.CTkLabel(
+            revenue_frame,
+            text="💰 توزيع الإيرادات",
+            font=(FONTS['arabic'], 16, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        revenue_title.pack(pady=(0, 10))
+
+        for item, value in self.sample_data['profit_loss']['revenue_breakdown'].items():
+            item_frame = ctk.CTkFrame(revenue_frame, fg_color=MODERN_COLORS['card'])
+            item_frame.pack(fill="x", pady=2)
+
+            item_label = ctk.CTkLabel(
+                item_frame,
+                text=item,
+                font=(FONTS['arabic'], 12),
+                text_color=MODERN_COLORS['text_primary']
+            )
+            item_label.pack(side="right", padx=10, pady=5)
+
+            value_label = ctk.CTkLabel(
+                item_frame,
+                text=f"{value:,} ريال",
+                font=(FONTS['arabic'], 12, "bold"),
+                text_color=FINANCIAL_COLORS['revenue']
+            )
+            value_label.pack(side="left", padx=10, pady=5)
+
+        # المصروفات
+        expense_frame = ctk.CTkFrame(text_frame, fg_color="transparent")
+        expense_frame.pack(side="left", fill="both", expand=True, padx=10, pady=20)
+
+        expense_title = ctk.CTkLabel(
+            expense_frame,
+            text="💸 توزيع المصروفات",
+            font=(FONTS['arabic'], 16, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        expense_title.pack(pady=(0, 10))
+
+        for item, value in self.sample_data['profit_loss']['expense_breakdown'].items():
+            item_frame = ctk.CTkFrame(expense_frame, fg_color=MODERN_COLORS['card'])
+            item_frame.pack(fill="x", pady=2)
+
+            item_label = ctk.CTkLabel(
+                item_frame,
+                text=item,
+                font=(FONTS['arabic'], 12),
+                text_color=MODERN_COLORS['text_primary']
+            )
+            item_label.pack(side="right", padx=10, pady=5)
+
+            value_label = ctk.CTkLabel(
+                item_frame,
+                text=f"{value:,} ريال",
+                font=(FONTS['arabic'], 12, "bold"),
+                text_color=FINANCIAL_COLORS['expense']
+            )
+            value_label.pack(side="left", padx=10, pady=5)
+
+    def create_balance_sheet_tab(self):
+        """إنشاء تبويب الميزانية العمومية"""
+        tab = self.tabview.tab("⚖️ الميزانية العمومية")
+
+        # إطار رئيسي مع تمرير
+        main_scroll = ctk.CTkScrollableFrame(tab, fg_color="transparent")
+        main_scroll.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # عنوان الميزانية
+        title_label = ctk.CTkLabel(
+            main_scroll,
+            text="⚖️ الميزانية العمومية",
+            font=(FONTS['arabic'], 28, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        title_label.pack(pady=(0, 25))
+
+        # إطار الأصول والخصوم
+        balance_frame = ctk.CTkFrame(main_scroll, fg_color="transparent")
+        balance_frame.pack(fill="x", pady=10)
+
+        # الأصول (يسار)
+        assets_frame = ctk.CTkFrame(balance_frame, fg_color=MODERN_COLORS['surface'])
+        assets_frame.pack(side="right", fill="both", expand=True, padx=(0, 10))
+
+        self.create_balance_section(assets_frame, "🏢 الأصول",
+                                  self.sample_data['balance_sheet']['assets'],
+                                  FINANCIAL_COLORS['asset'])
+
+        # الخصوم وحقوق الملكية (يمين)
+        liabilities_frame = ctk.CTkFrame(balance_frame, fg_color=MODERN_COLORS['surface'])
+        liabilities_frame.pack(side="left", fill="both", expand=True, padx=(10, 0))
+
+        # الخصوم
+        self.create_balance_section(liabilities_frame, "📋 الخصوم",
+                                  self.sample_data['balance_sheet']['liabilities'],
+                                  FINANCIAL_COLORS['liability'])
+
+        # حقوق الملكية
+        self.create_balance_section(liabilities_frame, "👥 حقوق الملكية",
+                                  self.sample_data['balance_sheet']['equity'],
+                                  FINANCIAL_COLORS['equity'])
+
+    def create_balance_section(self, parent, title, data, color):
+        """إنشاء قسم في الميزانية العمومية"""
+        # عنوان القسم
+        section_header = ctk.CTkFrame(parent, height=50, fg_color=color)
+        section_header.pack(fill="x", padx=10, pady=(10, 0))
+        section_header.pack_propagate(False)
+
+        title_label = ctk.CTkLabel(
+            section_header,
+            text=title,
+            font=(FONTS['arabic'], 18, "bold"),
+            text_color="white"
+        )
+        title_label.pack(pady=15)
+
+        # محتوى القسم
+        section_content = ctk.CTkFrame(parent, fg_color="transparent")
+        section_content.pack(fill="x", padx=10, pady=(0, 10))
+
+        total = 0
+        for category, items in data.items():
+            if isinstance(items, dict):
+                # فئة فرعية
+                category_frame = ctk.CTkFrame(section_content, fg_color=MODERN_COLORS['card'])
+                category_frame.pack(fill="x", pady=5)
+
+                # عنوان الفئة
+                category_label = ctk.CTkLabel(
+                    category_frame,
+                    text=f"📁 {category}",
+                    font=(FONTS['arabic'], 14, "bold"),
+                    text_color=MODERN_COLORS['text_primary']
+                )
+                category_label.pack(anchor="e", padx=15, pady=(10, 5))
+
+                # العناصر
+                category_total = 0
+                for item, value in items.items():
+                    item_frame = ctk.CTkFrame(category_frame, fg_color="transparent")
+                    item_frame.pack(fill="x", padx=20, pady=2)
+
+                    item_label = ctk.CTkLabel(
+                        item_frame,
+                        text=item,
+                        font=(FONTS['arabic'], 12),
+                        text_color=MODERN_COLORS['secondary']
+                    )
+                    item_label.pack(side="right")
+
+                    value_label = ctk.CTkLabel(
+                        item_frame,
+                        text=f"{value:,} ريال",
+                        font=(FONTS['arabic'], 12, "bold"),
+                        text_color=MODERN_COLORS['text_primary']
+                    )
+                    value_label.pack(side="left")
+
+                    category_total += value
+
+                # إجمالي الفئة
+                total_frame = ctk.CTkFrame(category_frame, fg_color=color, height=30)
+                total_frame.pack(fill="x", padx=10, pady=(5, 10))
+                total_frame.pack_propagate(False)
+
+                total_label = ctk.CTkLabel(
+                    total_frame,
+                    text=f"الإجمالي: {category_total:,} ريال",
+                    font=(FONTS['arabic'], 12, "bold"),
+                    text_color="white"
+                )
+                total_label.pack(pady=5)
+
+                total += category_total
+            else:
+                # عنصر مباشر
+                item_frame = ctk.CTkFrame(section_content, fg_color=MODERN_COLORS['card'])
+                item_frame.pack(fill="x", pady=2)
+
+                item_label = ctk.CTkLabel(
+                    item_frame,
+                    text=category,
+                    font=(FONTS['arabic'], 12),
+                    text_color=MODERN_COLORS['text_primary']
+                )
+                item_label.pack(side="right", padx=15, pady=10)
+
+                value_label = ctk.CTkLabel(
+                    item_frame,
+                    text=f"{items:,} ريال",
+                    font=(FONTS['arabic'], 12, "bold"),
+                    text_color=color
+                )
+                value_label.pack(side="left", padx=15, pady=10)
+
+                total += items
+
+        # الإجمالي العام
+        if total > 0:
+            grand_total_frame = ctk.CTkFrame(parent, fg_color=MODERN_COLORS['text_primary'], height=40)
+            grand_total_frame.pack(fill="x", padx=10, pady=(0, 10))
+            grand_total_frame.pack_propagate(False)
+
+            grand_total_label = ctk.CTkLabel(
+                grand_total_frame,
+                text=f"الإجمالي العام: {total:,} ريال",
+                font=(FONTS['arabic'], 14, "bold"),
+                text_color="white"
+            )
+            grand_total_label.pack(pady=10)
+
+    def create_cash_flow_tab(self):
+        """إنشاء تبويب التدفقات النقدية"""
+        tab = self.tabview.tab("💰 التدفقات النقدية")
+
+        # إطار رئيسي مع تمرير
+        main_scroll = ctk.CTkScrollableFrame(tab, fg_color="transparent")
+        main_scroll.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # عنوان التدفقات النقدية
+        title_label = ctk.CTkLabel(
+            main_scroll,
+            text="💰 كشف التدفقات النقدية",
+            font=(FONTS['arabic'], 28, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        title_label.pack(pady=(0, 25))
+
+        # أنشطة التشغيل
+        self.create_cash_flow_section(main_scroll, "🏭 الأنشطة التشغيلية",
+                                    self.sample_data['cash_flow']['operating'],
+                                    FINANCIAL_COLORS['cash_in'])
+
+        # أنشطة الاستثمار
+        self.create_cash_flow_section(main_scroll, "📈 الأنشطة الاستثمارية",
+                                    self.sample_data['cash_flow']['investing'],
+                                    FINANCIAL_COLORS['asset'])
+
+        # أنشطة التمويل
+        self.create_cash_flow_section(main_scroll, "💳 الأنشطة التمويلية",
+                                    self.sample_data['cash_flow']['financing'],
+                                    FINANCIAL_COLORS['liability'])
+
+        # إجمالي التدفق النقدي
+        total_cash_flow = (sum(self.sample_data['cash_flow']['operating'].values()) +
+                          sum(self.sample_data['cash_flow']['investing'].values()) +
+                          sum(self.sample_data['cash_flow']['financing'].values()))
+
+        total_frame = ctk.CTkFrame(main_scroll, fg_color=MODERN_COLORS['primary'], height=60)
+        total_frame.pack(fill="x", pady=20)
+        total_frame.pack_propagate(False)
+
+        total_label = ctk.CTkLabel(
+            total_frame,
+            text=f"صافي التدفق النقدي: {total_cash_flow:,} ريال",
+            font=(FONTS['arabic'], 18, "bold"),
+            text_color="white"
+        )
+        total_label.pack(pady=20)
+
+    def create_cash_flow_section(self, parent, title, data, color):
+        """إنشاء قسم في التدفقات النقدية"""
+        section_frame = ctk.CTkFrame(parent, fg_color=MODERN_COLORS['surface'])
+        section_frame.pack(fill="x", pady=10)
+
+        # عنوان القسم
+        header_frame = ctk.CTkFrame(section_frame, height=50, fg_color=color)
+        header_frame.pack(fill="x", padx=10, pady=(10, 0))
+        header_frame.pack_propagate(False)
+
+        title_label = ctk.CTkLabel(
+            header_frame,
+            text=title,
+            font=(FONTS['arabic'], 16, "bold"),
+            text_color="white"
+        )
+        title_label.pack(pady=15)
+
+        # العناصر
+        total = 0
+        for item, value in data.items():
+            item_frame = ctk.CTkFrame(section_frame, fg_color="transparent")
+            item_frame.pack(fill="x", padx=20, pady=5)
+
+            # اتجاه التدفق
+            direction = "⬆️" if value > 0 else "⬇️"
+            direction_color = FINANCIAL_COLORS['cash_in'] if value > 0 else FINANCIAL_COLORS['cash_out']
+
+            direction_label = ctk.CTkLabel(
+                item_frame,
+                text=direction,
+                font=(FONTS['arabic'], 16),
+                text_color=direction_color
+            )
+            direction_label.pack(side="right", padx=(0, 10))
+
+            item_label = ctk.CTkLabel(
+                item_frame,
+                text=item,
+                font=(FONTS['arabic'], 12),
+                text_color=MODERN_COLORS['text_primary']
+            )
+            item_label.pack(side="right")
+
+            value_label = ctk.CTkLabel(
+                item_frame,
+                text=f"{abs(value):,} ريال",
+                font=(FONTS['arabic'], 12, "bold"),
+                text_color=direction_color
+            )
+            value_label.pack(side="left")
+
+            total += value
+
+        # إجمالي القسم
+        total_frame = ctk.CTkFrame(section_frame, fg_color=MODERN_COLORS['text_primary'], height=35)
+        total_frame.pack(fill="x", padx=10, pady=(5, 10))
+        total_frame.pack_propagate(False)
+
+        total_direction = "⬆️" if total > 0 else "⬇️"
+        total_color = FINANCIAL_COLORS['cash_in'] if total > 0 else FINANCIAL_COLORS['cash_out']
+
+        total_label = ctk.CTkLabel(
+            total_frame,
+            text=f"{total_direction} صافي التدفق: {total:,} ريال",
+            font=(FONTS['arabic'], 12, "bold"),
+            text_color="white"
+        )
+        total_label.pack(pady=8)
+
+    def create_invoices_tab(self):
+        """إنشاء تبويب الفواتير والعملاء"""
+        tab = self.tabview.tab("📋 الفواتير والعملاء")
+
+        # إطار البحث والفلترة
+        search_frame = ctk.CTkFrame(tab, height=80, fg_color=MODERN_COLORS['surface'])
+        search_frame.pack(fill="x", padx=20, pady=(20, 10))
+        search_frame.pack_propagate(False)
+
+        # عنوان
+        search_title = ctk.CTkLabel(
+            search_frame,
+            text="🔍 البحث والفلترة",
+            font=(FONTS['arabic'], 16, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        search_title.pack(side="right", padx=20, pady=10)
+
+        # مربع البحث
+        search_entry = ctk.CTkEntry(
+            search_frame,
+            placeholder_text="البحث في الفواتير...",
+            width=200,
+            font=(FONTS['arabic'], 12)
+        )
+        search_entry.pack(side="right", padx=10, pady=20)
+
+        # فلتر الحالة
+        status_filter = ctk.CTkOptionMenu(
+            search_frame,
+            values=["جميع الحالات", "مدفوعة", "غير مدفوعة", "جزئية"],
+            width=150,
+            font=(FONTS['arabic'], 12)
+        )
+        status_filter.pack(side="right", padx=10, pady=20)
+
+        # زر التصدير
+        export_btn = ctk.CTkButton(
+            search_frame,
+            text="📤 تصدير Excel",
+            width=120,
+            height=35,
+            fg_color=MODERN_COLORS['success'],
+            hover_color="#218838",
+            command=self.export_invoices,
+            font=(FONTS['arabic'], 12)
+        )
+        export_btn.pack(side="left", padx=20, pady=20)
+
+        # جدول الفواتير
+        table_frame = ctk.CTkFrame(tab, fg_color=MODERN_COLORS['surface'])
+        table_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+
+        self.create_invoices_table(table_frame)
+
+    def create_invoices_table(self, parent):
+        """إنشاء جدول الفواتير"""
+        # عنوان الجدول
+        table_title = ctk.CTkLabel(
+            parent,
+            text="📋 قائمة الفواتير",
+            font=(FONTS['arabic'], 22, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        table_title.pack(pady=(20, 15))
+
+        # إطار الجدول مع تمرير
+        table_scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
+        table_scroll.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+
+        # رأس الجدول
+        header_frame = ctk.CTkFrame(table_scroll, height=50, fg_color=MODERN_COLORS['primary'])
+        header_frame.pack(fill="x", pady=(0, 5))
+        header_frame.pack_propagate(False)
+
+        headers = ["الحالة", "التاريخ", "المبلغ", "العميل", "رقم الفاتورة"]
+        header_widths = [100, 120, 120, 200, 120]
+
+        for i, (header, width) in enumerate(zip(headers, header_widths)):
+            header_label = ctk.CTkLabel(
+                header_frame,
+                text=header,
+                font=(FONTS['arabic'], 14, "bold"),
+                text_color="white",
+                width=width
+            )
+            header_label.pack(side="right" if i == 0 else "right", padx=5, pady=15)
+
+        # صفوف البيانات
+        for invoice in self.sample_data['invoices']:
+            row_frame = ctk.CTkFrame(table_scroll, height=45, fg_color=MODERN_COLORS['card'])
+            row_frame.pack(fill="x", pady=2)
+            row_frame.pack_propagate(False)
+
+            # الحالة
+            status_colors = {
+                'paid': FINANCIAL_COLORS['paid'],
+                'unpaid': FINANCIAL_COLORS['unpaid'],
+                'partial': FINANCIAL_COLORS['partial']
+            }
+            status_texts = {
+                'paid': '✅ مدفوعة',
+                'unpaid': '❌ غير مدفوعة',
+                'partial': '⚠️ جزئية'
+            }
+
+            status_label = ctk.CTkLabel(
+                row_frame,
+                text=status_texts[invoice['status']],
+                font=(FONTS['arabic'], 12, "bold"),
+                text_color=status_colors[invoice['status']],
+                width=100
+            )
+            status_label.pack(side="right", padx=5, pady=10)
+
+            # التاريخ
+            date_label = ctk.CTkLabel(
+                row_frame,
+                text=invoice['date'],
+                font=(FONTS['arabic'], 12),
+                text_color=MODERN_COLORS['text_primary'],
+                width=120
+            )
+            date_label.pack(side="right", padx=5, pady=10)
+
+            # المبلغ
+            amount_label = ctk.CTkLabel(
+                row_frame,
+                text=f"{invoice['amount']:,} ريال",
+                font=(FONTS['arabic'], 12, "bold"),
+                text_color=MODERN_COLORS['text_primary'],
+                width=120
+            )
+            amount_label.pack(side="right", padx=5, pady=10)
+
+            # العميل
+            customer_label = ctk.CTkLabel(
+                row_frame,
+                text=invoice['customer'],
+                font=(FONTS['arabic'], 12),
+                text_color=MODERN_COLORS['text_primary'],
+                width=200
+            )
+            customer_label.pack(side="right", padx=5, pady=10)
+
+            # رقم الفاتورة
+            id_label = ctk.CTkLabel(
+                row_frame,
+                text=invoice['id'],
+                font=(FONTS['arabic'], 12, "bold"),
+                text_color=MODERN_COLORS['secondary'],
+                width=120
+            )
+            id_label.pack(side="right", padx=5, pady=10)
+
+        # إحصائيات الفواتير
+        stats_frame = ctk.CTkFrame(parent, height=80, fg_color=MODERN_COLORS['card'])
+        stats_frame.pack(fill="x", padx=20, pady=(10, 20))
+        stats_frame.pack_propagate(False)
+
+        # حساب الإحصائيات
+        total_invoices = len(self.sample_data['invoices'])
+        paid_invoices = len([inv for inv in self.sample_data['invoices'] if inv['status'] == 'paid'])
+        unpaid_invoices = len([inv for inv in self.sample_data['invoices'] if inv['status'] == 'unpaid'])
+        total_amount = sum([inv['amount'] for inv in self.sample_data['invoices']])
+
+        stats_title = ctk.CTkLabel(
+            stats_frame,
+            text="📊 إحصائيات الفواتير",
+            font=(FONTS['arabic'], 14, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        stats_title.pack(side="right", padx=20, pady=10)
+
+        stats_text = f"المجموع: {total_invoices} | مدفوعة: {paid_invoices} | غير مدفوعة: {unpaid_invoices} | إجمالي المبلغ: {total_amount:,} ريال"
+        stats_label = ctk.CTkLabel(
+            stats_frame,
+            text=stats_text,
+            font=(FONTS['arabic'], 12),
+            text_color=MODERN_COLORS['secondary']
+        )
+        stats_label.pack(side="left", padx=20, pady=10)
+
+    def toggle_theme(self):
+        """تبديل الثيم بين الفاتح والداكن"""
+        if self.current_theme == 'light':
+            self.current_theme = 'dark'
+            # تطبيق الثيم الداكن
+            MODERN_COLORS['background'] = '#2b2b2b'
+            MODERN_COLORS['surface'] = '#3c3c3c'
+            MODERN_COLORS['card'] = '#404040'
+            MODERN_COLORS['text_primary'] = '#ffffff'
+            MODERN_COLORS['secondary'] = '#cccccc'
+        else:
+            self.current_theme = 'light'
+            # تطبيق الثيم الفاتح
+            MODERN_COLORS['background'] = '#f8f9fa'
+            MODERN_COLORS['surface'] = '#ffffff'
+            MODERN_COLORS['card'] = '#ffffff'
+            MODERN_COLORS['text_primary'] = '#212529'
+            MODERN_COLORS['secondary'] = '#6c757d'
+
+        # إعادة إنشاء النافذة بالثيم الجديد
+        messagebox.showinfo("تبديل الثيم", "سيتم تطبيق الثيم الجديد عند إعادة فتح النافذة")
+
+    def export_invoices(self):
+        """تصدير الفواتير إلى Excel"""
+        try:
+            # محاكاة تصدير البيانات
+            messagebox.showinfo("تصدير البيانات", "تم تصدير الفواتير إلى ملف Excel بنجاح!")
+        except Exception as e:
+            messagebox.showerror("خطأ", f"حدث خطأ في تصدير البيانات: {str(e)}")
+
+    def close_window(self):
+        """إغلاق النافذة"""
+        if hasattr(self, \'window\') and self.window:
+
+            self.window.destroy()

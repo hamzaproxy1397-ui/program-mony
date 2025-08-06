@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+مصلح الفواصل الزائدة
+Comma Fixer
+"""
+
+import re
+from pathlib import Path
+
+def fix_trailing_commas_in_file(file_path: Path):
+    """إصلاح الفواصل الزائدة في ملف واحد"""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        original_content = content
+
+        # إصلاح الفواصل الزائدة في تعريف الدوال
+        # Pattern: :
+        content = re.sub(r':', ':', content)
+
+        if content != original_content:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            print(f"✅ تم إصلاح: {file_path.name}")
+            return True
+        else:
+            print(f"✅ {file_path.name}: لا يحتاج إصلاح")
+            return False
+
+    except Exception as e:
+        print(f"❌ خطأ في إصلاح {file_path}: {e}")
+        return False
+
+def main():
+    """الدالة الرئيسية"""
+    print("🔧 مصلح الفواصل الزائدة")
+    print("=" * 30)
+
+    # البحث عن جميع ملفات Python
+    python_files = list(Path(".").rglob("*.py"))
+    python_files = [f for f in python_files if not any(skip in str(f) for skip in ["__pycache__", ".git", "venv"])]
+
+    fixed_count = 0
+    for file_path in python_files:
+        if fix_trailing_commas_in_file(file_path):
+            fixed_count += 1
+
+    print(f"\n📊 النتائج:")
+    print(f"   🔧 ملفات تم إصلاحها: {fixed_count}")
+    print(f"   📁 إجمالي الملفات: {len(python_files)}")
+
+if __name__ == "__main__":
+    main()

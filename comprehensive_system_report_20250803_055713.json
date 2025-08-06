@@ -1,0 +1,389 @@
+{
+  "timestamp": "2025-08-03T05:57:08.629759",
+  "project_structure": {
+    "ui": {
+      "exists": true,
+      "files_count": 41,
+      "files": [
+        "accounts_tree_window.py",
+        "accounts_window.py",
+        "add_items_window.py",
+        "advanced_financial_reports_window.py",
+        "advanced_sections.py",
+        "advanced_sections_part2.py",
+        "categories_management_window.py",
+        "central_control_panel.py",
+        "comprehensive_income_window.py",
+        "comprehensive_sales_window.py",
+        "control_panel_integration.py",
+        "daily_journal_window.py",
+        "employees_window.py",
+        "employees_window_fixed.py",
+        "enhanced_pos_window.py",
+        "hr_management_window.py",
+        "inventory_window.py",
+        "invoices_main_window.py",
+        "invoices_reports_window.py",
+        "journal_entries_window.py",
+        "login_window.py",
+        "pos_simple.py",
+        "pos_system_window.py",
+        "pos_window.py",
+        "purchases_window.py",
+        "reports_window.py",
+        "sales_analysis_window.py",
+        "sales_invoice_window.py",
+        "sales_manager.py",
+        "sales_window.py",
+        "simple_welcome_window.py",
+        "stock_management_window.py",
+        "structured_profit_loss_window.py",
+        "treasury_window.py",
+        "units_management_window.py",
+        "Untitled-1.py",
+        "user_management.py",
+        "warehouses_management_window.py",
+        "welcome_window.py",
+        "window_utils.py",
+        "__init__.py"
+      ]
+    },
+    "database": {
+      "exists": true,
+      "files_count": 17,
+      "files": [
+        "accounts_manager.py",
+        "accounts_tree_manager.py",
+        "advanced_items_database.py",
+        "comprehensive_income_manager.py",
+        "database_manager.py",
+        "fix_database.py",
+        "hybrid_database_manager.py",
+        "invoices_database_manager.py",
+        "invoices_manager.py",
+        "journal_entries_manager.py",
+        "postgresql_manager.py",
+        "products_manager.py",
+        "profit_loss_structure_manager.py",
+        "reports_manager.py",
+        "sqlserver_manager.py",
+        "warehouse_manager.py",
+        "__init__.py"
+      ]
+    },
+    "services": {
+      "exists": true,
+      "files_count": 7,
+      "files": [
+        "employees_manager.py",
+        "invoice_printer.py",
+        "postgresql_sales_manager.py",
+        "purchases_manager.py",
+        "sales_manager.py",
+        "treasury_manager.py",
+        "__init__.py"
+      ]
+    },
+    "core": {
+      "exists": true,
+      "files_count": 11,
+      "files": [
+        "advanced_dependency_manager.py",
+        "application_manager.py",
+        "app_core.py",
+        "barcode_scanner.py",
+        "error_handler.py",
+        "inventory_manager.py",
+        "item_code_generator.py",
+        "scheduler_manager.py",
+        "settings_manager.py",
+        "validation_engine.py",
+        "__init__.py"
+      ]
+    },
+    "themes": {
+      "exists": true,
+      "files_count": 4,
+      "files": [
+        "font_manager.py",
+        "modern_theme.py",
+        "theme_manager.py",
+        "__init__.py"
+      ]
+    },
+    "auth": {
+      "exists": true,
+      "files_count": 2,
+      "files": [
+        "auth_manager.py",
+        "__init__.py"
+      ]
+    },
+    "config": {
+      "exists": true,
+      "files_count": 8,
+      "files": [
+        "app_config.py",
+        "arabic_fonts.py",
+        "control_panel_config.py",
+        "postgresql_config.py",
+        "scheduler_settings.py",
+        "settings.py",
+        "sqlserver_config.py",
+        "__init__.py"
+      ]
+    }
+  },
+  "syntax_errors": [
+    {
+      "file": "deep_comprehensive_system_audit.py",
+      "line": 676,
+      "column": 12,
+      "error": "unexpected indent (<unknown>, line 676)",
+      "severity": "medium"
+    },
+    {
+      "file": "final_cleanup_tool.py",
+      "line": 221,
+      "column": 8,
+      "error": "unexpected indent (<unknown>, line 221)",
+      "severity": "medium"
+    },
+    {
+      "file": "quick_pattern_fixer.py",
+      "line": 35,
+      "column": 54,
+      "error": "invalid syntax (<unknown>, line 35)",
+      "severity": "medium"
+    },
+    {
+      "file": "run_control_panel_safe.py",
+      "line": 114,
+      "column": 0,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 114)",
+      "severity": "medium"
+    },
+    {
+      "file": "run_control_panel_simple.py",
+      "line": 59,
+      "column": 8,
+      "error": "unexpected indent (<unknown>, line 59)",
+      "severity": "medium"
+    },
+    {
+      "file": "run_fixed_app.py",
+      "line": 158,
+      "column": 8,
+      "error": "unexpected indent (<unknown>, line 158)",
+      "severity": "medium"
+    },
+    {
+      "file": "safe_main.py",
+      "line": 108,
+      "column": 0,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 108)",
+      "severity": "medium"
+    },
+    {
+      "file": "ultimate_system_fixer.py",
+      "line": 302,
+      "column": 26,
+      "error": "'(' was never closed (<unknown>, line 302)",
+      "severity": "medium"
+    },
+    {
+      "file": "config\\postgresql_config.py",
+      "line": 151,
+      "column": 12,
+      "error": "unexpected indent (<unknown>, line 151)",
+      "severity": "medium"
+    },
+    {
+      "file": "database\\comprehensive_income_manager.py",
+      "line": 194,
+      "column": 79,
+      "error": "invalid syntax (<unknown>, line 194)",
+      "severity": "medium"
+    },
+    {
+      "file": "database\\fix_database.py",
+      "line": 69,
+      "column": 56,
+      "error": "unterminated string literal (detected at line 69) (<unknown>, line 69)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\daily_journal_window.py",
+      "line": 686,
+      "column": 9,
+      "error": "invalid syntax (<unknown>, line 686)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\enhanced_pos_window.py",
+      "line": 18,
+      "column": 1,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 18)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\sales_analysis_window.py",
+      "line": 1340,
+      "column": 12,
+      "error": "unexpected indent (<unknown>, line 1340)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\welcome_window.py",
+      "line": 18,
+      "column": 1,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 18)",
+      "severity": "medium"
+    },
+    {
+      "file": "COMPLETE_SYSTEM_BACKUP_20250725_185838\\core_application\\app_core.py",
+      "line": 290,
+      "column": 0,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 290)",
+      "severity": "medium"
+    },
+    {
+      "file": "COMPLETE_SYSTEM_BACKUP_20250725_185838\\utility_scripts\\test_control_panel.py",
+      "line": 59,
+      "column": 12,
+      "error": "unexpected indent (<unknown>, line 59)",
+      "severity": "medium"
+    },
+    {
+      "file": "COMPLETE_SYSTEM_BACKUP_20250725_185838\\utility_scripts\\test_control_panel_simple.py",
+      "line": 91,
+      "column": 8,
+      "error": "unexpected indent (<unknown>, line 91)",
+      "severity": "medium"
+    },
+    {
+      "file": "COMPLETE_SYSTEM_BACKUP_20250725_185838\\utility_scripts\\test_hr_window.py",
+      "line": 49,
+      "column": 12,
+      "error": "unexpected indent (<unknown>, line 49)",
+      "severity": "medium"
+    },
+    {
+      "file": "COMPLETE_SYSTEM_BACKUP_20250725_185838\\utility_scripts\\test_settings.py",
+      "line": 80,
+      "column": 8,
+      "error": "unexpected indent (<unknown>, line 80)",
+      "severity": "medium"
+    },
+    {
+      "file": "COMPLETE_SYSTEM_BACKUP_20250725_185838\\utility_scripts\\test_title_bar.py",
+      "line": 101,
+      "column": 8,
+      "error": "unexpected indent (<unknown>, line 101)",
+      "severity": "medium"
+    }
+  ],
+  "import_errors": [
+    {
+      "file": "main.py",
+      "error": "نمط استيراد مشكوك فيه: import\\s+\\w+\\s*\\n\\s*except",
+      "severity": "medium"
+    },
+    {
+      "file": "ui/main_window.py",
+      "error": "الملف غير موجود",
+      "severity": "critical"
+    },
+    {
+      "file": "database/hybrid_database_manager.py",
+      "error": "نمط استيراد مشكوك فيه: except ImportError:\\s*pass",
+      "severity": "medium"
+    },
+    {
+      "file": "database/hybrid_database_manager.py",
+      "error": "نمط استيراد مشكوك فيه: import\\s+\\w+\\s*\\n\\s*except",
+      "severity": "medium"
+    }
+  ],
+  "database_issues": [
+    {
+      "issue": "جداول مفقودة: ['invoices']",
+      "severity": "high"
+    }
+  ],
+  "ui_issues": [],
+  "performance_issues": [],
+  "security_issues": [],
+  "recommendations": [
+    "إصلاح الأخطاء النحوية فوراً",
+    "فحص وإصلاح قاعدة البيانات",
+    "مراجعة وتنظيم الاستيرادات",
+    "إجراء نسخة احتياطية قبل أي تعديلات",
+    "اختبار جميع الوحدات بعد الإصلاحات",
+    "تحديث التوثيق والتعليقات"
+  ],
+  "fixed_issues": [],
+  "test_results": {
+    "customtkinter": {
+      "status": "success",
+      "error": null
+    },
+    "tkinter": {
+      "status": "success",
+      "error": null
+    },
+    "sqlite3": {
+      "status": "success",
+      "error": null
+    },
+    "pathlib": {
+      "status": "success",
+      "error": null
+    },
+    "datetime": {
+      "status": "success",
+      "error": null
+    },
+    "json": {
+      "status": "success",
+      "error": null
+    },
+    "logging": {
+      "status": "success",
+      "error": null
+    },
+    "traceback": {
+      "status": "success",
+      "error": null
+    },
+    "main.py": {
+      "status": "success",
+      "error": null
+    },
+    "ui/main_window.py": {
+      "status": "missing",
+      "error": "الملف غير موجود"
+    },
+    "database/hybrid_database_manager.py": {
+      "status": "success",
+      "error": null
+    },
+    "services/sales_manager.py": {
+      "status": "success",
+      "error": null
+    },
+    "core/scheduler_manager.py": {
+      "status": "success",
+      "error": null
+    },
+    "themes/theme_manager.py": {
+      "status": "success",
+      "error": null
+    },
+    "auth/auth_manager.py": {
+      "status": "success",
+      "error": null
+    }
+  },
+  "overall_status": "needs_attention"
+}

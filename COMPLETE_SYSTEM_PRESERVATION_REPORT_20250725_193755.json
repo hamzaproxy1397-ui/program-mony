@@ -1,0 +1,276 @@
+{
+  "report_metadata": {
+    "title": "تقرير التحليل الشامل والحفظ الكامل - برنامج المحاسبة العربي",
+    "title_en": "Comprehensive Analysis and Complete Preservation Report - Arabic Accounting Software",
+    "generated_at": "2025-07-25T19:37:55.665593",
+    "system_path": "D:\\programs mole\\‏‏Accounting software2.py -",
+    "report_version": "1.0"
+  },
+  "executive_summary": {
+    "system_status": "✅ نظام مكتمل وعملي",
+    "total_files": 9784,
+    "system_size": "943.5 MB",
+    "backup_status": "ممتاز",
+    "critical_files_status": "✅ جميع الملفات الحرجة موجودة",
+    "preservation_urgency": "🔥 عالية - يتطلب نسخ احتياطي فوري"
+  },
+  "detailed_analysis": {
+    "timestamp": "2025-07-25T19:37:53.428185",
+    "system_overview": {
+      "total_files": 9784,
+      "total_directories": 975,
+      "total_size_mb": 943.5,
+      "file_types": {
+        ".py": 3382,
+        ".pyc": 3288,
+        "": 761,
+        ".pyi": 377,
+        ".backup_20250720_025538": 210,
+        ".png": 134,
+        ".txt": 110,
+        ".md": 98,
+        ".ttf": 98,
+        ".json": 66,
+        ".backup_20250720_020023": 64,
+        ".afm": 62,
+        ".f90": 60,
+        ".backup_20250720_021645": 60,
+        ".c": 59,
+        ".backup_20250720_024826": 56,
+        ".except_backup": 50,
+        ".pyd": 46,
+        ".backup_20250720_195919": 42,
+        ".backup_20250722_084404": 36,
+        ".backup_20250722_081808": 36,
+        ".exe": 34,
+        ".csv": 33,
+        ".backup_20250720_020022": 32,
+        ".backup_20250722_084403": 32,
+        ".ico": 30,
+        ".mplstyle": 30,
+        ".typed": 29,
+        ".h": 28,
+        ".backup_20250720_024825": 28,
+        ".bat": 26,
+        ".backup_20250720_195918": 26,
+        ".backup_20250720_021646": 26,
+        ".backup": 24,
+        ".jpg": 24,
+        ".f": 24,
+        ".lib": 22,
+        ".svg": 19,
+        ".xml": 18,
+        ".pfb": 18,
+        ".log": 17,
+        ".sample": 14,
+        ".backup_20250716_043331": 14,
+        ".backup_20250722_081809": 12,
+        ".pdf": 11,
+        ".backup_20250720_021853": 8,
+        ".pxd": 7,
+        ".pyf": 7,
+        ".npy": 6,
+        ".ini": 6,
+        ".zip": 6,
+        ".db": 6,
+        ".dll": 5,
+        ".gz": 5,
+        ".css": 5,
+        ".npz": 5,
+        ".pyx": 4,
+        ".rst": 3,
+        ".html": 3,
+        ".js": 3,
+        ".build": 3,
+        ".cfg": 2,
+        ".otf": 2,
+        ".dat": 2,
+        ".tmpl": 2,
+        ".backup_20250720_025539": 2,
+        ".backup_20250722_084405": 2,
+        ".sql": 2,
+        ".pyw": 1,
+        ".yml": 1,
+        ".tag": 1,
+        ".pth": 1,
+        ".whl": 1,
+        ".python": 1,
+        ".external": 1,
+        ".lua": 1,
+        ".xrc": 1,
+        ".inc": 1,
+        ".f95": 1,
+        ".template": 1,
+        ".pc": 1,
+        ".pkl": 1,
+        ".cpp": 1,
+        ".fits": 1,
+        ".apache": 1,
+        ".bsd": 1,
+        ".pem": 1,
+        ".sfd": 1,
+        ".ps1": 1,
+        ".1": 1
+      }
+    },
+    "file_inventory": {},
+    "critical_components": {
+      "core_application": [
+        "✅ main.py",
+        "✅ START_HERE.py"
+      ],
+      "user_interface": [
+        "✅ ui\\accounts_tree_window.py",
+        "✅ ui\\accounts_window.py",
+        "✅ ui\\add_items_window.py",
+        "✅ ui\\advanced_financial_reports_window.py",
+        "✅ ui\\advanced_sections.py",
+        "✅ ui\\advanced_sections_part2.py",
+        "✅ ui\\backup_restore.py",
+        "✅ ui\\categories_management_window.py",
+        "✅ ui\\central_control_panel.py",
+        "✅ ui\\comprehensive_income_window.py",
+        "... و 32 ملف آخر"
+      ],
+      "database_system": [
+        "✅ accounting.db",
+        "✅ accounts_manager.py",
+        "✅ accounts_manager.py.backup_20250716_043331",
+        "✅ accounts_tree_manager.py",
+        "✅ comprehensive_income_manager.py",
+        "✅ comprehensive_income_manager.py.except_backup",
+        "✅ create_tables.sql",
+        "✅ database_compatibility_report.md",
+        "✅ database_manager.py",
+        "✅ database_manager.py.backup_20250716_043331"
+      ],
+      "configuration": [
+        "✅ config\\arabic_fonts.py",
+        "✅ config\\control_panel_config.py",
+        "✅ config\\control_panel_settings.json",
+        "✅ config\\postgresql_config.py",
+        "✅ config\\postgresql_config.py.except_backup",
+        "✅ themes\\font_manager.py",
+        "✅ themes\\modern_theme.py",
+        "✅ themes\\theme_manager.py",
+        "✅ themes\\__init__.py",
+        "✅ themes\\__pycache__"
+      ],
+      "assets": [
+        "✅ 70 ملف أصول"
+      ],
+      "documentation": [
+        "✅ ADMIN_PANEL_ICON_INTEGRATION_GUIDE.md",
+        "✅ ADVANCED_CONTROL_PANEL_README.md",
+        "✅ ADVANCED_LIBRARIES_SUMMARY.md",
+        "✅ ARABIC_FONTS_SUMMARY.md",
+        "✅ CENTRAL_CONTROL_PANEL_README.md",
+        "✅ COMPREHENSIVE_SYSTEM_AUDIT_REPORT.md",
+        "✅ CONTROL_PANEL_TEST_REPORT.md",
+        "✅ database_check_report_20250716_043252.md",
+        "✅ data_integrity_report_20250716_045527.md",
+        "✅ data_quality_report_20250716_045319.md"
+      ]
+    },
+    "backup_analysis": {
+      "backup_directories": 11,
+      "backup_directory_names": [
+        "backup",
+        "backups",
+        "backup_critical_files",
+        "backup_deep",
+        "backup_final",
+        "backup_fixes",
+        "backup_precise",
+        "backup_systematic",
+        "backup_ultimate",
+        "backup_ultimate_advanced",
+        "COMPLETE_SYSTEM_BACKUP_20250725_185838"
+      ],
+      "total_backup_files": 2514,
+      "backup_size_mb": 261.56,
+      "backup_coverage": "ممتاز"
+    },
+    "dependency_map": {
+      "total_python_files": 3382,
+      "key_modules": [
+        "ui/main_window.py - النافذة الرئيسية",
+        "ui/login_window.py - نافذة تسجيل الدخول",
+        "database/hybrid_database_manager.py - مدير قاعدة البيانات",
+        "themes/modern_theme.py - الثيم الحديث",
+        "config/settings.py - إعدادات النظام"
+      ]
+    },
+    "preservation_plan": {
+      "priority_1_critical": [
+        "main.py - نقطة دخول النظام",
+        "START_HERE.py - نقطة البداية البديلة",
+        "ui/ - جميع ملفات واجهة المستخدم",
+        "database/ - جميع ملفات قاعدة البيانات",
+        "database/accounting.db - قاعدة البيانات الرئيسية"
+      ],
+      "priority_2_important": [
+        "config/ - ملفات التكوين",
+        "themes/ - ملفات الثيمات",
+        "assets/ - الأصول والصور",
+        "services/ - الخدمات والمنطق التجاري"
+      ],
+      "priority_3_useful": [
+        "docs/ - التوثيق",
+        "reports/ - ملفات التقارير",
+        "logs/ - ملفات السجلات",
+        "*.md - ملفات التوثيق"
+      ],
+      "priority_4_archival": [
+        "backup*/ - مجلدات النسخ الاحتياطية",
+        "*.backup - ملفات النسخ الاحتياطية",
+        "__pycache__/ - ملفات Python المؤقتة"
+      ],
+      "recommendations": [
+        "🔥 احفظ نسخة كاملة من مجلد ui/ فوراً",
+        "🔥 احفظ نسخة كاملة من مجلد database/ فوراً",
+        "🔥 احفظ ملف main.py و START_HERE.py",
+        "⚠️ احفظ مجلدات config/ و themes/ و assets/",
+        "📦 أرشف مجلدات النسخ الاحتياطية القديمة",
+        "🔧 أنشئ نسخة احتياطية يومية تلقائية",
+        "💾 احفظ النظام على أكثر من موقع",
+        "🔒 احم النسخ الاحتياطية بكلمة مرور"
+      ]
+    }
+  },
+  "backup_strategy": {
+    "suggested_backup_name": "COMPLETE_ACCOUNTING_SYSTEM_BACKUP_20250725_193755",
+    "structure": {
+      "CRITICAL/": [
+        "main.py",
+        "START_HERE.py",
+        "ui/ (complete directory)",
+        "database/ (complete directory)"
+      ],
+      "IMPORTANT/": [
+        "config/ (complete directory)",
+        "themes/ (complete directory)",
+        "assets/ (complete directory)",
+        "services/ (complete directory)"
+      ],
+      "DOCUMENTATION/": [
+        "All .md files",
+        "All .txt files",
+        "docs/ (if exists)",
+        "README files"
+      ],
+      "UTILITIES/": [
+        "All *_fixer.py files",
+        "All *_checker.py files",
+        "All test_*.py files"
+      ]
+    }
+  },
+  "immediate_actions": [
+    "1. إنشاء نسخة احتياطية كاملة فوراً",
+    "2. حفظ النسخة في مواقع متعددة",
+    "3. اختبار النسخة الاحتياطية",
+    "4. إعداد نظام نسخ احتياطي تلقائي",
+    "5. توثيق عملية الاستعادة"
+  ]
+}

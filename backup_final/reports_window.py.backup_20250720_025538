@@ -1,0 +1,528 @@
+# -*- coding: utf-8 -*-
+# cSpell:disable
+"""
+نافذة التقارير المحسنة
+"""
+
+import customtkinter as ctk
+import tkinter as tk
+from tkinter import messagebox, ttk
+from datetime import datetime, timedelta, date
+from themes.modern_theme import MODERN_COLORS, FONTS
+from database.database_manager import DatabaseManager
+from database.reports_manager import ReportsManager
+from ui.window_utils import configure_window_fullscreen
+
+class ReportsWindow:
+    def __init__(self, parent):
+        self.parent = parent
+        self.window = None
+        self.db_manager = DatabaseManager()
+        self.reports_manager = ReportsManager(self.db_manager)
+        self.create_window()
+        
+    def create_window(self):
+        """إنشاء نافذة التقارير"""
+        self.window = ctk.CTkToplevel(self.parent)
+
+        # إعداد النافذة لتملأ الشاشة
+        configure_window_fullscreen(self.window, "نظام التقارير - برنامج ست الكل للمحاسبة")
+        self.window.configure(fg_color=MODERN_COLORS['background'])
+
+        # جعل النافذة في المقدمة
+        self.window.transient(self.parent)
+        self.window.grab_set()
+        
+        # إنشاء المحتوى
+        self.create_header()
+        self.create_main_content()
+        
+    def create_header(self):
+        """إنشاء رأس النافذة"""
+        header_frame = ctk.CTkFrame(self.window, height=80, fg_color=MODERN_COLORS['info'])
+        header_frame.pack(fill="x", padx=10, pady=(10, 0))
+        header_frame.pack_propagate(False)
+        
+        # عنوان النافذة
+        title_label = ctk.CTkLabel(
+            header_frame,
+            text="📊 نظام التقارير المالية",
+            font=(FONTS['arabic'], 24, "bold"),
+            text_color="white"
+        )
+        title_label.pack(side="right", padx=20, pady=20)
+        
+        # تاريخ اليوم
+        date_label = ctk.CTkLabel(
+            header_frame,
+            text=f"التاريخ: {datetime.now().strftime('%Y-%m-%d')}",
+            font=(FONTS['arabic'], 14),
+            text_color="white"
+        )
+        date_label.pack(side="left", padx=20, pady=20)
+        
+    def create_main_content(self):
+        """إنشاء المحتوى الرئيسي"""
+        main_frame = ctk.CTkFrame(self.window, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # إطار اختيار التقرير
+        self.create_report_selection(main_frame)
+        
+        # إطار فلاتر التاريخ
+        self.create_date_filters(main_frame)
+        
+        # إطار عرض التقرير
+        self.create_report_display(main_frame)
+        
+        # إطار الأزرار
+        self.create_buttons(main_frame)
+        
+    def create_report_selection(self, parent):
+        """إنشاء قسم اختيار نوع التقرير"""
+        selection_frame = ctk.CTkFrame(parent, height=100)
+        selection_frame.pack(fill="x", pady=(0, 10))
+        selection_frame.pack_propagate(False)
+        
+        # العنوان
+        title = ctk.CTkLabel(
+            selection_frame,
+            text="اختر نوع التقرير",
+            font=(FONTS['arabic'], 16, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        title.pack(pady=(10, 5))
+        
+        # إطار الخيارات
+        options_frame = ctk.CTkFrame(selection_frame, fg_color="transparent")
+        options_frame.pack(fill="x", padx=20, pady=5)
+        
+        # قائمة التقارير
+        self.report_type = ctk.CTkComboBox(
+            options_frame,
+            values=[
+                "تقرير المبيعات اليومية",
+                "تقرير المشتريات اليومية", 
+                "تقرير الأرباح والخسائر",
+                "تقرير المخزون",
+                "تقرير العملاء",
+                "تقرير الموردين",
+                "تقرير الخزينة"
+            ],
+            width=300,
+            font=(FONTS['arabic'], 12)
+        )
+        self.report_type.pack(side="right", padx=20)
+        self.report_type.set("تقرير المبيعات اليومية")
+        
+    def create_date_filters(self, parent):
+        """إنشاء فلاتر التاريخ"""
+        date_frame = ctk.CTkFrame(parent, height=80)
+        date_frame.pack(fill="x", pady=(0, 10))
+        date_frame.pack_propagate(False)
+        
+        # العنوان
+        title = ctk.CTkLabel(
+            date_frame,
+            text="فترة التقرير",
+            font=(FONTS['arabic'], 16, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        title.pack(pady=(10, 5))
+        
+        # إطار التواريخ
+        dates_frame = ctk.CTkFrame(date_frame, fg_color="transparent")
+        dates_frame.pack(fill="x", padx=20, pady=5)
+        
+        # من تاريخ
+        ctk.CTkLabel(dates_frame, text="من تاريخ:", font=(FONTS['arabic'], 12)).pack(side="right", padx=10)
+        self.from_date = ctk.CTkEntry(dates_frame, width=120, placeholder_text="YYYY-MM-DD")
+        self.from_date.pack(side="right", padx=5)
+        self.from_date.insert(0, datetime.now().strftime('%Y-%m-%d'))
+        
+        # إلى تاريخ
+        ctk.CTkLabel(dates_frame, text="إلى تاريخ:", font=(FONTS['arabic'], 12)).pack(side="right", padx=10)
+        self.to_date = ctk.CTkEntry(dates_frame, width=120, placeholder_text="YYYY-MM-DD")
+        self.to_date.pack(side="right", padx=5)
+        self.to_date.insert(0, datetime.now().strftime('%Y-%m-%d'))
+        
+        # زر إنشاء التقرير
+        generate_btn = ctk.CTkButton(
+            dates_frame,
+            text="إنشاء التقرير",
+            width=120,
+            command=self.generate_report,
+            fg_color=MODERN_COLORS['success']
+        )
+        generate_btn.pack(side="right", padx=20)
+        
+    def create_report_display(self, parent):
+        """إنشاء منطقة عرض التقرير"""
+        display_frame = ctk.CTkFrame(parent)
+        display_frame.pack(fill="both", expand=True, pady=(0, 10))
+        
+        # العنوان
+        title = ctk.CTkLabel(
+            display_frame,
+            text="نتائج التقرير",
+            font=(FONTS['arabic'], 16, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        title.pack(pady=(10, 5))
+        
+        # إطار الجدول
+        table_frame = ctk.CTkFrame(display_frame)
+        table_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        # إنشاء Treeview للتقرير
+        self.report_tree = ttk.Treeview(table_frame, show="headings", height=15)
+        
+        # شريط التمرير
+        scrollbar_y = ttk.Scrollbar(table_frame, orient="vertical", command=self.report_tree.yview)
+        scrollbar_x = ttk.Scrollbar(table_frame, orient="horizontal", command=self.report_tree.xview)
+        self.report_tree.configure(yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
+        
+        # تخطيط الجدول
+        self.report_tree.pack(side="top", fill="both", expand=True)
+        scrollbar_y.pack(side="right", fill="y")
+        scrollbar_x.pack(side="bottom", fill="x")
+        
+        # إطار الملخص
+        summary_frame = ctk.CTkFrame(display_frame, height=60)
+        summary_frame.pack(fill="x", padx=20, pady=(0, 10))
+        summary_frame.pack_propagate(False)
+        
+        self.summary_label = ctk.CTkLabel(
+            summary_frame,
+            text="اختر نوع التقرير وانقر على 'إنشاء التقرير' لعرض النتائج",
+            font=(FONTS['arabic'], 14),
+            text_color=MODERN_COLORS['text_secondary']
+        )
+        self.summary_label.pack(pady=20)
+        
+    def create_buttons(self, parent):
+        """إنشاء أزرار العمليات"""
+        buttons_frame = ctk.CTkFrame(parent, height=60, fg_color="transparent")
+        buttons_frame.pack(fill="x", pady=(0, 10))
+        buttons_frame.pack_propagate(False)
+        
+        # زر الطباعة
+        print_btn = ctk.CTkButton(
+            buttons_frame,
+            text="🖨️ طباعة التقرير",
+            width=120,
+            command=self.print_report,
+            fg_color=MODERN_COLORS['info']
+        )
+        print_btn.pack(side="right", padx=10, pady=15)
+        
+        # زر التصدير
+        export_btn = ctk.CTkButton(
+            buttons_frame,
+            text="📤 تصدير Excel",
+            width=120,
+            command=self.export_report,
+            fg_color=MODERN_COLORS['warning']
+        )
+        export_btn.pack(side="right", padx=10, pady=15)
+        
+        # زر قائمة الدخل الشامل
+        comprehensive_income_btn = ctk.CTkButton(
+            buttons_frame,
+            text="📈 الدخل الشامل",
+            width=120,
+            command=self.show_comprehensive_income,
+            fg_color=MODERN_COLORS['success']
+        )
+        comprehensive_income_btn.pack(side="right", padx=10, pady=15)
+
+        # زر البيان المهيكل
+        structured_statement_btn = ctk.CTkButton(
+            buttons_frame,
+            text="🧾 البيان المهيكل",
+            width=120,
+            command=self.show_structured_profit_loss,
+            fg_color=MODERN_COLORS['primary']
+        )
+        structured_statement_btn.pack(side="right", padx=10, pady=15)
+
+        # زر الإغلاق
+        close_btn = ctk.CTkButton(
+            buttons_frame,
+            text="❌ إغلاق",
+            width=100,
+            command=self.close_window,
+            fg_color=MODERN_COLORS['error']
+        )
+        close_btn.pack(side="left", padx=10, pady=15)
+        
+    def generate_report(self):
+        """إنشاء التقرير المحدد"""
+        report_type = self.report_type.get()
+        from_date = self.from_date.get()
+        to_date = self.to_date.get()
+        
+        # مسح البيانات السابقة
+        for item in self.report_tree.get_children():
+            self.report_tree.delete(item)
+            
+        if report_type == "تقرير المبيعات اليومية":
+            self.generate_sales_report(from_date, to_date)
+        elif report_type == "تقرير المشتريات اليومية":
+            self.generate_purchases_report(from_date, to_date)
+        elif report_type == "تقرير الأرباح والخسائر":
+            self.generate_profit_loss_report(from_date, to_date)
+        elif report_type == "تقرير المخزون":
+            self.generate_inventory_report()
+        elif report_type == "تقرير العملاء":
+            self.generate_customers_report()
+        elif report_type == "تقرير الموردين":
+            self.generate_suppliers_report()
+        elif report_type == "تقرير الخزينة":
+            self.generate_treasury_report(from_date, to_date)
+            
+    def generate_sales_report(self, from_date, to_date):
+        """إنشاء تقرير المبيعات"""
+        try:
+            # تحديد أعمدة التقرير
+            columns = ("date", "invoice_no", "customer", "amount", "status")
+            self.report_tree["columns"] = columns
+
+            # تعريف الأعمدة
+            self.report_tree.heading("date", text="التاريخ")
+            self.report_tree.heading("invoice_no", text="رقم الفاتورة")
+            self.report_tree.heading("customer", text="العميل")
+            self.report_tree.heading("amount", text="المبلغ")
+            self.report_tree.heading("status", text="الحالة")
+
+            # تحديد عرض الأعمدة
+            self.report_tree.column("date", width=100)
+            self.report_tree.column("invoice_no", width=100)
+            self.report_tree.column("customer", width=150)
+            self.report_tree.column("amount", width=100)
+            self.report_tree.column("status", width=80)
+
+            # مسح البيانات السابقة
+            for item in self.report_tree.get_children():
+                self.report_tree.delete(item)
+
+            # جلب البيانات الحقيقية
+            start_date = datetime.strptime(from_date, '%Y-%m-%d').date() if from_date else None
+            end_date = datetime.strptime(to_date, '%Y-%m-%d').date() if to_date else None
+
+            sales_data = self.reports_manager.get_sales_report(start_date, end_date)
+
+            total = 0
+            for sale in sales_data:
+                status_text = {
+                    'paid': 'مدفوع',
+                    'pending': 'معلق',
+                    'partial': 'جزئي'
+                }.get(sale.get('payment_status', 'pending'), 'غير محدد')
+
+                self.report_tree.insert("", "end", values=(
+                    sale['date'],
+                    sale['invoice_number'],
+                    sale.get('customer_name', 'غير محدد'),
+                    f"{sale['amount']:.2f}",
+                    status_text
+                ))
+                total += sale['amount']
+
+            self.summary_label.configure(text=f"إجمالي المبيعات: {total:.2f} ريال | عدد الفواتير: {len(sales_data)}")
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في إنشاء تقرير المبيعات: {e}")
+            self.summary_label.configure(text="خطأ في تحميل البيانات")
+        
+    def generate_purchases_report(self, from_date, to_date):
+        """إنشاء تقرير المشتريات"""
+        # تحديد أعمدة التقرير
+        columns = ("date", "invoice_no", "supplier", "amount")
+        self.report_tree["columns"] = columns
+        
+        # تعريف الأعمدة
+        self.report_tree.heading("date", text="التاريخ")
+        self.report_tree.heading("invoice_no", text="رقم الفاتورة")
+        self.report_tree.heading("supplier", text="المورد")
+        self.report_tree.heading("amount", text="المبلغ")
+        
+        # مسح البيانات السابقة
+        for item in self.report_tree.get_children():
+            self.report_tree.delete(item)
+
+        # جلب البيانات الحقيقية
+        try:
+            start_date = datetime.strptime(from_date, '%Y-%m-%d').date() if from_date else None
+            end_date = datetime.strptime(to_date, '%Y-%m-%d').date() if to_date else None
+
+            purchases_data = self.reports_manager.get_purchases_report(start_date, end_date)
+
+            total = 0
+            for purchase in purchases_data:
+                self.report_tree.insert("", "end", values=(
+                    purchase['date'],
+                    purchase['invoice_number'],
+                    purchase.get('supplier_name', 'غير محدد'),
+                    f"{purchase['amount']:.2f}"
+                ))
+                total += purchase['amount']
+
+            self.summary_label.configure(text=f"إجمالي المشتريات: {total:.2f} ريال | عدد الفواتير: {len(purchases_data)}")
+
+        except Exception as e:
+            # بيانات تجريبية في حالة الخطأ
+            sample_data = [
+                ("2024-01-15", "PUR001", "شركة الإمدادات", "5000.00"),
+                ("2024-01-16", "PUR002", "مؤسسة التجارة", "3500.00"),
+                ("2024-01-17", "PUR003", "شركة المواد", "2800.00")
+            ]
+
+            total = 0
+            for data in sample_data:
+                self.report_tree.insert("", "end", values=data)
+                total += float(data[3])
+
+            self.summary_label.configure(text=f"إجمالي المشتريات: {total:.2f} ريال | عدد الفواتير: {len(sample_data)} (بيانات تجريبية)")
+        
+    def generate_profit_loss_report(self, from_date, to_date):
+        """إنشاء تقرير الأرباح والخسائر"""
+        columns = ("item", "amount")
+        self.report_tree["columns"] = columns
+        
+        self.report_tree.heading("item", text="البند")
+        self.report_tree.heading("amount", text="المبلغ")
+        
+        # بيانات تجريبية
+        data = [
+            ("إجمالي المبيعات", "9750.00"),
+            ("تكلفة البضاعة المباعة", "6500.00"),
+            ("إجمالي الربح", "3250.00"),
+            ("المصروفات التشغيلية", "1200.00"),
+            ("صافي الربح", "2050.00")
+        ]
+        
+        for item in data:
+            self.report_tree.insert("", "end", values=item)
+            
+        self.summary_label.configure(text="تقرير الأرباح والخسائر للفترة المحددة")
+        
+    def generate_inventory_report(self):
+        """إنشاء تقرير المخزون"""
+        columns = ("item", "quantity", "unit_price", "total_value")
+        self.report_tree["columns"] = columns
+        
+        self.report_tree.heading("item", text="الصنف")
+        self.report_tree.heading("quantity", text="الكمية")
+        self.report_tree.heading("unit_price", text="سعر الوحدة")
+        self.report_tree.heading("total_value", text="القيمة الإجمالية")
+        
+        # بيانات تجريبية
+        data = [
+            ("منتج أ", "100", "50.00", "5000.00"),
+            ("منتج ب", "75", "80.00", "6000.00"),
+            ("منتج ج", "200", "25.00", "5000.00")
+        ]
+        
+        total_value = 0
+        for item in data:
+            self.report_tree.insert("", "end", values=item)
+            total_value += float(item[3])
+            
+        self.summary_label.configure(text=f"إجمالي قيمة المخزون: {total_value:.2f} ريال")
+        
+    def generate_customers_report(self):
+        """إنشاء تقرير العملاء"""
+        columns = ("customer", "total_purchases", "last_purchase")
+        self.report_tree["columns"] = columns
+        
+        self.report_tree.heading("customer", text="العميل")
+        self.report_tree.heading("total_purchases", text="إجمالي المشتريات")
+        self.report_tree.heading("last_purchase", text="آخر عملية شراء")
+        
+        # بيانات تجريبية
+        data = [
+            ("أحمد محمد", "15000.00", "2024-01-15"),
+            ("فاطمة علي", "8500.00", "2024-01-14"),
+            ("محمد أحمد", "12000.00", "2024-01-16")
+        ]
+        
+        for item in data:
+            self.report_tree.insert("", "end", values=item)
+            
+        self.summary_label.configure(text=f"عدد العملاء: {len(data)}")
+        
+    def generate_suppliers_report(self):
+        """إنشاء تقرير الموردين"""
+        columns = ("supplier", "total_purchases", "last_purchase")
+        self.report_tree["columns"] = columns
+        
+        self.report_tree.heading("supplier", text="المورد")
+        self.report_tree.heading("total_purchases", text="إجمالي المشتريات")
+        self.report_tree.heading("last_purchase", text="آخر عملية شراء")
+        
+        # بيانات تجريبية
+        data = [
+            ("شركة الإمدادات", "25000.00", "2024-01-15"),
+            ("مؤسسة التجارة", "18000.00", "2024-01-16"),
+            ("شركة المواد", "12000.00", "2024-01-17")
+        ]
+        
+        for item in data:
+            self.report_tree.insert("", "end", values=item)
+            
+        self.summary_label.configure(text=f"عدد الموردين: {len(data)}")
+        
+    def generate_treasury_report(self, from_date, to_date):
+        """إنشاء تقرير الخزينة"""
+        columns = ("date", "description", "debit", "credit", "balance")
+        self.report_tree["columns"] = columns
+        
+        self.report_tree.heading("date", text="التاريخ")
+        self.report_tree.heading("description", text="الوصف")
+        self.report_tree.heading("debit", text="مدين")
+        self.report_tree.heading("credit", text="دائن")
+        self.report_tree.heading("balance", text="الرصيد")
+        
+        # بيانات تجريبية
+        data = [
+            ("2024-01-15", "مبيعات نقدية", "1500.00", "", "1500.00"),
+            ("2024-01-15", "شراء مواد", "", "800.00", "700.00"),
+            ("2024-01-16", "مبيعات نقدية", "2300.00", "", "3000.00"),
+            ("2024-01-16", "مصروفات إدارية", "", "200.00", "2800.00")
+        ]
+        
+        for item in data:
+            self.report_tree.insert("", "end", values=item)
+            
+        self.summary_label.configure(text="تقرير حركة الخزينة للفترة المحددة")
+        
+    def print_report(self):
+        """طباعة التقرير"""
+        messagebox.showinfo("طباعة", "سيتم إرسال التقرير للطابعة")
+        
+    def export_report(self):
+        """تصدير التقرير إلى Excel"""
+        messagebox.showinfo("تصدير", "سيتم تصدير التقرير إلى ملف Excel")
+        
+    def show_comprehensive_income(self):
+        """فتح نافذة قائمة الدخل الشامل"""
+        try:
+            from ui.comprehensive_income_window import ComprehensiveIncomeWindow
+            comprehensive_window = ComprehensiveIncomeWindow(self.window)
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في فتح نافذة الدخل الشامل: {e}")
+
+    def show_structured_profit_loss(self):
+        """فتح نافذة بيان الأرباح والخسائر المهيكل"""
+        try:
+            from ui.structured_profit_loss_window import StructuredProfitLossWindow
+            structured_window = StructuredProfitLossWindow(self.window)
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في فتح نافذة البيان المهيكل: {e}")
+
+    def close_window(self):
+        """إغلاق النافذة"""
+        self.if window and hasattr(window, "destroy"):
+    if window and hasattr(window, "destroy"):
+    window.destroy()

@@ -1,0 +1,838 @@
+# -*- coding: utf-8 -*-
+"""
+نافذة إدارة المخازن الاحترافية المتكاملة
+Professional Warehouse Management Window
+"""
+
+import customtkinter as ctk
+import tkinter as tk
+from tkinter import messagebox, ttk
+from database.warehouse_manager import WarehouseManager
+from database.database_manager import DatabaseManager
+try:
+    from themes.modern_theme import MODERN_COLORS, FONTS
+except Exception as e:
+    print(f"خطأ: {e}")
+from ui.window_utils import configure_window_fullscreen
+except ImportError:
+    MODERN_COLORS = {
+        'primary': '#1f538d',
+        'background': '#f0f0f0',
+        'surface': '#ffffff',
+        'text_primary': '#000000',
+        'success': '#28a745',
+        'error': '#dc3545',
+        'warning': '#ffc107',
+        'info': '#17a2b8'
+    }
+    FONTS = {'arabic': 'Arial'}
+
+class WarehouseManagementWindow:
+    """نافذة إدارة المخازن الاحترافية مع دعم شامل للمواقع والصلاحيات"""
+    
+    def __init__(self, parent):
+        self.parent = parent
+        self.window = None
+        self.db_manager = DatabaseManager()
+        self.warehouse_manager = WarehouseManager(self.db_manager)
+        self.current_warehouse = None
+        
+        self.create_window()
+    
+    def create_window(self):
+        """إنشاء النافذة الرئيسية"""
+        self.window = ctk.CTkToplevel(self.parent)
+        
+        # إعداد النافذة لتملأ الشاشة
+        configure_window_fullscreen(self.window, "🏬 إدارة المخازن المتكاملة - برنامج ست الكل للمحاسبة")
+        self.window
+        self.window.configure(fg_color=MODERN_COLORS['background'])
+        
+        # جعل النافذة في المقدمة
+        self.window.transient(self.parent)
+        self.window.grab_set()
+        
+        # إنشاء المحتوى
+        self.create_header()
+        self.create_main_content()
+        self.create_buttons()
+        
+        # تحميل البيانات
+        self.load_warehouses()
+    
+    def create_header(self):
+        """إنشاء رأس النافذة"""
+        header_frame = ctk.CTkFrame(self.window, height=80, fg_color=MODERN_COLORS['primary'])
+        header_frame.pack(fill="x", padx=10, pady=(10, 0))
+        header_frame.pack_propagate(False)
+        
+        # العنوان
+        title_label = ctk.CTkLabel(
+            header_frame,
+            text="🏬 إدارة المخازن المتكاملة",
+            font=(FONTS['arabic'], 24, "bold"),
+            text_color="white"
+        )
+        title_label.pack(side="right", padx=20, pady=20)
+        
+        # معلومات سريعة
+        info_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        info_frame.pack(side="left", padx=20, pady=15)
+        
+        self.stats_label = ctk.CTkLabel(
+            info_frame,
+            text="إجمالي المخازن: 0",
+            font=(FONTS['arabic'], 12),
+            text_color="white"
+        )
+        self.stats_label.pack()
+        
+        self.status_label = ctk.CTkLabel(
+            info_frame,
+            text="الحالة: جاهز",
+            font=(FONTS['arabic'], 12),
+            text_color="white"
+        )
+        self.status_label.pack()
+    
+    def create_main_content(self):
+        """إنشاء المحتوى الرئيسي"""
+        main_frame = ctk.CTkFrame(self.window)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # إنشاء Notebook للتبويبات
+        self.notebook = ttk.Notebook(main_frame)
+        self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # تبويب قائمة المخازن
+        self.warehouses_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.warehouses_frame, text="قائمة المخازن")
+        
+        # تبويب إضافة/تعديل مخزن
+        self.form_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.form_frame, text="إضافة/تعديل مخزن")
+        
+        # تبويب الإحصائيات
+        self.statistics_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.statistics_frame, text="الإحصائيات")
+        
+        # إنشاء محتوى التبويبات
+        self.create_warehouses_tab()
+        self.create_form_tab()
+        self.create_statistics_tab()
+    
+    def create_warehouses_tab(self):
+        """إنشاء تبويب قائمة المخازن"""
+        # إطار البحث والفلترة
+        search_frame = ctk.CTkFrame(self.warehouses_frame)
+        search_frame.pack(fill="x", padx=10, pady=10)
+        
+        # حقل البحث
+        ctk.CTkLabel(search_frame, text="البحث:", font=(FONTS['arabic'], 12)).pack(side="right", padx=5, pady=10)
+        self.search_entry = ctk.CTkEntry(search_frame, width=200, placeholder_text="ابحث عن مخزن...")
+        self.search_entry.pack(side="right", padx=5, pady=10)
+        self.search_entry.bind("<KeyRelease>", self.on_search)
+        
+        # فلتر الحالة
+        ctk.CTkLabel(search_frame, text="الحالة:", font=(FONTS['arabic'], 12)).pack(side="right", padx=5, pady=10)
+        self.status_filter = ctk.CTkComboBox(
+            search_frame,
+            values=["الكل", "نشط", "غير نشط"],
+            width=100,
+            command=self.on_filter_change
+        )
+        self.status_filter.pack(side="right", padx=5, pady=10)
+        self.status_filter.set("نشط")
+        
+        # أزرار العمليات
+        operations_frame = ctk.CTkFrame(search_frame, fg_color="transparent")
+        operations_frame.pack(side="left", padx=10, pady=5)
+        
+        ctk.CTkButton(operations_frame, text="➕ إضافة مخزن", command=self.add_warehouse, width=100).pack(side="left", padx=2)
+        ctk.CTkButton(operations_frame, text="✏️ تعديل", command=self.edit_warehouse, width=80).pack(side="left", padx=2)
+        ctk.CTkButton(operations_frame, text="🗑️ حذف", command=self.delete_warehouse, width=80, fg_color=MODERN_COLORS['error']).pack(side="left", padx=2)
+        ctk.CTkButton(operations_frame, text="🔄 تحديث", command=self.load_warehouses, width=80).pack(side="left", padx=2)
+        
+        # جدول المخازن
+        table_frame = ctk.CTkFrame(self.warehouses_frame)
+        table_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        
+        # إنشاء Treeview
+        columns = ("code", "name", "location", "manager", "capacity", "occupancy", "status", "default")
+        self.warehouses_tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=15)
+        
+        # تعريف الأعمدة
+        self.warehouses_tree.heading("code", text="رمز المخزن")
+        self.warehouses_tree.heading("name", text="اسم المخزن")
+        self.warehouses_tree.heading("location", text="الموقع")
+        self.warehouses_tree.heading("manager", text="المسؤول")
+        self.warehouses_tree.heading("capacity", text="السعة القصوى")
+        self.warehouses_tree.heading("occupancy", text="نسبة الإشغال")
+        self.warehouses_tree.heading("status", text="الحالة")
+        self.warehouses_tree.heading("default", text="افتراضي")
+        
+        # تحديد عرض الأعمدة
+        self.warehouses_tree.column("code", width=100)
+        self.warehouses_tree.column("name", width=200)
+        self.warehouses_tree.column("location", width=150)
+        self.warehouses_tree.column("manager", width=120)
+        self.warehouses_tree.column("capacity", width=100)
+        self.warehouses_tree.column("occupancy", width=100)
+        self.warehouses_tree.column("status", width=80)
+        self.warehouses_tree.column("default", width=80)
+        
+        # شريط التمرير
+        warehouses_scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.warehouses_tree.yview)
+        self.warehouses_tree.configure(yscrollcommand=warehouses_scrollbar.set)
+        
+        # تخطيط الجدول
+        self.warehouses_tree.pack(side="right", fill="both", expand=True)
+        warehouses_scrollbar.pack(side="left", fill="y")
+        
+        # ربط الأحداث
+        self.warehouses_tree.bind("<Double-1>", self.on_warehouse_double_click)
+        self.warehouses_tree.bind("<Button-3>", self.show_context_menu)
+    
+    def create_form_tab(self):
+        """إنشاء تبويب النموذج"""
+        # إطار النموذج الرئيسي
+        form_container = ctk.CTkScrollableFrame(self.form_frame)
+        form_container.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # عنوان النموذج
+        self.form_title = ctk.CTkLabel(
+            form_container,
+            text="➕ إضافة مخزن جديد",
+            font=(FONTS['arabic'], 18, "bold")
+        )
+        self.form_title.pack(pady=(0, 20))
+        
+        # إطار البيانات الأساسية
+        basic_frame = ctk.CTkFrame(form_container)
+        basic_frame.pack(fill="x", pady=10)
+        
+        ctk.CTkLabel(basic_frame, text="البيانات الأساسية", font=(FONTS['arabic'], 14, "bold")).pack(pady=(10, 5))
+        
+        # الصف الأول
+        row1_frame = ctk.CTkFrame(basic_frame, fg_color="transparent")
+        row1_frame.pack(fill="x", padx=10, pady=5)
+        
+        # رمز المخزن
+        ctk.CTkLabel(row1_frame, text="رمز المخزن:", font=(FONTS['arabic'], 12)).grid(row=0, column=0, padx=5, pady=5, sticky="e")
+        self.code_entry = ctk.CTkEntry(row1_frame, width=150)
+        self.code_entry.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+        
+        ctk.CTkButton(row1_frame, text="توليد تلقائي", command=self.generate_code, width=100).grid(row=0, column=2, padx=5, pady=5)
+        
+        # اسم المخزن بالعربية
+        ctk.CTkLabel(row1_frame, text="اسم المخزن (عربي):", font=(FONTS['arabic'], 12)).grid(row=0, column=3, padx=5, pady=5, sticky="e")
+        self.name_ar_entry = ctk.CTkEntry(row1_frame, width=200)
+        self.name_ar_entry.grid(row=0, column=4, padx=5, pady=5, sticky="w")
+        
+        # الصف الثاني
+        row2_frame = ctk.CTkFrame(basic_frame, fg_color="transparent")
+        row2_frame.pack(fill="x", padx=10, pady=5)
+        
+        # اسم المخزن بالإنجليزية
+        ctk.CTkLabel(row2_frame, text="اسم المخزن (إنجليزي):", font=(FONTS['arabic'], 12)).grid(row=0, column=0, padx=5, pady=5, sticky="e")
+        self.name_en_entry = ctk.CTkEntry(row2_frame, width=200)
+        self.name_en_entry.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+        
+        # العنوان
+        ctk.CTkLabel(row2_frame, text="العنوان:", font=(FONTS['arabic'], 12)).grid(row=0, column=2, padx=5, pady=5, sticky="e")
+        self.address_entry = ctk.CTkEntry(row2_frame, width=250)
+        self.address_entry.grid(row=0, column=3, padx=5, pady=5, sticky="w")
+        
+        # إطار المسؤول
+        manager_frame = ctk.CTkFrame(form_container)
+        manager_frame.pack(fill="x", pady=10)
+        
+        ctk.CTkLabel(manager_frame, text="بيانات المسؤول", font=(FONTS['arabic'], 14, "bold")).pack(pady=(10, 5))
+        
+        # صف المسؤول
+        manager_row_frame = ctk.CTkFrame(manager_frame, fg_color="transparent")
+        manager_row_frame.pack(fill="x", padx=10, pady=5)
+        
+        # اسم المسؤول
+        ctk.CTkLabel(manager_row_frame, text="اسم المسؤول:", font=(FONTS['arabic'], 12)).grid(row=0, column=0, padx=5, pady=5, sticky="e")
+        self.manager_name_entry = ctk.CTkEntry(manager_row_frame, width=200)
+        self.manager_name_entry.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+        
+        # رقم الهاتف
+        ctk.CTkLabel(manager_row_frame, text="رقم الهاتف:", font=(FONTS['arabic'], 12)).grid(row=0, column=2, padx=5, pady=5, sticky="e")
+        self.manager_phone_entry = ctk.CTkEntry(manager_row_frame, width=150)
+        self.manager_phone_entry.grid(row=0, column=3, padx=5, pady=5, sticky="w")
+        
+        # إطار الإعدادات
+        settings_frame = ctk.CTkFrame(form_container)
+        settings_frame.pack(fill="x", pady=10)
+        
+        ctk.CTkLabel(settings_frame, text="الإعدادات والسعة", font=(FONTS['arabic'], 14, "bold")).pack(pady=(10, 5))
+        
+        # صف الإعدادات
+        settings_row_frame = ctk.CTkFrame(settings_frame, fg_color="transparent")
+        settings_row_frame.pack(fill="x", padx=10, pady=5)
+        
+        # السعة القصوى
+        ctk.CTkLabel(settings_row_frame, text="السعة القصوى:", font=(FONTS['arabic'], 12)).grid(row=0, column=0, padx=5, pady=5, sticky="e")
+        self.max_capacity_entry = ctk.CTkEntry(settings_row_frame, width=120)
+        self.max_capacity_entry.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+        
+        # الخيارات
+        options_frame = ctk.CTkFrame(settings_frame, fg_color="transparent")
+        options_frame.pack(fill="x", padx=10, pady=10)
+        
+        # المخزن الافتراضي
+        self.is_default_var = ctk.BooleanVar()
+        self.is_default_checkbox = ctk.CTkCheckBox(
+            options_frame,
+            text="مخزن افتراضي",
+            variable=self.is_default_var,
+            font=(FONTS['arabic'], 12)
+        )
+        self.is_default_checkbox.pack(side="right", padx=10)
+        
+        # مخزن نشط
+        self.is_active_var = ctk.BooleanVar(value=True)
+        self.is_active_checkbox = ctk.CTkCheckBox(
+            options_frame,
+            text="مخزن نشط",
+            variable=self.is_active_var,
+            font=(FONTS['arabic'], 12)
+        )
+        self.is_active_checkbox.pack(side="right", padx=10)
+        
+        # يدعم المرتجعات
+        self.supports_returns_var = ctk.BooleanVar(value=True)
+        self.supports_returns_checkbox = ctk.CTkCheckBox(
+            options_frame,
+            text="يدعم المرتجعات",
+            variable=self.supports_returns_var,
+            font=(FONTS['arabic'], 12)
+        )
+        self.supports_returns_checkbox.pack(side="right", padx=10)
+        
+        # مخزن إنتاجي
+        self.supports_production_var = ctk.BooleanVar()
+        self.supports_production_checkbox = ctk.CTkCheckBox(
+            options_frame,
+            text="مخزن إنتاجي",
+            variable=self.supports_production_var,
+            font=(FONTS['arabic'], 12)
+        )
+        self.supports_production_checkbox.pack(side="right", padx=10)
+        
+        # إطار الموقع الجغرافي
+        location_frame = ctk.CTkFrame(form_container)
+        location_frame.pack(fill="x", pady=10)
+        
+        ctk.CTkLabel(location_frame, text="الموقع الجغرافي (GPS)", font=(FONTS['arabic'], 14, "bold")).pack(pady=(10, 5))
+        
+        # صف الإحداثيات
+        coords_frame = ctk.CTkFrame(location_frame, fg_color="transparent")
+        coords_frame.pack(fill="x", padx=10, pady=5)
+        
+        # دائرة العرض
+        ctk.CTkLabel(coords_frame, text="دائرة العرض:", font=(FONTS['arabic'], 12)).grid(row=0, column=0, padx=5, pady=5, sticky="e")
+        self.latitude_entry = ctk.CTkEntry(coords_frame, width=120, placeholder_text="24.7136")
+        self.latitude_entry.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+        
+        # خط الطول
+        ctk.CTkLabel(coords_frame, text="خط الطول:", font=(FONTS['arabic'], 12)).grid(row=0, column=2, padx=5, pady=5, sticky="e")
+        self.longitude_entry = ctk.CTkEntry(coords_frame, width=120, placeholder_text="46.6753")
+        self.longitude_entry.grid(row=0, column=3, padx=5, pady=5, sticky="w")
+        
+        # زر تحديد الموقع
+        ctk.CTkButton(coords_frame, text="📍 تحديد الموقع", command=self.select_location, width=120).grid(row=0, column=4, padx=5, pady=5)
+        
+        # إطار الملاحظات
+        notes_frame = ctk.CTkFrame(form_container)
+        notes_frame.pack(fill="x", pady=10)
+        
+        ctk.CTkLabel(notes_frame, text="الملاحظات", font=(FONTS['arabic'], 14, "bold")).pack(pady=(10, 5))
+        
+        self.notes_text = ctk.CTkTextbox(notes_frame, height=80)
+        self.notes_text.pack(fill="x", padx=10, pady=(0, 10))
+        
+        # أزرار النموذج
+        form_buttons_frame = ctk.CTkFrame(form_container, fg_color="transparent")
+        form_buttons_frame.pack(fill="x", pady=20)
+        
+        self.save_button = ctk.CTkButton(
+            form_buttons_frame,
+            text="💾 حفظ",
+            command=self.save_warehouse,
+            fg_color=MODERN_COLORS['success'],
+            width=120
+        )
+        self.save_button.pack(side="right", padx=10)
+        
+        ctk.CTkButton(
+            form_buttons_frame,
+            text="🔄 مسح النموذج",
+            command=self.clear_form,
+            fg_color=MODERN_COLORS['warning'],
+            width=120
+        ).pack(side="right", padx=10)
+        
+        ctk.CTkButton(
+            form_buttons_frame,
+            text="❌ إلغاء",
+            command=self.cancel_form,
+            fg_color=MODERN_COLORS['error'],
+            width=100
+        ).pack(side="left", padx=10)
+
+    def create_statistics_tab(self):
+        """إنشاء تبويب الإحصائيات"""
+        stats_container = ctk.CTkScrollableFrame(self.statistics_frame)
+        stats_container.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # عنوان الإحصائيات
+        ctk.CTkLabel(
+            stats_container,
+            text="📊 إحصائيات المخازن",
+            font=(FONTS['arabic'], 18, "bold")
+        ).pack(pady=(0, 20))
+
+        # إطار الإحصائيات العامة
+        self.general_stats_frame = ctk.CTkFrame(stats_container)
+        self.general_stats_frame.pack(fill="x", pady=10)
+
+        # إطار إحصائيات المخازن الفردية
+        self.individual_stats_frame = ctk.CTkFrame(stats_container)
+        self.individual_stats_frame.pack(fill="both", expand=True, pady=10)
+
+        # زر تحديث الإحصائيات
+        ctk.CTkButton(
+            stats_container,
+            text="🔄 تحديث الإحصائيات",
+            command=self.load_statistics,
+            fg_color=MODERN_COLORS['info'],
+            width=150
+        ).pack(pady=10)
+
+    def create_buttons(self):
+        """إنشاء أزرار النافذة"""
+        buttons_frame = ctk.CTkFrame(self.window, height=60, fg_color="transparent")
+        buttons_frame.pack(fill="x", padx=10, pady=(0, 10))
+        buttons_frame.pack_propagate(False)
+
+        # زر تصدير
+        export_btn = ctk.CTkButton(
+            buttons_frame,
+            text="📤 تصدير Excel",
+            command=self.export_warehouses,
+            fg_color=MODERN_COLORS['success'],
+            width=120
+        )
+        export_btn.pack(side="right", padx=5, pady=15)
+
+        # زر طباعة
+        print_btn = ctk.CTkButton(
+            buttons_frame,
+            text="🖨️ طباعة",
+            command=self.print_warehouses,
+            fg_color=MODERN_COLORS['info'],
+            width=100
+        )
+        print_btn.pack(side="right", padx=5, pady=15)
+
+        # زر إغلاق
+        close_btn = ctk.CTkButton(
+            buttons_frame,
+            text="❌ إغلاق",
+            command=self.close_window,
+            fg_color=MODERN_COLORS['error'],
+            width=100
+        )
+        close_btn.pack(side="left", padx=5, pady=15)
+
+        # زر مساعدة
+        help_btn = ctk.CTkButton(
+            buttons_frame,
+            text="❓ مساعدة",
+            command=self.show_help,
+            fg_color=MODERN_COLORS['warning'],
+            width=100
+        )
+        help_btn.pack(side="left", padx=5, pady=15)
+
+    def load_warehouses(self):
+        """تحميل قائمة المخازن"""
+        try:
+            # مسح الجدول
+            for item in self.warehouses_tree.get_children():
+                self.warehouses_tree.delete(item)
+
+            # تحديد الفلتر
+            status_filter = self.status_filter.get()
+            active_only = status_filter == "نشط"
+
+            if status_filter == "الكل":
+                warehouses = self.warehouse_manager.get_all_warehouses(active_only=False)
+            else:
+                warehouses = self.warehouse_manager.get_all_warehouses(active_only=active_only)
+
+            # تطبيق فلتر البحث
+            search_term = self.search_entry.get().lower()
+            if search_term:
+                warehouses = [w for w in warehouses if
+                            search_term in w['name_ar'].lower() or
+                            search_term in w['warehouse_code'].lower() or
+                            search_term in (w['location_address'] or '').lower()]
+
+            # إدراج البيانات
+            for warehouse in warehouses:
+                # تنسيق البيانات
+                occupancy = f"{warehouse.get('occupancy_rate', 0):.1f}%" if warehouse.get('max_capacity', 0) > 0 else "غير محدد"
+                status = "نشط" if warehouse['is_active'] else "غير نشط"
+                default = "نعم" if warehouse['is_default'] else "لا"
+                capacity = f"{warehouse.get('max_capacity', 0):,.0f}" if warehouse.get('max_capacity') else "غير محدد"
+
+                # إدراج الصف
+                item = self.warehouses_tree.insert("", "end", values=(
+                    warehouse['warehouse_code'],
+                    warehouse['name_ar'],
+                    warehouse.get('location_address', ''),
+                    warehouse.get('manager_name', ''),
+                    capacity,
+                    occupancy,
+                    status,
+                    default
+                ))
+
+                # تلوين الصفوف
+                if warehouse['is_default']:
+                    self.warehouses_tree.set(item, "default", "⭐ نعم")
+                if not warehouse['is_active']:
+                    self.warehouses_tree.item(item, tags=('inactive',))
+
+            # تطبيق الألوان
+            self.warehouses_tree.tag_configure('inactive', background='#ffebee')
+
+            # تحديث الإحصائيات
+            self.update_header_stats()
+
+        except Exception as e:
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في تحميل المخازن: {e}")
+
+    def update_header_stats(self):
+        """تحديث إحصائيات الرأس"""
+        try:
+            stats = self.warehouse_manager.get_warehouse_statistics()
+            total_warehouses = stats.get('total_warehouses', 0)
+            active_warehouses = stats.get('active_warehouses', 0)
+
+            self.stats_label.configure(
+                text=f"إجمالي المخازن: {total_warehouses} | النشطة: {active_warehouses}"
+            )
+
+        except Exception as e:
+        except Exception as e:
+            self.stats_label.configure(text="خطأ في جلب الإحصائيات")
+
+    def on_search(self, event=None):
+        """تنفيذ البحث"""
+        self.load_warehouses()
+
+    def on_filter_change(self, value=None):
+        """تغيير الفلتر"""
+        self.load_warehouses()
+
+    def add_warehouse(self):
+        """إضافة مخزن جديد"""
+        self.clear_form()
+        self.current_warehouse = None
+        self.form_title.configure(text="➕ إضافة مخزن جديد")
+        self.save_button.configure(text="💾 حفظ")
+        self.notebook.set(1)  # الانتقال لتبويب النموذج
+
+    def edit_warehouse(self):
+        """تعديل مخزن محدد"""
+        selected = self.warehouses_tree.selection()
+        if not selected:
+            messagebox.showwarning("تحذير", "يرجى اختيار مخزن للتعديل")
+            return
+
+        # جلب بيانات المخزن المحدد
+        item = selected[0]
+        warehouse_code = self.warehouses_tree.item(item)['values'][0]
+
+        warehouse = self.warehouse_manager.get_warehouse_by_code(warehouse_code)
+        if not warehouse:
+            messagebox.showerror("خطأ", "لم يتم العثور على المخزن")
+            return
+
+        # ملء النموذج
+        self.fill_form_with_warehouse(warehouse)
+        self.current_warehouse = warehouse
+        self.form_title.configure(text="✏️ تعديل مخزن")
+        self.save_button.configure(text="💾 تحديث")
+        self.notebook.set(1)  # الانتقال لتبويب النموذج
+
+    def delete_warehouse(self):
+        """حذف مخزن محدد"""
+        selected = self.warehouses_tree.selection()
+        if not selected:
+            messagebox.showwarning("تحذير", "يرجى اختيار مخزن للحذف")
+            return
+
+        # تأكيد الحذف
+        if not messagebox.askyesno("تأكيد الحذف", "هل أنت متأكد من حذف المخزن المحدد؟"):
+            return
+
+        try:
+            # جلب معرف المخزن
+            item = selected[0]
+            warehouse_code = self.warehouses_tree.item(item)['values'][0]
+            warehouse = self.warehouse_manager.get_warehouse_by_code(warehouse_code)
+
+            if warehouse:
+                result = self.warehouse_manager.delete_warehouse(warehouse['id'])
+                if result['success']:
+                    messagebox.showinfo("نجح", result['message'])
+                    self.load_warehouses()
+                else:
+                    messagebox.showerror("خطأ", result['message'])
+
+        except Exception as e:
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في حذف المخزن: {e}")
+
+    def save_warehouse(self):
+        """حفظ بيانات المخزن"""
+        try:
+            # جمع البيانات من النموذج
+            warehouse_data = {
+                'warehouse_code': self.code_entry.get().strip(),
+                'name_ar': self.name_ar_entry.get().strip(),
+                'name_en': self.name_en_entry.get().strip(),
+                'location_address': self.address_entry.get().strip(),
+                'manager_name': self.manager_name_entry.get().strip(),
+                'manager_phone': self.manager_phone_entry.get().strip(),
+                'max_capacity': float(self.max_capacity_entry.get() or 0),
+                'geo_latitude': float(self.latitude_entry.get() or 0) if self.latitude_entry.get() else None,
+                'geo_longitude': float(self.longitude_entry.get() or 0) if self.longitude_entry.get() else None,
+                'is_default': self.is_default_var.get(),
+                'is_active': self.is_active_var.get(),
+                'supports_returns': self.supports_returns_var.get(),
+                'supports_production': self.supports_production_var.get(),
+                'note': self.notes_text.get("1.0", "end-1c").strip()
+            }
+
+            # التحقق من البيانات المطلوبة
+            if not warehouse_data['warehouse_code']:
+                messagebox.showerror("خطأ", "رمز المخزن مطلوب")
+                return
+
+            if not warehouse_data['name_ar']:
+                messagebox.showerror("خطأ", "اسم المخزن مطلوب")
+                return
+
+            # حفظ أو تحديث
+            if self.current_warehouse:
+                # تحديث
+                result = self.warehouse_manager.update_warehouse(self.current_warehouse['id'], warehouse_data)
+            else:
+                # إضافة جديد
+                result = self.warehouse_manager.add_warehouse(warehouse_data)
+
+            if result['success']:
+                messagebox.showinfo("نجح", result['message'])
+                self.load_warehouses()
+                self.clear_form()
+                self.notebook.set(0)  # العودة لتبويب القائمة
+            else:
+                messagebox.showerror("خطأ", result['message'])
+
+        except ValueError as e:
+        except ValueError as e:
+            messagebox.showerror("خطأ", "يرجى التحقق من صحة البيانات الرقمية")
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في حفظ المخزن: {e}")
+
+    def clear_form(self):
+        """مسح النموذج"""
+        self.code_entry.delete(0, "end")
+        self.name_ar_entry.delete(0, "end")
+        self.name_en_entry.delete(0, "end")
+        self.address_entry.delete(0, "end")
+        self.manager_name_entry.delete(0, "end")
+        self.manager_phone_entry.delete(0, "end")
+        self.max_capacity_entry.delete(0, "end")
+        self.latitude_entry.delete(0, "end")
+        self.longitude_entry.delete(0, "end")
+        self.notes_text.delete("1.0", "end")
+
+        self.is_default_var.set(False)
+        self.is_active_var.set(True)
+        self.supports_returns_var.set(True)
+        self.supports_production_var.set(False)
+
+        self.current_warehouse = None
+
+    def cancel_form(self):
+        """إلغاء النموذج"""
+        self.clear_form()
+        self.notebook.set(0)  # العودة لتبويب القائمة
+
+    def fill_form_with_warehouse(self, warehouse):
+        """ملء النموذج ببيانات مخزن"""
+        self.clear_form()
+
+        self.code_entry.insert(0, warehouse.get('warehouse_code', ''))
+        self.name_ar_entry.insert(0, warehouse.get('name_ar', ''))
+        self.name_en_entry.insert(0, warehouse.get('name_en', ''))
+        self.address_entry.insert(0, warehouse.get('location_address', ''))
+        self.manager_name_entry.insert(0, warehouse.get('manager_name', ''))
+        self.manager_phone_entry.insert(0, warehouse.get('manager_phone', ''))
+        self.max_capacity_entry.insert(0, str(warehouse.get('max_capacity', '')))
+
+        if warehouse.get('geo_latitude'):
+            self.latitude_entry.insert(0, str(warehouse['geo_latitude']))
+        if warehouse.get('geo_longitude'):
+            self.longitude_entry.insert(0, str(warehouse['geo_longitude']))
+
+        self.notes_text.insert("1.0", warehouse.get('note', ''))
+
+        self.is_default_var.set(warehouse.get('is_default', False))
+        self.is_active_var.set(warehouse.get('is_active', True))
+        self.supports_returns_var.set(warehouse.get('supports_returns', True))
+        self.supports_production_var.set(warehouse.get('supports_production', False))
+
+    def generate_code(self):
+        """توليد رمز مخزن تلقائي"""
+        code = self.warehouse_manager.generate_warehouse_code()
+        self.code_entry.delete(0, "end")
+        self.code_entry.insert(0, code)
+
+    def select_location(self):
+        """تحديد الموقع الجغرافي"""
+        # يمكن تطوير هذه الدالة لفتح خريطة تفاعلية
+        messagebox.showinfo("معلومات", "ميزة تحديد الموقع من الخريطة ستكون متاحة قريباً")
+
+    def on_warehouse_double_click(self, event):
+        """النقر المزدوج على مخزن"""
+        self.edit_warehouse()
+
+    def show_context_menu(self, event):
+        """عرض قائمة السياق"""
+        # يمكن إضافة قائمة سياق هنا
+        pass
+
+    def load_statistics(self):
+        """تحميل الإحصائيات"""
+        try:
+            # مسح الإحصائيات السابقة
+            for widget in self.general_stats_frame.winfo_children():
+                widget.destroy()
+            for widget in self.individual_stats_frame.winfo_children():
+                widget.destroy()
+
+            # جلب الإحصائيات العامة
+            general_stats = self.warehouse_manager.get_warehouse_statistics()
+
+            # عرض الإحصائيات العامة
+            ctk.CTkLabel(
+                self.general_stats_frame,
+                text="الإحصائيات العامة",
+                font=(FONTS['arabic'], 14, "bold")
+            ).pack(pady=(10, 5))
+
+            stats_text = f"""
+        except Exception as e:
+            print(f"خطأ: {e}")
+إجمالي المخازن: {general_stats.get('total_warehouses', 0)}
+المخازن النشطة: {general_stats.get('active_warehouses', 0)}
+إجمالي قيمة المخزون: {general_stats.get('total_inventory_value', 0):,.2f} ريال
+المخازن عالية الإشغال: {general_stats.get('high_occupancy_warehouses', 0)}
+            """
+
+            ctk.CTkLabel(
+                self.general_stats_frame,
+                text=stats_text,
+                font=(FONTS['arabic'], 12),
+                justify="right"
+            ).pack(pady=10)
+
+            # عرض إحصائيات المخازن الفردية
+            ctk.CTkLabel(
+                self.individual_stats_frame,
+                text="إحصائيات المخازن الفردية",
+                font=(FONTS['arabic'], 14, "bold")
+            ).pack(pady=(10, 5))
+
+            warehouses = self.warehouse_manager.get_all_warehouses()
+            for warehouse in warehouses[:5]:  # أول 5 مخازن:
+                warehouse_stats = self.warehouse_manager.get_warehouse_statistics(warehouse['id'])
+
+                warehouse_frame = ctk.CTkFrame(self.individual_stats_frame)
+                warehouse_frame.pack(fill="x", padx=10, pady=5)
+
+                stats_text = f"""
+{warehouse['name_ar']} ({warehouse['warehouse_code']})
+عدد المنتجات: {warehouse_stats.get('products_count', 0)}
+قيمة المخزون: {warehouse_stats.get('total_value', 0):,.2f} ريال
+حركات اليوم: {warehouse_stats.get('today_movements', 0)}
+نسبة الإشغال: {warehouse_stats.get('occupancy_rate', 0):.1f}%
+                """
+
+                ctk.CTkLabel(
+                    warehouse_frame,
+                    text=stats_text,
+                    font=(FONTS['arabic'], 10),
+                    justify="right"
+                ).pack(pady=5)
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في تحميل الإحصائيات: {e}")
+
+    def export_warehouses(self):
+        """تصدير قائمة المخازن"""
+        messagebox.showinfo("معلومات", "ميزة تصدير Excel ستكون متاحة قريباً")
+
+    def print_warehouses(self):
+        """طباعة قائمة المخازن"""
+        messagebox.showinfo("معلومات", "ميزة الطباعة ستكون متاحة قريباً")
+
+    def show_help(self):
+        """عرض المساعدة"""
+        help_text = """
+🏬 نظام إدارة المخازن المتكامل
+
+الميزات الرئيسية:
+• إدارة شاملة للمخازن والفروع
+• تتبع المواقع الجغرافية بدقة GPS
+• إدارة الصلاحيات والمسؤولين
+• حساب نسب الإشغال والسعة
+• دعم المخازن الإنتاجية والمرتجعات
+• إحصائيات مفصلة وتقارير
+
+كيفية الاستخدام:
+1. استخدم تبويب "قائمة المخازن" لعرض وإدارة المخازن
+2. استخدم تبويب "إضافة/تعديل" لإضافة مخازن جديدة
+3. استخدم تبويب "الإحصائيات" لمراقبة الأداء
+4. يمكن البحث والفلترة في قائمة المخازن
+5. النقر المزدوج على مخزن لتعديله
+
+نصائح:
+• استخدم رموز واضحة للمخازن (مثل: WH001)
+• حدد المواقع الجغرافية لتتبع أفضل
+• عين مسؤولين لكل مخزن
+• راقب نسب الإشغال بانتظام
+        """
+
+        help_window = ctk.CTkToplevel(self.window)
+        help_window.title("مساعدة - إدارة المخازن")
+        help_window
+
+        help_text_widget = ctk.CTkTextbox(help_window)
+        help_text_widget.pack(fill="both", expand=True, padx=20, pady=20)
+        help_text_widget.insert("1.0", help_text)
+        help_text_widget.configure(state="disabled")
+
+    def close_window(self):
+        """إغلاق النافذة"""
+        self.window.destroy()

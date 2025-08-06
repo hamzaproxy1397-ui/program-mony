@@ -1,0 +1,331 @@
+# -*- coding: utf-8 -*-
+"""
+مدير التقارير
+"""
+
+import logging
+from database.database_manager import DatabaseManager
+from datetime import date
+from typing import Dict
+from typing import List
+from typing import List, Dict, Optional, Tuple, Any, Union, Callable
+
+class ReportsManager:
+    """مدير التقارير المالية والإحصائية"""
+
+    def __init__(self, db_manager: DatabaseManager = None):
+        self.db_manager = db_manager or DatabaseManager()
+        self.logger = logging.getLogger(__name__)
+
+    def get_sales_report(self, start_date: date = None, end_date: date = None) -> List[Dict]:
+        """تقرير المبيعات"""
+        try:
+            query = """
+                SELECT
+                    i.date as date,
+                    i.invoice_number,
+                    i.customer_name,
+                    i.total_amount as amount,
+                    i.payment_status
+                FROM invoices i
+                WHERE 1=1
+            """
+            params = []
+
+            if start_date:
+                query += " AND i.date >= ?"
+                params.append(start_date)
+
+            if end_date:
+                query += " AND i.date <= ?"
+                params.append(end_date)
+
+            query += " ORDER BY i.date DESC, i.id DESC"
+
+            invoices = self.db_manager.fetch_all(query, params)
+            return [dict(invoice) for invoice in invoices]
+
+        except Exception as e:
+            self.logger.error(f"خطأ في تقرير المبيعات: {e}")
+            return []
+
+    def get_purchases_report(self, start_date: date = None, end_date: date = None) -> List[Dict]:
+        """تقرير المشتريات"""
+        try:
+            query = """
+                SELECT 
+                    pi.invoice_date as date,
+                    pi.invoice_number,
+                    s.name as supplier_name,
+                    pi.net_amount as amount,
+                    pi.payment_status
+                FROM purchase_invoices pi
+                LEFT JOIN suppliers s ON pi.supplier_id = s.id
+                WHERE 1=1
+            """
+            params = []
+
+            if start_date:
+                query += " AND pi.invoice_date >= ?"
+                params.append(start_date)
+
+            if end_date:
+                query += " AND pi.invoice_date <= ?"
+                params.append(end_date)
+
+            query += " ORDER BY pi.invoice_date DESC, pi.id DESC"
+
+            purchases = self.db_manager.fetch_all(query, params)
+            return [dict(purchase) for purchase in purchases]
+
+        except Exception as e:
+            self.logger.error(f"خطأ في تقرير المشتريات: {e}")
+            return []
+
+    def get_profit_loss_report(self, start_date: date = None, end_date: date = None) -> Dict:
+        """تقرير الأرباح والخسائر"""
+        try:
+            # إيرادات المبيعات
+            sales_query = """
+                SELECT COALESCE(SUM(total_amount), 0) as total_sales
+                FROM invoices
+                WHERE 1=1
+            """
+            sales_params = []
+
+            if start_date:
+                sales_query += " AND date >= ?"
+                sales_params.append(start_date)
+
+            if end_date:
+                sales_query += " AND date <= ?"
+                sales_params.append(end_date)
+
+            sales_result = self.db_manager.fetch_one(sales_query, sales_params)
+            total_sales = sales_result['total_sales'] if sales_result else 0
+
+            # تكلفة المشتريات
+            purchases_query = """
+                SELECT COALESCE(SUM(net_amount), 0) as total_purchases
+                FROM purchase_invoices
+                WHERE 1=1
+            """
+            purchases_params = []
+
+            if start_date:
+                purchases_query += " AND invoice_date >= ?"
+                purchases_params.append(start_date)
+
+            if end_date:
+                purchases_query += " AND invoice_date <= ?"
+                purchases_params.append(end_date)
+
+            purchases_result = self.db_manager.fetch_one(purchases_query, purchases_params)
+            total_purchases = purchases_result['total_purchases'] if purchases_result else 0
+
+            # حساب الربح/الخسارة
+            gross_profit = total_sales - total_purchases
+
+            return {
+                'total_sales': total_sales,
+                'total_purchases': total_purchases,
+                'gross_profit': gross_profit,
+                'profit_margin': (gross_profit / total_sales * 100) if total_sales > 0 else 0
+            }
+
+        except Exception as e:
+            self.logger.error(f"خطأ في تقرير الأرباح والخسائر: {e}")
+            return {
+                'total_sales': 0,
+                'total_purchases': 0,
+                'gross_profit': 0,
+                'profit_margin': 0
+            }
+
+    def get_inventory_report(self) -> List[Dict]:
+        """تقرير المخزون"""
+        try:
+            query = """
+                SELECT 
+                    p.name,
+                    p.current_stock as quantity,
+                    p.cost_price,
+                    p.selling_price,
+                    (p.current_stock * p.cost_price) as total_cost_value,
+                    (p.current_stock * p.selling_price) as total_selling_value,
+                    p.category,
+                    p.unit
+                FROM products p
+                WHERE p.is_active = 1
+                ORDER BY p.name
+            """
+
+            products = self.db_manager.fetch_all(query)
+            return [dict(product) for product in products]
+
+        except Exception as e:
+            self.logger.error(f"خطأ في تقرير المخزون: {e}")
+            return []
+
+    def get_customers_report(self) -> List[Dict]:
+        """تقرير العملاء"""
+        try:
+            query = """
+                SELECT 
+                    i.customer_name,
+                    COUNT(i.id) as total_invoices,
+                    SUM(i.net_amount) as total_purchases,
+                    MAX(i.invoice_date) as last_purchase_date,
+                    AVG(i.net_amount) as average_purchase
+                FROM invoices i
+                WHERE i.customer_name IS NOT NULL AND i.customer_name != ''
+                GROUP BY i.customer_name
+                ORDER BY total_purchases DESC
+            """
+
+            customers = self.db_manager.fetch_all(query)
+            return [dict(customer) for customer in customers]
+
+        except Exception as e:
+            self.logger.error(f"خطأ في تقرير العملاء: {e}")
+            return []
+
+    def get_suppliers_report(self) -> List[Dict]:
+        """تقرير الموردين"""
+        try:
+            query = """
+                SELECT 
+                    s.name as supplier_name,
+                    s.phone,
+                    s.email,
+                    COUNT(pi.id) as total_invoices,
+                    COALESCE(SUM(pi.net_amount), 0) as total_purchases,
+                    MAX(pi.invoice_date) as last_purchase_date
+                FROM suppliers s
+                LEFT JOIN purchase_invoices pi ON s.id = pi.supplier_id
+                WHERE s.is_active = 1
+                GROUP BY s.id, s.name, s.phone, s.email
+                ORDER BY total_purchases DESC
+            """
+
+            suppliers = self.db_manager.fetch_all(query)
+            return [dict(supplier) for supplier in suppliers]
+
+        except Exception as e:
+            self.logger.error(f"خطأ في تقرير الموردين: {e}")
+            return []
+
+    def get_treasury_report(self, start_date: date = None, end_date: date = None) -> List[Dict]:
+        """تقرير الخزينة (حركات النقدية)"""
+        try:
+            # جمع حركات المبيعات والمشتريات
+            movements = []
+
+            # حركات المبيعات (إيرادات)
+            sales_query = """
+                SELECT 
+                    invoice_date as date,
+                    'مبيعات - ' || invoice_number as description,
+                    net_amount as credit,
+                    0 as debit,
+                    payment_status
+                FROM invoices
+                WHERE payment_status = 'paid'
+            """
+            sales_params = []
+
+            if start_date:
+                sales_query += " AND invoice_date >= ?"
+                sales_params.append(start_date)
+
+            if end_date:
+                sales_query += " AND invoice_date <= ?"
+                sales_params.append(end_date)
+
+            sales_movements = self.db_manager.fetch_all(sales_query, sales_params)
+            movements.extend([dict(movement) for movement in sales_movements])
+
+            # حركات المشتريات (مصروفات)
+            purchases_query = """
+                SELECT 
+                    pi.invoice_date as date,
+                    'مشتريات - ' || pi.invoice_number as description,
+                    0 as credit,
+                    pi.net_amount as debit,
+                    pi.payment_status
+                FROM purchase_invoices pi
+                WHERE pi.payment_status = 'paid'
+            """
+            purchases_params = []
+
+            if start_date:
+                purchases_query += " AND pi.invoice_date >= ?"
+                purchases_params.append(start_date)
+
+            if end_date:
+                purchases_query += " AND pi.invoice_date <= ?"
+                purchases_params.append(end_date)
+
+            purchases_movements = self.db_manager.fetch_all(purchases_query, purchases_params)
+            movements.extend([dict(movement) for movement in purchases_movements])
+
+            # ترتيب حسب التاريخ
+            movements.sort(key=lambda x: x['date'])
+
+            # حساب الرصيد التراكمي
+            balance = 0
+            for movement in movements:
+                balance += movement['credit'] - movement['debit']
+                movement['balance'] = balance
+
+            return movements
+
+        except Exception as e:
+            self.logger.error(f"خطأ في تقرير الخزينة: {e}")
+            return []
+
+    def get_daily_summary(self, target_date: date = None) -> Dict:
+        """ملخص يومي"""
+        try:
+            if not target_date:
+                target_date = date.today()
+
+            # مبيعات اليوم
+            sales_query = """
+                SELECT 
+                    COUNT(*) as count,
+                    COALESCE(SUM(net_amount), 0) as total
+                FROM invoices
+                WHERE DATE(invoice_date) = ?
+            """
+            sales_result = self.db_manager.fetch_one(sales_query, (target_date,))
+
+            # مشتريات اليوم
+            purchases_query = """
+                SELECT 
+                    COUNT(*) as count,
+                    COALESCE(SUM(net_amount), 0) as total
+                FROM purchase_invoices
+                WHERE DATE(invoice_date) = ?
+            """
+            purchases_result = self.db_manager.fetch_one(purchases_query, (target_date,))
+
+            return {
+                'date': target_date,
+                'sales_count': sales_result['count'] if sales_result else 0,
+                'sales_total': sales_result['total'] if sales_result else 0,
+                'purchases_count': purchases_result['count'] if purchases_result else 0,
+                'purchases_total': purchases_result['total'] if purchases_result else 0,
+                'net_profit': (sales_result['total'] if sales_result else 0) - (purchases_result['total'] if purchases_result else 0)
+            }
+
+        except Exception as e:
+            self.logger.error(f"خطأ في الملخص اليومي: {e}")
+            return {
+                'date': target_date,
+                'sales_count': 0,
+                'sales_total': 0,
+                'purchases_count': 0,
+                'purchases_total': 0,
+                'net_profit': 0
+            }

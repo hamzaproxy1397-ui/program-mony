@@ -1,0 +1,265 @@
+{
+  "timestamp": "2025-07-22T08:16:09.988683",
+  "critical_files": {
+    "main.py": {
+      "exists": true,
+      "syntax_valid": true,
+      "importable": true,
+      "size": 3223,
+      "errors": []
+    },
+    "ui/main_window.py": {
+      "exists": true,
+      "syntax_valid": true,
+      "importable": true,
+      "size": 101377,
+      "errors": []
+    },
+    "ui/login_window.py": {
+      "exists": true,
+      "syntax_valid": true,
+      "importable": true,
+      "size": 10239,
+      "errors": []
+    },
+    "ui/pos_window.py": {
+      "exists": true,
+      "syntax_valid": true,
+      "importable": true,
+      "size": 33865,
+      "errors": []
+    },
+    "ui/pos_simple.py": {
+      "exists": true,
+      "syntax_valid": true,
+      "importable": true,
+      "size": 16043,
+      "errors": []
+    },
+    "ui/advanced_settings_window.py": {
+      "exists": true,
+      "syntax_valid": true,
+      "importable": true,
+      "size": 126348,
+      "errors": []
+    },
+    "database/hybrid_database_manager.py": {
+      "exists": true,
+      "syntax_valid": true,
+      "importable": true,
+      "size": 18746,
+      "errors": []
+    },
+    "database/database_manager.py": {
+      "exists": true,
+      "syntax_valid": true,
+      "importable": true,
+      "size": 36334,
+      "errors": []
+    },
+    "core/scheduler_manager.py": {
+      "exists": true,
+      "syntax_valid": true,
+      "importable": true,
+      "size": 12661,
+      "errors": []
+    },
+    "auth/auth_manager.py": {
+      "exists": true,
+      "syntax_valid": true,
+      "importable": true,
+      "size": 11303,
+      "errors": []
+    },
+    "themes/theme_manager.py": {
+      "exists": true,
+      "syntax_valid": true,
+      "importable": true,
+      "size": 10442,
+      "errors": []
+    },
+    "services/sales_manager.py": {
+      "exists": true,
+      "syntax_valid": true,
+      "importable": true,
+      "size": 21437,
+      "errors": []
+    }
+  },
+  "syntax_errors": [
+    {
+      "file": "advanced_error_analyzer.py",
+      "line": 103,
+      "message": "unterminated string literal (detected at line 103)",
+      "text": "module_name = str(file_path).replace('/', '.').replace('\\', '.').replace('.py', '')"
+    },
+    {
+      "file": "advanced_error_fixer.py",
+      "line": 147,
+      "message": "unterminated string literal (detected at line 147)",
+      "text": "(r'\\\\([^\\\\nrtbfav'\"0-7xuUN])', r'\\\\\\\\1'),"
+    },
+    {
+      "file": "advanced_syntax_fixer.py",
+      "line": 159,
+      "message": "unterminated string literal (detected at line 159)",
+      "text": "content = re.sub(r'\\\\(?![nrtbfav\\\\'\"0-7xuUN])', r'\\\\\\', content)"
+    },
+    {
+      "file": "comprehensive_income_formula_demo.py",
+      "line": 254,
+      "message": "unexpected indent",
+      "text": "traceback.print_exc()"
+    },
+    {
+      "file": "deep_comprehensive_fixer.py",
+      "line": 170,
+      "message": "unexpected character after line continuation character",
+      "text": "r'\\1if hasattr(self, '\\2') and self.\\2:\\n\\1    self.\\2.destroy()'),"
+    },
+    {
+      "file": "deep_import_fixer.py",
+      "line": 202,
+      "message": "unterminated string literal (detected at line 202)",
+      "text": "module_name = str(file_path).replace('/', '.').replace('\\', '.').replace('.py', '')"
+    },
+    {
+      "file": "quick_pattern_fixer.py",
+      "line": 35,
+      "message": "invalid syntax",
+      "text": "replacement1 = r'\\1if hasattr(self, 'window') and self.window:\\n\\1    self.window.destroy()'"
+    },
+    {
+      "file": "run_app.py",
+      "line": 43,
+      "message": "unexpected indent",
+      "text": "app = MainApplication()"
+    },
+    {
+      "file": "run_fixed_app.py",
+      "line": 155,
+      "message": "unexpected indent",
+      "text": "logger.info(\"✅ تم استيراد التطبيق الرئيسي\")"
+    },
+    {
+      "file": "safe_start.py",
+      "line": 42,
+      "message": "unexpected indent",
+      "text": "app = MainApplication()"
+    },
+    {
+      "file": "start_with_scheduler.py",
+      "line": 81,
+      "message": "unexpected indent",
+      "text": "app = MainApplication()"
+    },
+    {
+      "file": "ultimate_system_fixer.py",
+      "line": 302,
+      "message": "unterminated string literal (detected at line 302)",
+      "text": "line = re.sub(r'\\\\([^\\\\nrtbfav'\"0-7xuUN])', r'\\\\\\\\1', line)"
+    },
+    {
+      "file": "config\\postgresql_config.py",
+      "line": 151,
+      "message": "unexpected indent",
+      "text": "conn = psycopg2.connect(**config)"
+    },
+    {
+      "file": "core\\app_core.py",
+      "line": 299,
+      "message": "unexpected indent",
+      "text": "db = DatabaseManager()"
+    },
+    {
+      "file": "database\\comprehensive_income_manager.py",
+      "line": 274,
+      "message": "invalid syntax",
+      "text": "def _calculate_financial_ratios(self, revenues: float, gross_profit: float:"
+    },
+    {
+      "file": "database\\fix_database.py",
+      "line": 69,
+      "message": "unterminated string literal (detected at line 69)",
+      "text": "(7, 'ملابس رجالية', 'Men's Clothing', 6),"
+    },
+    {
+      "file": "ui\\daily_journal_window.py",
+      "line": 686,
+      "message": "invalid syntax",
+      "text": "finally:"
+    },
+    {
+      "file": "ui\\sales_analysis_window.py",
+      "line": 1340,
+      "message": "unexpected indent",
+      "text": "filename = filedialog.asksaveasfilename("
+    }
+  ],
+  "import_errors": [],
+  "database_status": {
+    "sqlite_available": true,
+    "database_file_exists": false,
+    "database_accessible": false,
+    "tables_count": 0,
+    "errors": []
+  },
+  "library_status": {
+    "customtkinter": {
+      "available": true,
+      "version": "5.2.2",
+      "error": null
+    },
+    "tkinter": {
+      "available": true,
+      "version": 8.6,
+      "error": null
+    },
+    "sqlite3": {
+      "available": true,
+      "version": "unknown",
+      "error": null
+    },
+    "pathlib": {
+      "available": true,
+      "version": "unknown",
+      "error": null
+    },
+    "datetime": {
+      "available": true,
+      "version": "unknown",
+      "error": null
+    },
+    "json": {
+      "available": true,
+      "version": "2.0.9",
+      "error": null
+    },
+    "logging": {
+      "available": true,
+      "version": "0.5.1.2",
+      "error": null
+    },
+    "PIL": {
+      "available": true,
+      "version": "11.3.0",
+      "error": null
+    },
+    "apscheduler": {
+      "available": true,
+      "version": "3.11.0",
+      "error": null
+    }
+  },
+  "overall_health": {
+    "status": "good",
+    "score": 86.4,
+    "description": "جيد - يحتاج تحسينات طفيفة",
+    "breakdown": {
+      "critical_files": "12/12 (100.0%)",
+      "libraries": "9/9 (100.0%)",
+      "database": "يحتاج إعداد (50%)",
+      "syntax_errors": "18 خطأ (64.0%)"
+    }
+  }
+}

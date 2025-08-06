@@ -1,0 +1,243 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+أداة تنظيف الملفات غير الضرورية من البرنامج المحاسبي
+"""
+
+import os
+import shutil
+from pathlib import Path
+from datetime import datetime
+import json
+
+class ProjectCleaner:
+    """أداة تنظيف المشروع من الملفات غير الضرورية"""
+    
+    def __init__(self):
+        self.project_root = Path(".")
+        self.deleted_files = []
+        self.deleted_dirs = []
+        self.errors = []
+        
+        # الملفات التي يجب حذفها
+        self.files_to_delete = [
+            # ملفات الاختبار القديمة
+            "test_*.py",
+            "اختبار_*.py", 
+            "basic_test.py",
+            "comprehensive_test.py",
+            "quick_test.py",
+            "simple_auth_test.py",
+            "simple_stock_test.py",
+            
+            # ملفات الإصلاح والفحص المؤقتة
+            "فحص_*.py",
+            "إصلاح_*.py",
+            "تشغيل_*.py",
+            "system_checker.py",
+            "system_fixer.py",
+            
+            # ملفات التقارير القديمة
+            "تقرير_*.md",
+            "ملخص_*.md",
+            "نافذة_*.md",
+            "نظام_*.md",
+            "خوارزميات_*.md",
+            "دليل_*.md",
+            "تم_*.md",
+            
+            # ملفات التكوين المؤقتة
+            "change_admin_credentials.py",
+            "comprehensive_dropdown_fix.py",
+            "final_dropdown_test.py",
+            "apply_fullscreen_to_all_windows.py",
+            
+            # ملفات التثبيت المؤقتة
+            "install_*.py",
+            "download_*.py",
+            "setup_*.py",
+            "create_*.py",
+            "save_*.py",
+            
+            # ملفات JSON المؤقتة
+            "*.json",
+            
+            # ملفات Excel المؤقتة
+            "test_*.xlsx",
+            "*.pdf",
+        ]
+        
+        # المجلدات التي يجب حذفها
+        self.dirs_to_delete = [
+            "__pycache__",
+            "backup_*",
+            "analysis",
+            "examples", 
+            "docs",
+            "integration",
+            "tests",
+        ]
+        
+        # الملفات الأساسية التي يجب الاحتفاظ بها
+        self.essential_files = [
+            "main.py",
+            "run_app.py", 
+            "requirements.txt",
+            "README.md",
+            "LICENSE",
+        ]
+    
+    def scan_files(self):
+        """فحص الملفات الموجودة"""
+        print("🔍 فحص الملفات الموجودة...")
+        
+        all_files = []
+        for pattern in self.files_to_delete:
+            matches = list(self.project_root.glob(pattern))
+            all_files.extend(matches)
+        
+        # إزالة الملفات الأساسية من القائمة
+        files_to_process = []
+        for file_path in all_files:
+            if file_path.name not in self.essential_files:
+                files_to_process.append(file_path)
+        
+        print(f"📊 تم العثور على {len(files_to_process)} ملف للحذف")
+        return files_to_process
+    
+    def scan_directories(self):
+        """فحص المجلدات الموجودة"""
+        print("📁 فحص المجلدات الموجودة...")
+        
+        all_dirs = []
+        for pattern in self.dirs_to_delete:
+            matches = list(self.project_root.glob(pattern))
+            all_dirs.extend(matches)
+        
+        # فلترة المجلدات فقط
+        dirs_to_process = [d for d in all_dirs if d.is_dir()]
+        
+        print(f"📊 تم العثور على {len(dirs_to_process)} مجلد للحذف")
+        return dirs_to_process
+    
+    def delete_files(self, files_list):
+        """حذف الملفات"""
+        print(f"\n🗑️ حذف {len(files_list)} ملف...")
+        
+        for file_path in files_list:
+            try:
+                if file_path.exists():
+                    file_path.unlink()
+                    self.deleted_files.append(str(file_path))
+                    print(f"✅ تم حذف: {file_path}")
+            except Exception as e:
+                error_msg = f"❌ خطأ في حذف {file_path}: {e}"
+                print(error_msg)
+                self.errors.append(error_msg)
+    
+    def delete_directories(self, dirs_list):
+        """حذف المجلدات"""
+        print(f"\n📁 حذف {len(dirs_list)} مجلد...")
+        
+        for dir_path in dirs_list:
+            try:
+                if dir_path.exists():
+                    shutil.rmtree(dir_path)
+                    self.deleted_dirs.append(str(dir_path))
+                    print(f"✅ تم حذف المجلد: {dir_path}")
+            except Exception as e:
+                error_msg = f"❌ خطأ في حذف المجلد {dir_path}: {e}"
+                print(error_msg)
+                self.errors.append(error_msg)
+    
+    def clean_cache_files(self):
+        """تنظيف ملفات الكاش"""
+        print("\n🧹 تنظيف ملفات الكاش...")
+        
+        cache_patterns = [
+            "**/__pycache__",
+            "**/*.pyc",
+            "**/*.pyo",
+            "**/*.pyd",
+        ]
+        
+        for pattern in cache_patterns:
+            matches = list(self.project_root.glob(pattern))
+            for match in matches:
+                try:
+                    if match.is_file():
+                        match.unlink()
+                        print(f"✅ تم حذف ملف كاش: {match}")
+                    elif match.is_dir():
+                        shutil.rmtree(match)
+                        print(f"✅ تم حذف مجلد كاش: {match}")
+                except Exception as e:
+                    print(f"❌ خطأ في حذف {match}: {e}")
+    
+    def generate_report(self):
+        """إنشاء تقرير التنظيف"""
+        report = {
+            "timestamp": datetime.now().isoformat(),
+            "deleted_files": self.deleted_files,
+            "deleted_directories": self.deleted_dirs,
+            "errors": self.errors,
+            "summary": {
+                "total_files_deleted": len(self.deleted_files),
+                "total_dirs_deleted": len(self.deleted_dirs),
+                "total_errors": len(self.errors)
+            }
+        }
+        
+        report_file = f"cleanup_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        
+        try:
+            with open(report_file, 'w', encoding='utf-8') as f:
+                json.dump(report, f, ensure_ascii=False, indent=2)
+            print(f"\n📋 تم إنشاء تقرير التنظيف: {report_file}")
+        except Exception as e:
+            print(f"❌ خطأ في إنشاء التقرير: {e}")
+        
+        return report
+    
+    def run_cleanup(self):
+        """تشغيل عملية التنظيف الكاملة"""
+        print("🧹 بدء عملية تنظيف المشروع")
+        print("=" * 50)
+        
+        # فحص الملفات والمجلدات
+        files_to_delete = self.scan_files()
+        dirs_to_delete = self.scan_directories()
+        
+        # عرض ملخص
+        print(f"\n📊 ملخص التنظيف:")
+        print(f"   📄 ملفات للحذف: {len(files_to_delete)}")
+        print(f"   📁 مجلدات للحذف: {len(dirs_to_delete)}")
+        
+        # طلب التأكيد
+        confirm = input("\n❓ هل تريد المتابعة؟ (y/n): ").lower().strip()
+        
+        if confirm in ['y', 'yes', 'نعم']:
+            # تنفيذ التنظيف
+            self.delete_files(files_to_delete)
+            self.delete_directories(dirs_to_delete)
+            self.clean_cache_files()
+            
+            # إنشاء التقرير
+            report = self.generate_report()
+            
+            print("\n🎉 تم الانتهاء من التنظيف!")
+            print(f"✅ تم حذف {report['summary']['total_files_deleted']} ملف")
+            print(f"✅ تم حذف {report['summary']['total_dirs_deleted']} مجلد")
+            
+            if report['summary']['total_errors'] > 0:
+                print(f"⚠️ حدث {report['summary']['total_errors']} خطأ")
+        else:
+            print("❌ تم إلغاء عملية التنظيف")
+
+def main():
+    """الدالة الرئيسية"""
+    cleaner = ProjectCleaner()
+    cleaner.run_cleanup()
+
+if __name__ == "__main__":
+    main()

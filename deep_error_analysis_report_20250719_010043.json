@@ -1,0 +1,327 @@
+{
+  "timestamp": "2025-07-19T01:00:40.464578",
+  "syntax_errors": [
+    {
+      "file": "comprehensive_income_formula_demo.py",
+      "line": 251,
+      "column": 8,
+      "error": "unexpected indent (<unknown>, line 251)",
+      "severity": "medium"
+    },
+    {
+      "file": "run_app.py",
+      "line": 37,
+      "column": 0,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 37)",
+      "severity": "medium"
+    },
+    {
+      "file": "run_fixed_app.py",
+      "line": 146,
+      "column": 0,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 146)",
+      "severity": "medium"
+    },
+    {
+      "file": "safe_start.py",
+      "line": 39,
+      "column": 0,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 39)",
+      "severity": "medium"
+    },
+    {
+      "file": "start_with_scheduler.py",
+      "line": 75,
+      "column": 0,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 75)",
+      "severity": "medium"
+    },
+    {
+      "file": "config\\postgresql_config.py",
+      "line": 141,
+      "column": 0,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 141)",
+      "severity": "medium"
+    },
+    {
+      "file": "core\\app_core.py",
+      "line": 276,
+      "column": 0,
+      "error": "expected an indented block after 'try' statement on line 275 (<unknown>, line 276)",
+      "severity": "medium"
+    },
+    {
+      "file": "core\\barcode_scanner.py",
+      "line": 169,
+      "column": 8,
+      "error": "unexpected indent (<unknown>, line 169)",
+      "severity": "medium"
+    },
+    {
+      "file": "database\\comprehensive_income_manager.py",
+      "line": 516,
+      "column": 0,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 516)",
+      "severity": "medium"
+    },
+    {
+      "file": "database\\postgresql_manager.py",
+      "line": 382,
+      "column": 0,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 382)",
+      "severity": "medium"
+    },
+    {
+      "file": "services\\postgresql_sales_manager.py",
+      "line": 417,
+      "column": 8,
+      "error": "unexpected indent (<unknown>, line 417)",
+      "severity": "medium"
+    },
+    {
+      "file": "services\\purchases_manager.py",
+      "line": 242,
+      "column": 12,
+      "error": "unexpected indent (<unknown>, line 242)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\backup_restore.py",
+      "line": 701,
+      "column": 8,
+      "error": "unexpected indent (<unknown>, line 701)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\categories_management_window.py",
+      "line": 13,
+      "column": 1,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 13)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\comprehensive_income_window.py",
+      "line": 15,
+      "column": 1,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 15)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\daily_journal_window.py",
+      "line": 828,
+      "column": 0,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 828)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\employees_window_fixed.py",
+      "line": 38,
+      "column": 9,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 38)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\inventory_window.py",
+      "line": 13,
+      "column": 1,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 13)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\pos_simple.py",
+      "line": 76,
+      "column": 9,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 76)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\pos_window.py",
+      "line": 13,
+      "column": 1,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 13)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\sales_analysis_window.py",
+      "line": 1308,
+      "column": 0,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 1308)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\stock_management_window.py",
+      "line": 1358,
+      "column": 0,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 1358)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\structured_profit_loss_window.py",
+      "line": 15,
+      "column": 1,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 15)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\treasury_window.py",
+      "line": 14,
+      "column": 1,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 14)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\units_management_window.py",
+      "line": 13,
+      "column": 1,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 13)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\warehouses_management_window.py",
+      "line": 13,
+      "column": 1,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 13)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\warehouse_management_window.py",
+      "line": 14,
+      "column": 1,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 14)",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\welcome_window.py",
+      "line": 14,
+      "column": 1,
+      "error": "expected 'except' or 'finally' block (<unknown>, line 14)",
+      "severity": "medium"
+    }
+  ],
+  "import_errors": [],
+  "runtime_errors": [],
+  "logic_errors": [],
+  "performance_issues": [],
+  "ui_errors": [
+    {
+      "file": "ui\\enhanced_pos_window.py",
+      "error": "استخدام Image بدون استيراد PIL",
+      "type": "missing_import",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\main_window.py",
+      "error": "استخدام Image بدون استيراد PIL",
+      "type": "missing_import",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\simple_welcome_window.py",
+      "error": "استخدام Image بدون استيراد PIL",
+      "type": "missing_import",
+      "severity": "medium"
+    },
+    {
+      "file": "ui\\welcome_window.py",
+      "error": "استخدام Image بدون استيراد PIL",
+      "type": "missing_import",
+      "severity": "medium"
+    }
+  ],
+  "database_errors": [
+    {
+      "file": "database\\accounts_manager.py",
+      "error": "استخدام f-strings في SQL queries (مخاطر أمنية)",
+      "type": "security",
+      "severity": "high"
+    },
+    {
+      "file": "database\\accounts_tree_manager.py",
+      "error": "استخدام f-strings في SQL queries (مخاطر أمنية)",
+      "type": "security",
+      "severity": "high"
+    },
+    {
+      "file": "database\\comprehensive_income_manager.py",
+      "error": "استخدام f-strings في SQL queries (مخاطر أمنية)",
+      "type": "security",
+      "severity": "high"
+    },
+    {
+      "file": "database\\database_manager.py",
+      "error": "استخدام f-strings في SQL queries (مخاطر أمنية)",
+      "type": "security",
+      "severity": "high"
+    },
+    {
+      "file": "database\\fix_database.py",
+      "error": "استخدام f-strings في SQL queries (مخاطر أمنية)",
+      "type": "security",
+      "severity": "high"
+    },
+    {
+      "file": "database\\hybrid_database_manager.py",
+      "error": "استخدام f-strings في SQL queries (مخاطر أمنية)",
+      "type": "security",
+      "severity": "high"
+    },
+    {
+      "file": "database\\invoices_manager.py",
+      "error": "استخدام f-strings في SQL queries (مخاطر أمنية)",
+      "type": "security",
+      "severity": "high"
+    },
+    {
+      "file": "database\\journal_entries_manager.py",
+      "error": "استخدام f-strings في SQL queries (مخاطر أمنية)",
+      "type": "security",
+      "severity": "high"
+    },
+    {
+      "file": "database\\postgresql_manager.py",
+      "error": "استخدام f-strings في SQL queries (مخاطر أمنية)",
+      "type": "security",
+      "severity": "high"
+    },
+    {
+      "file": "database\\products_manager.py",
+      "error": "استخدام f-strings في SQL queries (مخاطر أمنية)",
+      "type": "security",
+      "severity": "high"
+    },
+    {
+      "file": "database\\profit_loss_structure_manager.py",
+      "error": "استخدام f-strings في SQL queries (مخاطر أمنية)",
+      "type": "security",
+      "severity": "high"
+    },
+    {
+      "file": "database\\reports_manager.py",
+      "error": "استخدام f-strings في SQL queries (مخاطر أمنية)",
+      "type": "security",
+      "severity": "high"
+    },
+    {
+      "file": "database\\sqlserver_manager.py",
+      "error": "استخدام f-strings في SQL queries (مخاطر أمنية)",
+      "type": "security",
+      "severity": "high"
+    },
+    {
+      "file": "database\\warehouse_manager.py",
+      "error": "استخدام f-strings في SQL queries (مخاطر أمنية)",
+      "type": "security",
+      "severity": "high"
+    }
+  ],
+  "recommendations": [
+    "إصلاح الأخطاء النحوية فوراً - أولوية عالية",
+    "تحسين معالجة أخطاء الواجهة الرسومية",
+    "مراجعة أمان وكفاءة استعلامات قاعدة البيانات",
+    "إضافة اختبارات وحدة شاملة",
+    "تطبيق معايير الكود الآمن",
+    "إنشاء نظام مراقبة الأخطاء",
+    "توثيق جميع الوظائف والكلاسات",
+    "إنشاء نظام نسخ احتياطي متقدم"
+  ]
+}

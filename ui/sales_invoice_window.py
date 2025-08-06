@@ -1,0 +1,456 @@
+# -*- coding: utf-8 -*-
+"""
+نافذة فواتير البيع - نظام متكامل لإنشاء وإدارة فواتير البيع
+"""
+
+import os
+import tkinter as tk
+from tkinter import messagebox, ttk
+from datetime import datetime, date
+import customtkinter as ctk
+
+from themes.modern_theme import MODERN_COLORS, FONTS, DIMENSIONS
+from ui.window_utils import configure_window_fullscreen
+
+
+class SalesInvoiceWindow:
+    """نافذة فواتير البيع مع جميع الميزات المطلوبة"""
+
+    def __init__(self, parent=None):
+        self.parent = parent
+        self.window = None
+        self.current_user = getattr(parent, 'current_user', {'role': 'admin', 'username': 'admin'})
+
+        # بيانات الفاتورة
+        self.invoice_items = []
+        self.selected_customer = None
+        self.invoice_total = 0.0
+        self.invoice_discount = 0.0
+        self.invoice_tax = 0.0
+        self.invoice_net_total = 0.0
+
+        # متغيرات الواجهة
+        self.items_tree = None
+        self.customer_var = None
+        self.total_labels = {}
+
+        self.create_window()
+
+    def create_window(self):
+        """إنشاء نافذة فواتير البيع"""
+        self.window = ctk.CTkToplevel()
+        self.window.title("🧾 فواتير البيع - برنامج ست الكل للمحاسبة")
+
+        # تكوين النافذة
+        configure_window_fullscreen(self.window)
+        self.window.configure(fg_color=MODERN_COLORS['background'])
+
+        # إنشاء الإطار الرئيسي
+        main_frame = ctk.CTkFrame(self.window, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # إنشاء الهيدر
+        self.create_header(main_frame)
+
+        # إنشاء منطقة المحتوى
+        content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        content_frame.pack(fill="both", expand=True, pady=(10, 0))
+
+        # إنشاء الأقسام الرئيسية
+        self.create_invoice_sections(content_frame)
+
+    def create_header(self, parent):
+        """إنشاء هيدر النافذة"""
+        header_frame = ctk.CTkFrame(parent, height=80, fg_color=MODERN_COLORS['success'])
+        header_frame.pack(fill="x", pady=(0, 10))
+        header_frame.pack_propagate(False)
+
+        # العنوان والأزرار
+        title_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        title_frame.pack(side="right", fill="y", padx=20, pady=10)
+
+        title = ctk.CTkLabel(
+            title_frame,
+            text="🧾 فاتورة بيع جديدة",
+            font=("Cairo", 20, "bold"),
+            text_color="white"
+        )
+        title.pack(anchor="e")
+
+        # رقم الفاتورة التلقائي
+        invoice_number = self.generate_invoice_number()
+        number_label = ctk.CTkLabel(
+            title_frame,
+            text=f"رقم الفاتورة: {invoice_number}",
+            font=("Cairo", 14),
+            text_color="white"
+        )
+        number_label.pack(anchor="e")
+
+        # أزرار العمليات
+        self.create_action_buttons(header_frame)
+
+    def create_action_buttons(self, parent):
+        """إنشاء أزرار العمليات الرئيسية"""
+        buttons_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        buttons_frame.pack(side="left", fill="y", padx=20, pady=10)
+
+        buttons_data = [
+            ("💾", "حفظ", self.save_invoice, MODERN_COLORS['primary']),
+            ("🖨️", "طباعة", self.print_invoice, MODERN_COLORS['info']),
+            ("📄", "تصدير PDF", self.export_pdf, MODERN_COLORS['warning']),
+            ("🗑️", "إلغاء", self.cancel_invoice, MODERN_COLORS['error']),
+            ("🔄", "جديد", self.new_invoice, MODERN_COLORS['secondary'])
+        ]
+
+        for icon, text, command, color in buttons_data:
+            btn = ctk.CTkButton(
+                buttons_frame,
+                text=f"{icon} {text}",
+                font=("Cairo", 12),
+                fg_color=color,
+                hover_color=self.get_hover_color(color),
+                width=120,
+                height=35,
+                command=command
+            )
+            btn.pack(side="left", padx=5)
+
+    def create_invoice_sections(self, parent):
+        """إنشاء أقسام الفاتورة الرئيسية"""
+        # القسم العلوي - معلومات العميل والفاتورة
+        top_section = ctk.CTkFrame(parent, height=120, fg_color=MODERN_COLORS['surface'])
+        top_section.pack(fill="x", pady=(0, 10))
+        top_section.pack_propagate(False)
+
+        self.create_customer_info_section(top_section)
+
+        # القسم الأوسط - جدول الأصناف
+        middle_section = ctk.CTkFrame(parent, fg_color=MODERN_COLORS['surface'])
+        middle_section.pack(fill="both", expand=True, pady=(0, 10))
+
+        self.create_items_section(middle_section)
+
+        # القسم السفلي - الإجماليات والملاحظات
+        bottom_section = ctk.CTkFrame(parent, height=150, fg_color=MODERN_COLORS['surface'])
+        bottom_section.pack(fill="x")
+        bottom_section.pack_propagate(False)
+
+        self.create_totals_section(bottom_section)
+
+    def create_customer_info_section(self, parent):
+        """إنشاء قسم معلومات العميل"""
+        # العنوان
+        title = ctk.CTkLabel(
+            parent,
+            text="📋 معلومات العميل والفاتورة",
+            font=("Cairo", 16, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        title.pack(anchor="e", padx=20, pady=(10, 5))
+
+        # إطار المعلومات
+        info_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        info_frame.pack(fill="both", expand=True, padx=20, pady=(0, 10))
+
+        # الصف الأول
+        row1 = ctk.CTkFrame(info_frame, fg_color="transparent")
+        row1.pack(fill="x", pady=5)
+
+        # اختيار العميل
+        customer_label = ctk.CTkLabel(row1, text="العميل:", font=("Cairo", 12))
+        customer_label.pack(side="right", padx=(0, 10))
+
+        self.customer_var = ctk.StringVar(value="عميل نقدي")
+        customer_combo = ctk.CTkComboBox(
+            row1,
+            variable=self.customer_var,
+            values=["عميل نقدي", "عميل آجل", "عميل مميز"],
+            font=("Cairo", 12),
+            width=200
+        )
+        customer_combo.pack(side="right", padx=10)
+
+        # تاريخ الفاتورة
+        date_label = ctk.CTkLabel(row1, text="التاريخ:", font=("Cairo", 12))
+        date_label.pack(side="right", padx=(0, 10))
+
+        date_entry = ctk.CTkEntry(
+            row1,
+            placeholder_text=datetime.now().strftime("%Y-%m-%d"),
+            font=("Cairo", 12),
+            width=150
+        )
+        date_entry.pack(side="right", padx=10)
+
+        # الصف الثاني
+        row2 = ctk.CTkFrame(info_frame, fg_color="transparent")
+        row2.pack(fill="x", pady=5)
+
+        # المخزن
+        warehouse_label = ctk.CTkLabel(row2, text="المخزن:", font=("Cairo", 12))
+        warehouse_label.pack(side="right", padx=(0, 10))
+
+        warehouse_combo = ctk.CTkComboBox(
+            row2,
+            values=["المخزن الرئيسي", "مخزن الفرع الأول", "مخزن الفرع الثاني"],
+            font=("Cairo", 12),
+            width=200
+        )
+        warehouse_combo.pack(side="right", padx=10)
+        warehouse_combo.set("المخزن الرئيسي")
+
+        # طريقة الدفع
+        payment_label = ctk.CTkLabel(row2, text="طريقة الدفع:", font=("Cairo", 12))
+        payment_label.pack(side="right", padx=(0, 10))
+
+        payment_combo = ctk.CTkComboBox(
+            row2,
+            values=["نقدي", "آجل", "شبكة", "تحويل بنكي"],
+            font=("Cairo", 12),
+            width=150
+        )
+        payment_combo.pack(side="right", padx=10)
+        payment_combo.set("نقدي")
+
+    def create_items_section(self, parent):
+        """إنشاء قسم جدول الأصناف"""
+        # العنوان وأزرار الإضافة
+        header_frame = ctk.CTkFrame(parent, fg_color="transparent", height=50)
+        header_frame.pack(fill="x", padx=20, pady=10)
+        header_frame.pack_propagate(False)
+
+        title = ctk.CTkLabel(
+            header_frame,
+            text="🛍️ أصناف الفاتورة",
+            font=("Cairo", 16, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        title.pack(side="right", pady=10)
+
+        # أزرار إضافة الأصناف
+        add_buttons_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        add_buttons_frame.pack(side="left", pady=10)
+
+        add_item_btn = ctk.CTkButton(
+            add_buttons_frame,
+            text="➕ إضافة صنف",
+            font=("Cairo", 12),
+            fg_color=MODERN_COLORS['success'],
+            width=120,
+            command=self.add_item_dialog
+        )
+        add_item_btn.pack(side="left", padx=5)
+
+        barcode_btn = ctk.CTkButton(
+            add_buttons_frame,
+            text="📷 باركود",
+            font=("Cairo", 12),
+            fg_color=MODERN_COLORS['info'],
+            width=100,
+            command=self.scan_barcode
+        )
+        barcode_btn.pack(side="left", padx=5)
+
+        # جدول الأصناف
+        table_frame = ctk.CTkFrame(parent, fg_color="white")
+        table_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+
+        # إنشاء Treeview للجدول
+        columns = ("item_code", "item_name", "quantity", "unit_price", "discount", "tax", "total")
+        column_names = ("كود الصنف", "اسم الصنف", "الكمية", "السعر", "الخصم", "الضريبة", "الإجمالي")
+
+        self.items_tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=10)
+
+        # تكوين الأعمدة
+        for col, name in zip(columns, column_names):
+            self.items_tree.heading(col, text=name)
+            self.items_tree.column(col, width=120, anchor="center")
+
+        # شريط التمرير
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.items_tree.yview)
+        self.items_tree.configure(yscrollcommand=scrollbar.set)
+
+        # تخطيط الجدول
+        self.items_tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # ربط الأحداث
+        self.items_tree.bind("<Double-1>", self.edit_item)
+        self.items_tree.bind("<Delete>", self.delete_item)
+
+    def create_totals_section(self, parent):
+        """إنشاء قسم الإجماليات"""
+        # تقسيم القسم إلى جزأين
+        left_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        left_frame.pack(side="left", fill="both", expand=True, padx=20, pady=10)
+
+        right_frame = ctk.CTkFrame(parent, width=300, fg_color="transparent")
+        right_frame.pack(side="right", fill="y", padx=20, pady=10)
+        right_frame.pack_propagate(False)
+
+        # الملاحظات (الجانب الأيسر)
+        notes_label = ctk.CTkLabel(
+            left_frame,
+            text="📝 ملاحظات:",
+            font=("Cairo", 14, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        notes_label.pack(anchor="e", pady=(0, 5))
+
+        self.notes_text = ctk.CTkTextbox(
+            left_frame,
+            height=80,
+            font=("Cairo", 12),
+            placeholder_text="أدخل أي ملاحظات إضافية هنا..."
+        )
+        self.notes_text.pack(fill="both", expand=True)
+
+        # الإجماليات (الجانب الأيمن)
+        totals_title = ctk.CTkLabel(
+            right_frame,
+            text="💰 إجماليات الفاتورة",
+            font=("Cairo", 14, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        totals_title.pack(anchor="e", pady=(0, 10))
+
+        # إنشاء صفوف الإجماليات
+        self.create_total_row(right_frame, "المجموع الفرعي:", "0.00", "subtotal")
+        self.create_total_row(right_frame, "الخصم:", "0.00", "discount")
+        self.create_total_row(right_frame, "الضريبة:", "0.00", "tax")
+
+        # خط فاصل
+        separator = ctk.CTkFrame(right_frame, height=2, fg_color=MODERN_COLORS['border'])
+        separator.pack(fill="x", pady=5)
+
+        self.create_total_row(right_frame, "الإجمالي النهائي:", "0.00", "total", is_final=True)
+
+    def create_total_row(self, parent, label_text, value_text, key, is_final=False):
+        """إنشاء صف إجمالي واحد"""
+        row_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        row_frame.pack(fill="x", pady=2)
+
+        font_size = 16 if is_final else 12
+        font_weight = "bold" if is_final else "normal"
+        text_color = MODERN_COLORS['success'] if is_final else MODERN_COLORS['text_primary']
+
+        label = ctk.CTkLabel(
+            row_frame,
+            text=label_text,
+            font=("Cairo", font_size, font_weight),
+            text_color=text_color
+        )
+        label.pack(side="right")
+
+        value_label = ctk.CTkLabel(
+            row_frame,
+            text=f"{value_text} ر.س",
+            font=("Cairo", font_size, font_weight),
+            text_color=text_color
+        )
+        value_label.pack(side="left")
+
+        # حفظ مرجع للتحديث لاحقاً
+        self.total_labels[key] = value_label
+
+    def generate_invoice_number(self):
+        """توليد رقم فاتورة تلقائي"""
+        today = datetime.now()
+        return f"SAL-{today.strftime('%Y-%m')}-{today.strftime('%d%H%M%S')}"
+
+    def get_hover_color(self, color):
+        """الحصول على لون التمرير"""
+        hover_colors = {
+            MODERN_COLORS['primary']: MODERN_COLORS.get('primary_dark', '#1B5E20'),
+            MODERN_COLORS['success']: '#45a049',
+            MODERN_COLORS['info']: '#1976D2',
+            MODERN_COLORS['warning']: '#F57C00',
+            MODERN_COLORS['error']: '#D32F2F',
+            MODERN_COLORS['secondary']: '#303F9F'
+        }
+        return hover_colors.get(color, color)
+
+    # دوال العمليات (ستتم إضافة التفاصيل لاحقاً)
+    def add_item_dialog(self):
+        """فتح نافذة إضافة صنف"""
+        messagebox.showinfo("قريباً", "نافذة إضافة الأصناف قيد التطوير")
+
+    def scan_barcode(self):
+        """مسح الباركود"""
+        messagebox.showinfo("قريباً", "ماسح الباركود قيد التطوير")
+
+    def edit_item(self, event):
+        """تعديل صنف"""
+        messagebox.showinfo("قريباً", "تعديل الأصناف قيد التطوير")
+
+    def delete_item(self, event):
+        """حذف صنف"""
+        messagebox.showinfo("قريباً", "حذف الأصناف قيد التطوير")
+
+    def save_invoice(self):
+        """حفظ الفاتورة"""
+        messagebox.showinfo("قريباً", "حفظ الفاتورة قيد التطوير")
+
+    def print_invoice(self):
+        """طباعة الفاتورة"""
+        messagebox.showinfo("قريباً", "طباعة الفاتورة قيد التطوير")
+
+    def export_pdf(self):
+        """تصدير PDF"""
+        messagebox.showinfo("قريباً", "تصدير PDF قيد التطوير")
+
+    def cancel_invoice(self):
+        """إلغاء الفاتورة"""
+        if messagebox.askyesno("تأكيد", "هل تريد إلغاء الفاتورة الحالية؟"):
+            if hasattr(self, 'window') and self.window:
+
+                self.window.destroy()
+
+    def new_invoice(self):
+        """فاتورة جديدة"""
+        if messagebox.askyesno("تأكيد", "هل تريد إنشاء فاتورة جديدة؟"):
+            # مسح البيانات الحالية
+            self.invoice_items.clear()
+            for item in self.items_tree.get_children():
+                self.items_tree.delete(item)
+            self.update_totals()
+
+    def update_totals(self):
+        """تحديث الإجماليات"""
+        # حساب المجموع الفرعي
+        subtotal = sum(item.get('total', 0) for item in self.invoice_items)
+
+        # حساب الخصم والضريبة
+        discount = subtotal * (self.invoice_discount / 100)
+        tax = (subtotal - discount) * (self.invoice_tax / 100)
+
+        # الإجمالي النهائي
+        total = subtotal - discount + tax
+
+        # تحديث التسميات
+        if 'subtotal' in self.total_labels:
+            self.total_labels['subtotal'].configure(text=f"{subtotal:.2f} ر.س")
+        if 'discount' in self.total_labels:
+            self.total_labels['discount'].configure(text=f"{discount:.2f} ر.س")
+        if 'tax' in self.total_labels:
+            self.total_labels['tax'].configure(text=f"{tax:.2f} ر.س")
+        if 'total' in self.total_labels:
+            self.total_labels['total'].configure(text=f"{total:.2f} ر.س")
+
+        # حفظ القيم
+        self.invoice_total = subtotal
+        self.invoice_net_total = total
+
+
+def main():
+    """تشغيل النافذة للاختبار"""
+    root = ctk.CTk()
+    root.withdraw()
+
+    app = SalesInvoiceWindow()
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()

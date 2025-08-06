@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+تشغيل مبسط للوحة التحكم المركزية
+"""
+
+import sys
+import os
+from pathlib import Path
+
+def main():
+    """تشغيل لوحة التحكم"""
+    print("🎛️ بدء تشغيل لوحة التحكم المركزية المطورة...")
+    print("=" * 60)
+    
+    try:
+        # فحص customtkinter
+        try:
+            import customtkinter as ctk
+            print("✅ customtkinter متوفر")
+        except ImportError:
+            print("❌ customtkinter غير مثبت")
+            print("📦 تثبيت customtkinter...")
+            os.system("pip install customtkinter")
+            import customtkinter as ctk
+            print("✅ تم تثبيت customtkinter بنجاح")
+        
+        # تعيين المظهر
+        ctk.set_appearance_mode("light")
+        ctk.set_default_color_theme("blue")
+        
+        # إنشاء النافذة الرئيسية
+        root = ctk.CTk()
+        root.title("🎛️ لوحة التحكم المركزية المطورة")
+        root.geometry("1400x900")
+        
+        try:
+            root.state('zoomed')  # ملء الشاشة
+        except:
+            pass
+        
+        # استيراد لوحة التحكم
+        from ui.central_control_panel import CentralControlPanel
+        
+        # إنشاء لوحة التحكم
+        control_panel = CentralControlPanel(root)
+        
+        print("🎉 تم تشغيل لوحة التحكم بنجاح!")
+        print("🔧 استكشف جميع الأقسام الـ11 المطورة")
+        
+        # بدء التطبيق
+        root.mainloop()
+        
+    except Exception as e:
+        print(f"❌ خطأ في التشغيل: {e}")
+        import traceback
+import traceback
+        traceback.print_exc()
+        input("اضغط Enter للخروج...")
+
+if __name__ == "__main__":
+    main()

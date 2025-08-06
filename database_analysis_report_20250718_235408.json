@@ -1,0 +1,1267 @@
+{
+  "timestamp": "2025-07-18T23:53:30.272097",
+  "database_info": {
+    "path": "database/accounting.db",
+    "size_bytes": 286720,
+    "size_mb": 0.27,
+    "table_count": 19,
+    "index_count": 45
+  },
+  "tables": {
+    "users": {
+      "row_count": 3,
+      "column_count": 9,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "username",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "password_hash",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "full_name",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "email",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "role",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "not_null": 0
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        },
+        {
+          "name": "last_login",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        }
+      ]
+    },
+    "sqlite_sequence": {
+      "row_count": 4,
+      "column_count": 2,
+      "columns": [
+        {
+          "name": "name",
+          "type": "",
+          "not_null": 0
+        },
+        {
+          "name": "seq",
+          "type": "",
+          "not_null": 0
+        }
+      ]
+    },
+    "products": {
+      "row_count": 12,
+      "column_count": 12,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "barcode",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "category",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "unit",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "cost_price",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "selling_price",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "min_stock",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "current_stock",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "not_null": 0
+        }
+      ]
+    },
+    "customers": {
+      "row_count": 0,
+      "column_count": 9,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "phone",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "email",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "address",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "credit_limit",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "current_balance",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "not_null": 0
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        }
+      ]
+    },
+    "suppliers": {
+      "row_count": 0,
+      "column_count": 9,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "phone",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "email",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "address",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "tax_number",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "current_balance",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "not_null": 0
+        }
+      ]
+    },
+    "sales_invoices": {
+      "row_count": 0,
+      "column_count": 12,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "invoice_number",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "total_amount",
+          "type": "REAL",
+          "not_null": 1
+        },
+        {
+          "name": "discount_amount",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "tax_amount",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "net_amount",
+          "type": "REAL",
+          "not_null": 1
+        },
+        {
+          "name": "payment_status",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "invoice_date",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        },
+        {
+          "name": "due_date",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "created_by",
+          "type": "INTEGER",
+          "not_null": 0
+        }
+      ]
+    },
+    "sales_invoice_items": {
+      "row_count": 0,
+      "column_count": 6,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "invoice_id",
+          "type": "INTEGER",
+          "not_null": 1
+        },
+        {
+          "name": "product_id",
+          "type": "INTEGER",
+          "not_null": 1
+        },
+        {
+          "name": "quantity",
+          "type": "REAL",
+          "not_null": 1
+        },
+        {
+          "name": "unit_price",
+          "type": "REAL",
+          "not_null": 1
+        },
+        {
+          "name": "total_price",
+          "type": "REAL",
+          "not_null": 1
+        }
+      ]
+    },
+    "purchase_invoices": {
+      "row_count": 0,
+      "column_count": 12,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "invoice_number",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "supplier_id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "total_amount",
+          "type": "REAL",
+          "not_null": 1
+        },
+        {
+          "name": "discount_amount",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "tax_amount",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "net_amount",
+          "type": "REAL",
+          "not_null": 1
+        },
+        {
+          "name": "payment_status",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "invoice_date",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        },
+        {
+          "name": "due_date",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "created_by",
+          "type": "INTEGER",
+          "not_null": 0
+        }
+      ]
+    },
+    "purchase_invoice_items": {
+      "row_count": 0,
+      "column_count": 6,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "invoice_id",
+          "type": "INTEGER",
+          "not_null": 1
+        },
+        {
+          "name": "product_id",
+          "type": "INTEGER",
+          "not_null": 1
+        },
+        {
+          "name": "quantity",
+          "type": "REAL",
+          "not_null": 1
+        },
+        {
+          "name": "unit_price",
+          "type": "REAL",
+          "not_null": 1
+        },
+        {
+          "name": "total_price",
+          "type": "REAL",
+          "not_null": 1
+        }
+      ]
+    },
+    "treasury_transactions": {
+      "row_count": 0,
+      "column_count": 8,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "transaction_type",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "amount",
+          "type": "REAL",
+          "not_null": 1
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "reference_type",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "reference_id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "transaction_date",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        },
+        {
+          "name": "created_by",
+          "type": "INTEGER",
+          "not_null": 0
+        }
+      ]
+    },
+    "inventory_movements": {
+      "row_count": 0,
+      "column_count": 9,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "product_id",
+          "type": "INTEGER",
+          "not_null": 1
+        },
+        {
+          "name": "movement_type",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "quantity",
+          "type": "REAL",
+          "not_null": 1
+        },
+        {
+          "name": "reference_type",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "reference_id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "movement_date",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        },
+        {
+          "name": "created_by",
+          "type": "INTEGER",
+          "not_null": 0
+        }
+      ]
+    },
+    "chart_of_accounts": {
+      "row_count": 36,
+      "column_count": 14,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "account_code",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "account_name",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "account_type",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "parent_account_id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "account_level",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "is_main_account",
+          "type": "BOOLEAN",
+          "not_null": 0
+        },
+        {
+          "name": "current_balance",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "debit_balance",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "credit_balance",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "account_nature",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "not_null": 0
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        },
+        {
+          "name": "created_by",
+          "type": "INTEGER",
+          "not_null": 0
+        }
+      ]
+    },
+    "journal_entries": {
+      "row_count": 0,
+      "column_count": 14,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "entry_number",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "entry_date",
+          "type": "DATE",
+          "not_null": 1
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "reference_type",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "reference_id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "total_debit",
+          "type": "REAL",
+          "not_null": 1
+        },
+        {
+          "name": "total_credit",
+          "type": "REAL",
+          "not_null": 1
+        },
+        {
+          "name": "is_balanced",
+          "type": "BOOLEAN",
+          "not_null": 0
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        },
+        {
+          "name": "created_by",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "posted_at",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        },
+        {
+          "name": "posted_by",
+          "type": "INTEGER",
+          "not_null": 0
+        }
+      ]
+    },
+    "journal_entry_details": {
+      "row_count": 0,
+      "column_count": 8,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "journal_entry_id",
+          "type": "INTEGER",
+          "not_null": 1
+        },
+        {
+          "name": "account_id",
+          "type": "INTEGER",
+          "not_null": 1
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "debit_amount",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "credit_amount",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "line_number",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        }
+      ]
+    },
+    "employees": {
+      "row_count": 0,
+      "column_count": 15,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "position",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "department",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "phone",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "email",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "hire_date",
+          "type": "DATE",
+          "not_null": 0
+        },
+        {
+          "name": "termination_date",
+          "type": "DATE",
+          "not_null": 0
+        },
+        {
+          "name": "salary",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "national_id",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "address",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "emergency_contact",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "is_active",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        }
+      ]
+    },
+    "activity_logs": {
+      "row_count": 40,
+      "column_count": 8,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "action",
+          "type": "TEXT",
+          "not_null": 1
+        },
+        {
+          "name": "table_name",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "record_id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "old_values",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "new_values",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "timestamp",
+          "type": "TIMESTAMP",
+          "not_null": 0
+        }
+      ]
+    },
+    "users_fixed": {
+      "row_count": 3,
+      "column_count": 9,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "username",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "password_hash",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "full_name",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "email",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "role",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "is_active",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "last_login",
+          "type": "TEXT",
+          "not_null": 0
+        }
+      ]
+    },
+    "chart_of_accounts_fixed": {
+      "row_count": 36,
+      "column_count": 14,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "account_code",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "account_name",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "account_type",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "parent_account_id",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "account_level",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "is_main_account",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "current_balance",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "debit_balance",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "credit_balance",
+          "type": "REAL",
+          "not_null": 0
+        },
+        {
+          "name": "account_nature",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "is_active",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "created_at",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "created_by",
+          "type": "INTEGER",
+          "not_null": 0
+        }
+      ]
+    },
+    "activity_logs_fixed": {
+      "row_count": 1,
+      "column_count": 8,
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "user_id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "action",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "table_name",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "record_id",
+          "type": "INTEGER",
+          "not_null": 0
+        },
+        {
+          "name": "old_values",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "new_values",
+          "type": "TEXT",
+          "not_null": 0
+        },
+        {
+          "name": "timestamp",
+          "type": "TEXT",
+          "not_null": 0
+        }
+      ]
+    }
+  },
+  "indexes": {
+    "idx_products_name": {
+      "table": "products",
+      "sql": "CREATE INDEX idx_products_name ON products(name)"
+    },
+    "idx_products_barcode": {
+      "table": "products",
+      "sql": "CREATE INDEX idx_products_barcode ON products(barcode)"
+    },
+    "idx_products_category": {
+      "table": "products",
+      "sql": "CREATE INDEX idx_products_category ON products(category)"
+    },
+    "idx_products_active": {
+      "table": "products",
+      "sql": "CREATE INDEX idx_products_active ON products(is_active)"
+    },
+    "idx_sales_invoices_number": {
+      "table": "sales_invoices",
+      "sql": "CREATE INDEX idx_sales_invoices_number ON sales_invoices(invoice_number)"
+    },
+    "idx_sales_invoices_date": {
+      "table": "sales_invoices",
+      "sql": "CREATE INDEX idx_sales_invoices_date ON sales_invoices(invoice_date)"
+    },
+    "idx_sales_invoices_customer": {
+      "table": "sales_invoices",
+      "sql": "CREATE INDEX idx_sales_invoices_customer ON sales_invoices(customer_id)"
+    },
+    "idx_sales_invoices_status": {
+      "table": "sales_invoices",
+      "sql": "CREATE INDEX idx_sales_invoices_status ON sales_invoices(payment_status)"
+    },
+    "idx_sales_items_invoice": {
+      "table": "sales_invoice_items",
+      "sql": "CREATE INDEX idx_sales_items_invoice ON sales_invoice_items(invoice_id)"
+    },
+    "idx_sales_items_product": {
+      "table": "sales_invoice_items",
+      "sql": "CREATE INDEX idx_sales_items_product ON sales_invoice_items(product_id)"
+    },
+    "idx_customers_name": {
+      "table": "customers",
+      "sql": "CREATE INDEX idx_customers_name ON customers(name)"
+    },
+    "idx_customers_phone": {
+      "table": "customers",
+      "sql": "CREATE INDEX idx_customers_phone ON customers(phone)"
+    },
+    "idx_customers_active": {
+      "table": "customers",
+      "sql": "CREATE INDEX idx_customers_active ON customers(is_active)"
+    },
+    "idx_suppliers_name": {
+      "table": "suppliers",
+      "sql": "CREATE INDEX idx_suppliers_name ON suppliers(name)"
+    },
+    "idx_suppliers_active": {
+      "table": "suppliers",
+      "sql": "CREATE INDEX idx_suppliers_active ON suppliers(is_active)"
+    },
+    "idx_users_username": {
+      "table": "users",
+      "sql": "CREATE INDEX idx_users_username ON users(username)"
+    },
+    "idx_users_role": {
+      "table": "users",
+      "sql": "CREATE INDEX idx_users_role ON users(role)"
+    },
+    "idx_users_active": {
+      "table": "users",
+      "sql": "CREATE INDEX idx_users_active ON users(is_active)"
+    },
+    "idx_accounts_code": {
+      "table": "chart_of_accounts",
+      "sql": "CREATE INDEX idx_accounts_code ON chart_of_accounts(account_code)"
+    },
+    "idx_accounts_name": {
+      "table": "chart_of_accounts",
+      "sql": "CREATE INDEX idx_accounts_name ON chart_of_accounts(account_name)"
+    },
+    "idx_accounts_type": {
+      "table": "chart_of_accounts",
+      "sql": "CREATE INDEX idx_accounts_type ON chart_of_accounts(account_type)"
+    },
+    "idx_accounts_parent": {
+      "table": "chart_of_accounts",
+      "sql": "CREATE INDEX idx_accounts_parent ON chart_of_accounts(parent_account_id)"
+    },
+    "idx_accounts_active": {
+      "table": "chart_of_accounts",
+      "sql": "CREATE INDEX idx_accounts_active ON chart_of_accounts(is_active)"
+    },
+    "idx_journal_entries_number": {
+      "table": "journal_entries",
+      "sql": "CREATE INDEX idx_journal_entries_number ON journal_entries(entry_number)"
+    },
+    "idx_journal_entries_date": {
+      "table": "journal_entries",
+      "sql": "CREATE INDEX idx_journal_entries_date ON journal_entries(entry_date)"
+    },
+    "idx_journal_entries_status": {
+      "table": "journal_entries",
+      "sql": "CREATE INDEX idx_journal_entries_status ON journal_entries(status)"
+    },
+    "idx_journal_entries_reference": {
+      "table": "journal_entries",
+      "sql": "CREATE INDEX idx_journal_entries_reference ON journal_entries(reference_type, reference_id)"
+    },
+    "idx_journal_details_entry": {
+      "table": "journal_entry_details",
+      "sql": "CREATE INDEX idx_journal_details_entry ON journal_entry_details(journal_entry_id)"
+    },
+    "idx_journal_details_account": {
+      "table": "journal_entry_details",
+      "sql": "CREATE INDEX idx_journal_details_account ON journal_entry_details(account_id)"
+    },
+    "idx_purchase_invoices_number": {
+      "table": "purchase_invoices",
+      "sql": "CREATE INDEX idx_purchase_invoices_number ON purchase_invoices(invoice_number)"
+    },
+    "idx_purchase_invoices_supplier": {
+      "table": "purchase_invoices",
+      "sql": "CREATE INDEX idx_purchase_invoices_supplier ON purchase_invoices(supplier_id)"
+    },
+    "idx_purchase_invoices_date": {
+      "table": "purchase_invoices",
+      "sql": "CREATE INDEX idx_purchase_invoices_date ON purchase_invoices(invoice_date)"
+    },
+    "idx_purchase_invoices_status": {
+      "table": "purchase_invoices",
+      "sql": "CREATE INDEX idx_purchase_invoices_status ON purchase_invoices(payment_status)"
+    },
+    "idx_purchase_items_invoice": {
+      "table": "purchase_invoice_items",
+      "sql": "CREATE INDEX idx_purchase_items_invoice ON purchase_invoice_items(invoice_id)"
+    },
+    "idx_purchase_items_product": {
+      "table": "purchase_invoice_items",
+      "sql": "CREATE INDEX idx_purchase_items_product ON purchase_invoice_items(product_id)"
+    },
+    "idx_employees_name": {
+      "table": "employees",
+      "sql": "CREATE INDEX idx_employees_name ON employees(name)"
+    },
+    "idx_employees_department": {
+      "table": "employees",
+      "sql": "CREATE INDEX idx_employees_department ON employees(department)"
+    },
+    "idx_employees_position": {
+      "table": "employees",
+      "sql": "CREATE INDEX idx_employees_position ON employees(position)"
+    },
+    "idx_employees_active": {
+      "table": "employees",
+      "sql": "CREATE INDEX idx_employees_active ON employees(is_active)"
+    }
+  },
+  "issues": [
+    {
+      "type": "empty_table",
+      "table": "customers",
+      "description": "الجدول customers فارغ"
+    },
+    {
+      "type": "empty_table",
+      "table": "suppliers",
+      "description": "الجدول suppliers فارغ"
+    },
+    {
+      "type": "empty_table",
+      "table": "sales_invoices",
+      "description": "الجدول sales_invoices فارغ"
+    },
+    {
+      "type": "empty_table",
+      "table": "sales_invoice_items",
+      "description": "الجدول sales_invoice_items فارغ"
+    },
+    {
+      "type": "empty_table",
+      "table": "purchase_invoices",
+      "description": "الجدول purchase_invoices فارغ"
+    },
+    {
+      "type": "empty_table",
+      "table": "purchase_invoice_items",
+      "description": "الجدول purchase_invoice_items فارغ"
+    },
+    {
+      "type": "empty_table",
+      "table": "treasury_transactions",
+      "description": "الجدول treasury_transactions فارغ"
+    },
+    {
+      "type": "empty_table",
+      "table": "inventory_movements",
+      "description": "الجدول inventory_movements فارغ"
+    },
+    {
+      "type": "empty_table",
+      "table": "journal_entries",
+      "description": "الجدول journal_entries فارغ"
+    },
+    {
+      "type": "empty_table",
+      "table": "journal_entry_details",
+      "description": "الجدول journal_entry_details فارغ"
+    },
+    {
+      "type": "empty_table",
+      "table": "employees",
+      "description": "الجدول employees فارغ"
+    }
+  ],
+  "recommendations": [
+    "يمكن حذف الجداول الفارغة: customers, suppliers, sales_invoices, sales_invoice_items, purchase_invoices, purchase_invoice_items, treasury_transactions, inventory_movements, journal_entries, journal_entry_details, employees",
+    "تشغيل VACUUM دورياً لتحسين الأداء",
+    "إنشاء نسخ احتياطية منتظمة",
+    "مراقبة نمو حجم قاعدة البيانات"
+  ]
+}

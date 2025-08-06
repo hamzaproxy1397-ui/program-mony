@@ -1,0 +1,843 @@
+# -*- coding: utf-8 -*-
+# cSpell:disable
+"""
+نافذة نقطة البيع (POS) الاحترافية
+Point of Sale System - Professional Interface
+"""
+
+import customtkinter as ctk
+import tkinter as tk
+from tkinter import messagebox, ttk
+from datetime import datetime
+try:
+    from themes.modern_theme import MODERN_COLORS, FONTS
+    from ui.window_utils import configure_window_fullscreen
+except ImportError:
+    # ألوان افتراضية في حالة عدم وجود الثيم
+    MODERN_COLORS = {
+        'primary': '#1f538d',
+        'background': '#f0f0f0',
+        'surface': '#ffffff',
+        'text_primary': '#000000',
+        'success': '#28a745',
+        'error': '#dc3545',
+        'warning': '#ffc107',
+        'info': '#17a2b8'
+    }
+    FONTS = {'arabic': 'Arial'}
+
+class POSWindow:
+    def __init__(self, parent):
+        self.parent = parent
+        self.window = None
+        self.cart_items = []  # سلة المشتريات
+        self.total_amount = 0.0  # إجمالي الفاتورة
+        self.selected_customer = None  # العميل المحدد
+        self.current_quantity = 1  # الكمية الحالية
+
+        # بيانات المنتجات التجريبية
+        self.products = self.load_sample_products()
+
+        self.create_window()
+        
+    def create_window(self):
+        """إنشاء نافذة نقطة البيع"""
+        try:
+            self.window = ctk.CTkToplevel(self.parent)
+        
+        except Exception as e:
+            print(f"خطأ: {e}")
+        # إعداد النافذة لتملأ الشاشة
+        configure_window_fullscreen(self.window, "نقطة البيع - POS - برنامج ست الكل للمحاسبة")
+            self.window
+
+            # جعل النافذة في المقدمة
+            self.window.transient(self.parent)
+            self.window.grab_set()
+
+            # إنشاء المحتوى الرئيسي
+            self.create_main_layout()
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في إنشاء نافذة نقطة البيع: {str(e)}")
+        
+    def create_main_layout(self):
+        """إنشاء التخطيط الرئيسي للنافذة"""
+        try:
+            # الشريط العلوي
+            self.create_header()
+
+            # المحتوى الرئيسي - تقسيم إلى 3 أعمدة
+            main_container = ctk.CTkFrame(self.window, fg_color="transparent")
+            main_container.pack(fill="both", expand=True, padx=10, pady=10)
+
+            # العمود الأيسر - المنتجات (60%)
+            self.products_frame = ctk.CTkFrame(main_container)
+            self.products_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
+
+            # العمود الأوسط - لوحة الأرقام (20%)
+            self.calculator_frame = ctk.CTkFrame(main_container, width=200)
+            self.calculator_frame.pack(side="left", fill="y", padx=5)
+            self.calculator_frame.pack_propagate(False)
+
+            # العمود الأيمن - سلة المشتريات (20%)
+            self.cart_frame = ctk.CTkFrame(main_container, width=300)
+            self.cart_frame.pack(side="right", fill="y", padx=(5, 0))
+            self.cart_frame.pack_propagate(False)
+
+            # إنشاء محتوى كل قسم
+            self.create_products_section()
+            self.create_calculator_section()
+            self.create_cart_section()
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في إنشاء التخطيط: {str(e)}")
+        
+    def create_header(self):
+        """إنشاء الشريط العلوي"""
+        try:
+            header_frame = ctk.CTkFrame(self.window, height=80)
+            header_frame.pack(fill="x", padx=10, pady=(10, 0))
+            header_frame.pack_propagate(False)
+
+            # عنوان النافذة
+            title_label = ctk.CTkLabel(
+                header_frame,
+                text="🛒 نقطة البيع الاحترافية - POS",
+                font=("Arial", 20, "bold")
+            )
+            title_label.pack(side="right", padx=20, pady=20)
+
+            # معلومات التاريخ والوقت
+            datetime_label = ctk.CTkLabel(
+                header_frame,
+                text=f"التاريخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+                font=("Arial", 12)
+            )
+            datetime_label.pack(side="left", padx=20, pady=20)
+
+            # زر إغلاق النافذة
+            close_btn = ctk.CTkButton(
+                header_frame,
+                text="❌ إغلاق",
+                width=80,
+                command=self.close_window
+            )
+            close_btn.pack(side="left", padx=(20, 0), pady=20)
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            print(f"خطأ في إنشاء الشريط العلوي: {e}")
+        
+    def create_products_section(self):
+        """إنشاء قسم عرض المنتجات"""
+        try:
+            # عنوان القسم
+            products_title = ctk.CTkLabel(
+                self.products_frame,
+                text="المنتجات المتاحة",
+                font=("Arial", 16, "bold")
+            )
+            products_title.pack(pady=(15, 10))
+
+            # شريط البحث والفلاتر
+            search_frame = ctk.CTkFrame(self.products_frame, height=60)
+            search_frame.pack(fill="x", padx=15, pady=(0, 10))
+            search_frame.pack_propagate(False)
+
+            # شريط البحث
+            ctk.CTkLabel(search_frame, text="البحث:", font=("Arial", 12)).pack(side="right", padx=10, pady=15)
+            self.search_entry = ctk.CTkEntry(search_frame, width=200, placeholder_text="ابحث عن منتج...")
+            self.search_entry.pack(side="right", padx=5, pady=15)
+            self.search_entry.bind("<KeyRelease>", self.search_products)
+
+            # فلتر الفئة
+            ctk.CTkLabel(search_frame, text="الفئة:", font=("Arial", 12)).pack(side="right", padx=10, pady=15)
+            self.category_filter = ctk.CTkComboBox(
+                search_frame,
+                values=["جميع الفئات", "مشروبات", "وجبات خفيفة", "حلويات", "منتجات ألبان"],
+                width=120,
+                command=self.filter_by_category
+            )
+            self.category_filter.pack(side="right", padx=5, pady=15)
+            self.category_filter.set("جميع الفئات")
+
+            # منطقة عرض المنتجات مع التمرير
+            self.create_products_grid()
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            print(f"خطأ في إنشاء قسم المنتجات: {e}")
+        
+    def create_products_grid(self):
+        """إنشاء شبكة المنتجات"""
+        # إطار التمرير
+        products_scroll_frame = ctk.CTkScrollableFrame(
+            self.products_frame,
+            fg_color="transparent"
+        )
+        products_scroll_frame.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        
+        # شبكة المنتجات
+        self.products_grid_frame = products_scroll_frame
+        self.display_products()
+        
+    def display_products(self, filtered_products=None):
+        """عرض المنتجات في الشبكة"""
+        # مسح المنتجات السابقة
+        for widget in self.products_grid_frame.winfo_children():
+            widget.destroy()
+            
+        # المنتجات المراد عرضها
+        products_to_show = filtered_products if filtered_products else self.products
+        
+        # عرض المنتجات في شبكة 4 أعمدة
+        row = 0
+        col = 0
+        for product in products_to_show:
+            product_card = self.create_product_card(self.products_grid_frame, product)
+            product_card.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
+            
+            col += 1
+            if col >= 4:  # 4 منتجات في كل صف:
+                col = 0
+                row += 1
+                
+        # تكوين الأعمدة للتوسع
+        for i in range(4):
+            self.products_grid_frame.grid_columnconfigure(i, weight=1)
+            
+    def create_product_card(self, parent, product):
+        """إنشاء بطاقة منتج"""
+        # إطار البطاقة
+        card = ctk.CTkFrame(parent, width=180, height=220, fg_color=MODERN_COLORS['card'])
+        card.pack_propagate(False)
+        
+        # صورة المنتج (placeholder)
+        image_frame = ctk.CTkFrame(card, height=120, fg_color=MODERN_COLORS['primary_light'])
+        image_frame.pack(fill="x", padx=10, pady=(10, 5))
+        image_frame.pack_propagate(False)
+        
+        # أيقونة المنتج
+        product_icon = ctk.CTkLabel(
+            image_frame,
+            text=product['icon'],
+            font=("Arial", 40),
+            text_color=MODERN_COLORS['primary']
+        )
+        product_icon.pack(expand=True)
+        
+        # اسم المنتج
+        name_label = ctk.CTkLabel(
+            card,
+            text=product['name'],
+            font=(FONTS['arabic'], 14, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        name_label.pack(pady=(5, 2))
+        
+        # سعر المنتج
+        price_label = ctk.CTkLabel(
+            card,
+            text=f"{product['price']:.2f} ل.س",
+            font=(FONTS['arabic'], 16, "bold"),
+            text_color=MODERN_COLORS['success']
+        )
+        price_label.pack(pady=2)
+        
+        # زر الإضافة للسلة
+        add_button = ctk.CTkButton(
+            card,
+            text="إضافة للسلة",
+            width=140,
+            height=30,
+            command=lambda p=product: self.add_to_cart(p),
+            fg_color=MODERN_COLORS['primary'],
+            hover_color=MODERN_COLORS['primary_dark']
+        )
+        add_button.pack(pady=(5, 10))
+        
+        return card
+        
+    def create_calculator_section(self):
+        """إنشاء لوحة الأرقام والعمليات"""
+        # عنوان القسم
+        calc_title = ctk.CTkLabel(
+            self.calculator_frame,
+            text="لوحة التحكم",
+            font=(FONTS['arabic'], 16, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        calc_title.pack(pady=(15, 10))
+        
+        # عرض الكمية الحالية
+        quantity_frame = ctk.CTkFrame(self.calculator_frame, height=60)
+        quantity_frame.pack(fill="x", padx=10, pady=5)
+        quantity_frame.pack_propagate(False)
+        
+        ctk.CTkLabel(quantity_frame, text="الكمية:", font=(FONTS['arabic'], 12)).pack(pady=5)
+        self.quantity_display = ctk.CTkLabel(
+            quantity_frame,
+            text=str(self.current_quantity),
+            font=(FONTS['arabic'], 20, "bold"),
+            text_color=MODERN_COLORS['primary']
+        )
+        self.quantity_display.pack(pady=5)
+        
+        # أزرار الكمية
+        qty_buttons_frame = ctk.CTkFrame(self.calculator_frame)
+        qty_buttons_frame.pack(fill="x", padx=10, pady=5)
+        
+        # زر تقليل الكمية
+        minus_btn = ctk.CTkButton(
+            qty_buttons_frame,
+            text="-",
+            width=50,
+            height=40,
+            command=self.decrease_quantity,
+            fg_color=MODERN_COLORS['error']
+        )
+        minus_btn.pack(side="right", padx=2, pady=5)
+        
+        # زر زيادة الكمية
+        plus_btn = ctk.CTkButton(
+            qty_buttons_frame,
+            text="+",
+            width=50,
+            height=40,
+            command=self.increase_quantity,
+            fg_color=MODERN_COLORS['success']
+        )
+        plus_btn.pack(side="left", padx=2, pady=5)
+        
+        # لوحة الأرقام
+        self.create_number_pad()
+        
+        # أزرار العمليات
+        self.create_operation_buttons()
+        
+    def create_number_pad(self):
+        """إنشاء لوحة الأرقام"""
+        numbers_frame = ctk.CTkFrame(self.calculator_frame)
+        numbers_frame.pack(fill="x", padx=10, pady=10)
+        
+        # أزرار الأرقام
+        numbers = [
+            ['7', '8', '9'],
+            ['4', '5', '6'],
+            ['1', '2', '3'],
+            ['0', '.', 'C']
+        ]
+        
+        for i, row in enumerate(numbers):
+            row_frame = ctk.CTkFrame(numbers_frame, fg_color="transparent")
+            row_frame.pack(fill="x", pady=2)
+            
+            for j, num in enumerate(row):
+                if num == 'C':
+                    btn_color = MODERN_COLORS['error']
+                    command = self.clear_quantity
+                else:
+                    btn_color = MODERN_COLORS['secondary']
+                    command = lambda n=num: self.number_clicked(n)
+                    
+                btn = ctk.CTkButton(
+                    row_frame,
+                    text=num,
+                    width=50,
+                    height=40,
+                    command=command,
+                    fg_color=btn_color
+                )
+                btn.pack(side="right" if j == 0 else "left", padx=2, expand=True, fill="x")
+                
+    def create_operation_buttons(self):
+        """إنشاء أزرار العمليات"""
+        operations_frame = ctk.CTkFrame(self.calculator_frame)
+        operations_frame.pack(fill="x", padx=10, pady=5)
+        
+        # زر الخصم
+        discount_btn = ctk.CTkButton(
+            operations_frame,
+            text="خصم %",
+            height=35,
+            command=self.apply_discount,
+            fg_color=MODERN_COLORS['warning']
+        )
+        discount_btn.pack(fill="x", pady=2)
+        
+        # زر حذف آخر عنصر
+        remove_btn = ctk.CTkButton(
+            operations_frame,
+            text="حذف آخر عنصر",
+            height=35,
+            command=self.remove_last_item,
+            fg_color=MODERN_COLORS['error']
+        )
+        remove_btn.pack(fill="x", pady=2)
+        
+        # زر مسح السلة
+        clear_cart_btn = ctk.CTkButton(
+            operations_frame,
+            text="مسح السلة",
+            height=35,
+            command=self.clear_cart,
+            fg_color=MODERN_COLORS['error']
+        )
+        clear_cart_btn.pack(fill="x", pady=2)
+        
+    def create_cart_section(self):
+        """إنشاء قسم سلة المشتريات"""
+        # عنوان القسم
+        cart_title = ctk.CTkLabel(
+            self.cart_frame,
+            text="سلة المشتريات",
+            font=(FONTS['arabic'], 18, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        cart_title.pack(pady=(15, 10))
+        
+        # قائمة المشتريات
+        self.cart_list_frame = ctk.CTkScrollableFrame(
+            self.cart_frame,
+            height=400,
+            fg_color="transparent"
+        )
+        self.cart_list_frame.pack(fill="both", expand=True, padx=10, pady=5)
+        
+        # إجمالي الفاتورة
+        total_frame = ctk.CTkFrame(self.cart_frame, height=80)
+        total_frame.pack(fill="x", padx=10, pady=5)
+        total_frame.pack_propagate(False)
+        
+        ctk.CTkLabel(total_frame, text="الإجمالي:", font=(FONTS['arabic'], 16, "bold")).pack(pady=5)
+        self.total_label = ctk.CTkLabel(
+            total_frame,
+            text="0.00 ل.س",
+            font=(FONTS['arabic'], 20, "bold"),
+            text_color=MODERN_COLORS['success']
+        )
+        self.total_label.pack(pady=5)
+        
+        # أزرار العميل والدفع
+        self.create_checkout_buttons()
+        
+    def create_checkout_buttons(self):
+        """إنشاء أزرار العميل والدفع"""
+        buttons_frame = ctk.CTkFrame(self.cart_frame)
+        buttons_frame.pack(fill="x", padx=10, pady=5)
+        
+        # زر اختيار العميل
+        customer_btn = ctk.CTkButton(
+            buttons_frame,
+            text="👤 اختيار العميل",
+            height=40,
+            command=self.select_customer,
+            fg_color=MODERN_COLORS['info']
+        )
+        customer_btn.pack(fill="x", pady=2)
+        
+        # عرض العميل المحدد
+        self.customer_label = ctk.CTkLabel(
+            buttons_frame,
+            text="لم يتم اختيار عميل",
+            font=(FONTS['arabic'], 12),
+            text_color=MODERN_COLORS['text_secondary']
+        )
+        self.customer_label.pack(pady=2)
+        
+        # زر الدفع
+        payment_btn = ctk.CTkButton(
+            buttons_frame,
+            text="💳 إتمام الدفع",
+            height=50,
+            command=self.process_payment,
+            fg_color=MODERN_COLORS['success'],
+            font=(FONTS['arabic'], 16, "bold")
+        )
+        payment_btn.pack(fill="x", pady=(10, 5))
+        
+    def load_sample_products(self):
+        """تحميل بيانات المنتجات التجريبية"""
+        return [
+            {"id": 1, "name": "كوكا كولا", "price": 150.0, "category": "مشروبات", "icon": "🥤"},
+            {"id": 2, "name": "بيبسي", "price": 140.0, "category": "مشروبات", "icon": "🥤"},
+            {"id": 3, "name": "عصير برتقال", "price": 200.0, "category": "مشروبات", "icon": "🧃"},
+            {"id": 4, "name": "ماء معدني", "price": 100.0, "category": "مشروبات", "icon": "💧"},
+            {"id": 5, "name": "شيبس", "price": 120.0, "category": "وجبات خفيفة", "icon": "🍟"},
+            {"id": 6, "name": "بسكويت", "price": 80.0, "category": "وجبات خفيفة", "icon": "🍪"},
+            {"id": 7, "name": "شوكولاتة", "price": 250.0, "category": "حلويات", "icon": "🍫"},
+            {"id": 8, "name": "حلوى", "price": 180.0, "category": "حلويات", "icon": "🍬"},
+            {"id": 9, "name": "حليب", "price": 300.0, "category": "منتجات ألبان", "icon": "🥛"},
+            {"id": 10, "name": "جبنة", "price": 400.0, "category": "منتجات ألبان", "icon": "🧀"},
+            {"id": 11, "name": "لبن", "price": 250.0, "category": "منتجات ألبان", "icon": "🥛"},
+            {"id": 12, "name": "كيك", "price": 500.0, "category": "حلويات", "icon": "🍰"}
+        ]
+
+    # ==================== وظائف البحث والفلترة ====================
+
+    def search_products(self, event=None):
+        """البحث في المنتجات"""
+        search_term = self.search_entry.get().lower().strip()
+        category = self.category_filter.get()
+
+        filtered_products = []
+        for product in self.products:
+            # فلترة حسب النص
+            name_match = search_term in product['name'].lower()
+            # فلترة حسب الفئة
+            category_match = category == "جميع الفئات" or product['category'] == category
+
+            if name_match and category_match:
+                filtered_products.append(product)
+
+        self.display_products(filtered_products)
+
+    def filter_by_category(self, category):
+        """فلترة المنتجات حسب الفئة"""
+        self.search_products()
+
+    # ==================== وظائف سلة المشتريات ====================
+
+    def add_to_cart(self, product):
+        """إضافة منتج إلى سلة المشتريات"""
+        # البحث عن المنتج في السلة
+        found = False
+        for item in self.cart_items:
+            if item['id'] == product['id']:
+                item['quantity'] += self.current_quantity
+                item['total'] = item['quantity'] * item['price']
+                found = True
+                break
+
+        # إذا لم يكن موجود، أضفه كعنصر جديد
+        if not found:
+            cart_item = {
+                'id': product['id'],
+                'name': product['name'],
+                'price': product['price'],
+                'quantity': self.current_quantity,
+                'total': product['price'] * self.current_quantity
+            }
+            self.cart_items.append(cart_item)
+
+        # تحديث عرض السلة
+        self.update_cart_display()
+        self.update_total()
+
+        # إعادة تعيين الكمية إلى 1
+        self.current_quantity = 1
+        self.update_quantity_display()
+
+    def update_cart_display(self):
+        """تحديث عرض سلة المشتريات"""
+        # مسح العرض السابق
+        for widget in self.cart_list_frame.winfo_children():
+            widget.destroy()
+
+        # عرض كل عنصر في السلة
+        for i, item in enumerate(self.cart_items):
+            item_frame = ctk.CTkFrame(self.cart_list_frame, height=80)
+            item_frame.pack(fill="x", pady=2)
+            item_frame.pack_propagate(False)
+
+            # اسم المنتج
+            name_label = ctk.CTkLabel(
+                item_frame,
+                text=item['name'],
+                font=(FONTS['arabic'], 12, "bold"),
+                text_color=MODERN_COLORS['text_primary']
+            )
+            name_label.pack(anchor="e", padx=10, pady=2)
+
+            # الكمية والسعر
+            details_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
+            details_frame.pack(fill="x", padx=10)
+
+            quantity_label = ctk.CTkLabel(
+                details_frame,
+                text=f"الكمية: {item['quantity']}",
+                font=(FONTS['arabic'], 10),
+                text_color=MODERN_COLORS['text_secondary']
+            )
+            quantity_label.pack(side="right")
+
+            price_label = ctk.CTkLabel(
+                details_frame,
+                text=f"السعر: {item['price']:.2f}",
+                font=(FONTS['arabic'], 10),
+                text_color=MODERN_COLORS['text_secondary']
+            )
+            price_label.pack(side="right", padx=(0, 10))
+
+            # الإجمالي وزر الحذف
+            bottom_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
+            bottom_frame.pack(fill="x", padx=10, pady=2)
+
+            total_label = ctk.CTkLabel(
+                bottom_frame,
+                text=f"الإجمالي: {item['total']:.2f} ل.س",
+                font=(FONTS['arabic'], 11, "bold"),
+                text_color=MODERN_COLORS['success']
+            )
+            total_label.pack(side="right")
+
+            # زر حذف العنصر
+            delete_btn = ctk.CTkButton(
+                bottom_frame,
+                text="🗑️",
+                width=30,
+                height=25,
+                command=lambda idx=i: self.remove_item(idx),
+                fg_color=MODERN_COLORS['error']
+            )
+            delete_btn.pack(side="left")
+
+    def update_total(self):
+        """تحديث إجمالي الفاتورة"""
+        self.total_amount = sum(item['total'] for item in self.cart_items)
+        self.total_label.configure(text=f"{self.total_amount:.2f} ل.س")
+
+    def remove_item(self, index):
+        """حذف عنصر من السلة"""
+        if 0 <= index < len(self.cart_items):
+            self.cart_items.pop(index)
+            self.update_cart_display()
+            self.update_total()
+
+    def remove_last_item(self):
+        """حذف آخر عنصر من السلة"""
+        if self.cart_items:
+            self.cart_items.pop()
+            self.update_cart_display()
+            self.update_total()
+
+    def clear_cart(self):
+        """مسح جميع عناصر السلة"""
+        if self.cart_items:
+            if messagebox.askyesno("تأكيد", "هل تريد مسح جميع عناصر السلة؟"):
+                self.cart_items.clear()
+                self.update_cart_display()
+                self.update_total()
+
+    # ==================== وظائف لوحة الأرقام ====================
+
+    def increase_quantity(self):
+        """زيادة الكمية"""
+        self.current_quantity += 1
+        self.update_quantity_display()
+
+    def decrease_quantity(self):
+        """تقليل الكمية"""
+        if self.current_quantity > 1:
+            self.current_quantity -= 1
+            self.update_quantity_display()
+
+    def update_quantity_display(self):
+        """تحديث عرض الكمية"""
+        self.quantity_display.configure(text=str(self.current_quantity))
+
+    def number_clicked(self, number):
+        """معالجة النقر على رقم"""
+        if number == '.':
+            return  # تجاهل النقطة العشرية للكمية
+
+        current_text = self.quantity_display.cget("text")
+        if current_text == "1" and number != "0":
+            new_quantity = int(number)
+        else:
+            new_quantity = int(current_text + number)
+
+        if new_quantity <= 999:  # حد أقصى للكمية:
+            self.current_quantity = new_quantity
+            self.update_quantity_display()
+
+    def clear_quantity(self):
+        """مسح الكمية وإعادتها إلى 1"""
+        self.current_quantity = 1
+        self.update_quantity_display()
+
+    # ==================== وظائف العمليات المتقدمة ====================
+
+    def apply_discount(self):
+        """تطبيق خصم على الفاتورة"""
+        if not self.cart_items:
+            messagebox.showwarning("تحذير", "السلة فارغة!")
+            return
+
+        # نافذة إدخال نسبة الخصم
+        discount_window = ctk.CTkToplevel(self.window)
+        discount_window.title("تطبيق خصم")
+        discount_window
+        discount_window.transient(self.window)
+        discount_window.grab_set()
+
+        ctk.CTkLabel(discount_window, text="نسبة الخصم (%)", font=(FONTS['arabic'], 14)).pack(pady=20)
+
+        discount_entry = ctk.CTkEntry(discount_window, width=100, placeholder_text="0")
+        discount_entry.pack(pady=10)
+
+        def apply_discount_action():
+            try:
+                discount_percent = float(discount_entry.get())
+                if 0 <= discount_percent <= 100:
+                    discount_amount = self.total_amount * (discount_percent / 100)
+                    new_total = self.total_amount - discount_amount
+
+                    # إضافة عنصر خصم إلى السلة
+                    discount_item = {
+                        'id': 'discount',
+                        'name': f"خصم {discount_percent}%",
+                        'price': -discount_amount,
+                        'quantity': 1,
+                        'total': -discount_amount
+                    }
+                    self.cart_items.append(discount_item)
+
+                    self.update_cart_display()
+                    self.update_total()
+                    discount_window.destroy()
+                else:
+                    messagebox.showerror("خطأ", "نسبة الخصم يجب أن تكون بين 0 و 100")
+            except ValueError:
+                pass
+            except ValueError:
+                messagebox.showerror("خطأ", "يرجى إدخال رقم صحيح")
+
+        ctk.CTkButton(
+            discount_window,
+            text="تطبيق الخصم",
+            command=apply_discount_action,
+            fg_color=MODERN_COLORS['success']
+        ).pack(pady=20)
+
+    def select_customer(self):
+        """اختيار عميل"""
+        # نافذة اختيار العميل
+        customer_window = ctk.CTkToplevel(self.window)
+        customer_window.title("اختيار العميل")
+        customer_window
+        customer_window.transient(self.window)
+        customer_window.grab_set()
+
+        ctk.CTkLabel(customer_window, text="اختر العميل", font=(FONTS['arabic'], 16, "bold")).pack(pady=20)
+
+        # قائمة العملاء التجريبية
+        customers = ["عميل نقدي", "أحمد محمد", "فاطمة علي", "محمد أحمد", "سارة محمود"]
+
+        customer_listbox = tk.Listbox(customer_window, font=(FONTS['arabic'], 12), height=8)
+        customer_listbox.pack(pady=10, padx=20, fill="both", expand=True)
+
+        for customer in customers:
+            customer_listbox.insert(tk.END, customer)
+
+        def select_customer_action():
+            selection = customer_listbox.curselection()
+            if selection:
+                self.selected_customer = customers[selection[0]]
+                self.customer_label.configure(text=f"العميل: {self.selected_customer}")
+                customer_window.destroy()
+            else:
+                messagebox.showwarning("تحذير", "يرجى اختيار عميل")
+
+        ctk.CTkButton(
+            customer_window,
+            text="اختيار",
+            command=select_customer_action,
+            fg_color=MODERN_COLORS['primary']
+        ).pack(pady=10)
+
+    def process_payment(self):
+        """معالجة عملية الدفع"""
+        if not self.cart_items:
+            messagebox.showwarning("تحذير", "السلة فارغة!")
+            return
+
+        if self.total_amount <= 0:
+            messagebox.showwarning("تحذير", "إجمالي الفاتورة يجب أن يكون أكبر من صفر!")
+            return
+
+        # نافذة تأكيد الدفع
+        payment_window = ctk.CTkToplevel(self.window)
+        payment_window.title("إتمام الدفع")
+        payment_window
+        payment_window.transient(self.window)
+        payment_window.grab_set()
+
+        # ملخص الفاتورة
+        ctk.CTkLabel(payment_window, text="ملخص الفاتورة", font=(FONTS['arabic'], 16, "bold")).pack(pady=10)
+
+        summary_frame = ctk.CTkFrame(payment_window)
+        summary_frame.pack(fill="x", padx=20, pady=10)
+
+        ctk.CTkLabel(summary_frame, text=f"العميل: {self.selected_customer or 'عميل نقدي'}",
+                    font=(FONTS['arabic'], 12)).pack(pady=5)
+        ctk.CTkLabel(summary_frame, text=f"عدد الأصناف: {len([item for item in self.cart_items if item['id'] != 'discount'])}",
+                    font=(FONTS['arabic'], 12)).pack(pady=5)
+        ctk.CTkLabel(summary_frame, text=f"الإجمالي: {self.total_amount:.2f} ل.س",
+                    font=(FONTS['arabic'], 14, "bold"), text_color=MODERN_COLORS['success']).pack(pady=5)
+
+        # طرق الدفع
+        ctk.CTkLabel(payment_window, text="طريقة الدفع", font=(FONTS['arabic'], 14, "bold")).pack(pady=(20, 10))
+
+        payment_method = ctk.CTkComboBox(
+            payment_window,
+            values=["نقدي", "بطاقة ائتمان", "تحويل بنكي", "آجل"],
+            width=200
+        )
+        payment_method.pack(pady=5)
+        payment_method.set("نقدي")
+
+        def complete_payment():
+            # حفظ الفاتورة (هنا يمكن إضافة حفظ في قاعدة البيانات)
+            invoice_data = {
+                'customer': self.selected_customer or 'عميل نقدي',
+                'items': self.cart_items,
+                'total': self.total_amount,
+                'payment_method': payment_method.get(),
+                'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+
+            # رسالة نجاح
+            messagebox.showinfo("نجح", f"تم إتمام عملية البيع بنجاح!\nرقم الفاتورة: INV{datetime.now().strftime('%Y%m%d%H%M%S')}")
+
+            # مسح السلة
+            self.cart_items.clear()
+            self.selected_customer = None
+            self.update_cart_display()
+            self.update_total()
+            self.customer_label.configure(text="لم يتم اختيار عميل")
+
+            payment_window.destroy()
+
+        # أزرار الدفع
+        buttons_frame = ctk.CTkFrame(payment_window, fg_color="transparent")
+        buttons_frame.pack(fill="x", padx=20, pady=20)
+
+        ctk.CTkButton(
+            buttons_frame,
+            text="💳 إتمام الدفع",
+            command=complete_payment,
+            fg_color=MODERN_COLORS['success'],
+            width=150
+        ).pack(side="right", padx=5)
+
+        ctk.CTkButton(
+            buttons_frame,
+            text="❌ إلغاء",
+            command=payment_window.destroy,
+            fg_color=MODERN_COLORS['error'],
+            width=100
+        ).pack(side="left", padx=5)
+
+    def close_window(self):
+        """إغلاق النافذة"""
+        if self.cart_items:
+            if messagebox.askyesno("تأكيد", "هناك عناصر في السلة. هل تريد الإغلاق؟"):
+                self.window.destroy()
+        else:
+            self.window.destroy()

@@ -1,0 +1,41 @@
+{
+    // Disables auto-import suggestions provided by the Python extension. This can be helpful if you find the suggestions disruptive or prefer to manage imports manually.
+    "python.analysis.autoImportCompletions": false,
+
+
+
+    // Enables spell checking for Python files. This helps catch typos and improve code readability.
+    "cSpell.enabledFileTypes": {
+        "python": true
+    },
+
+    // Adds "الرئيسي" (Arabic for "main" or "primary") to the custom dictionary for spell checking. This prevents the word from being flagged as a misspelling.
+    "cSpell.words": [
+        "الرئيسي"
+    ],
+
+
+
+    // Allows setting breakpoints anywhere in the code during debugging, even in locations where they might not normally be allowed (e.g., in comments or blank lines).  Use with caution as this can lead to unexpected debugger behavior.
+    "debug.allowBreakpointsEverywhere": true,
+    "github.codespaces.devcontainerChangedNotificationStyle": "none",
+    "github.codespaces.defaultExtensions": [
+        "GitHub.codespaces",
+        "GitHub.vscode-pull-request-github"
+    ],
+    "github.copilot.nextEditSuggestions.enabled": true,
+    "python.testing.pytestArgs": [
+        "."
+    ],
+    "python.testing.unittestEnabled": true,
+    "python.testing.pytestEnabled": false,
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        ".",
+        "-p",
+        "*test.py"
+    ],
+    "github-enterprise.uri": "https://github.octocat.com",
+    "markdown.validate.enabled": true
+}

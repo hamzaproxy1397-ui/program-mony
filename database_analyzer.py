@@ -1,0 +1,309 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+أداة تحليل وتنظيف قاعدة البيانات
+"""
+
+import sqlite3
+import os
+from pathlib import Path
+from datetime import datetime
+import json
+
+class DatabaseAnalyzer:
+    """محلل قاعدة البيانات"""
+
+    def __init__(self, db_path="database/accounting.db"):
+        self.db_path = db_path
+        self.connection = None
+        self.analysis_results = {
+            "timestamp": datetime.now().isoformat(),
+            "database_info": {},
+            "tables": {},
+            "indexes": {},
+            "issues": [],
+            "recommendations": []
+        }
+
+    def connect(self):
+        """الاتصال بقاعدة البيانات"""
+        try:
+            self.connection = sqlite3.connect(self.db_path)
+            self.connection.row_factory = sqlite3.Row
+            return True
+        except Exception as e:
+            print(f"❌ خطأ في الاتصال بقاعدة البيانات: {e}")
+            return False
+
+    def get_database_info(self):
+        """الحصول على معلومات قاعدة البيانات"""
+        if not self.connection:
+            return
+
+        try:
+            cursor = self.connection.cursor()
+
+            # حجم قاعدة البيانات
+            db_size = os.path.getsize(self.db_path)
+
+            # عدد الجداول
+            cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table'")
+            table_count = cursor.fetchone()[0]
+
+            # عدد الفهارس
+            cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='index'")
+            index_count = cursor.fetchone()[0]
+
+            self.analysis_results["database_info"] = {
+                "path": self.db_path,
+                "size_bytes": db_size,
+                "size_mb": round(db_size / (1024 * 1024), 2),
+                "table_count": table_count,
+                "index_count": index_count
+            }
+
+            print(f"📊 معلومات قاعدة البيانات:")
+            print(f"   📁 المسار: {self.db_path}")
+            print(f"   📏 الحجم: {self.analysis_results['database_info']['size_mb']} MB")
+            print(f"   📋 عدد الجداول: {table_count}")
+            print(f"   🔍 عدد الفهارس: {index_count}")
+
+        except Exception as e:
+            print(f"❌ خطأ في الحصول على معلومات قاعدة البيانات: {e}")
+
+    def analyze_tables(self):
+        """تحليل الجداول"""
+        if not self.connection:
+            return
+
+        try:
+            cursor = self.connection.cursor()
+
+            # الحصول على قائمة الجداول
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = cursor.fetchall()
+
+            print(f"\n📋 تحليل الجداول ({len(tables)} جدول):")
+
+            for table in tables:
+                table_name = table[0]
+
+                # عدد الصفوف
+                cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                row_count = cursor.fetchone()[0]
+
+                # معلومات الأعمدة
+                cursor.execute(f"PRAGMA table_info({table_name})")
+                columns = cursor.fetchall()
+
+                # حجم الجدول التقريبي
+                cursor.execute(f"SELECT * FROM {table_name} LIMIT 1")
+                sample_row = cursor.fetchone()
+
+                table_info = {
+                    "row_count": row_count,
+                    "column_count": len(columns),
+                    "columns": [{"name": col[1], "type": col[2], "not_null": col[3]} for col in columns]
+                }
+
+                self.analysis_results["tables"][table_name] = table_info
+
+                print(f"   📊 {table_name}: {row_count} صف، {len(columns)} عمود")
+
+                # فحص الجداول الفارغة
+                if row_count == 0:
+                    self.analysis_results["issues"].append({
+                        "type": "empty_table",
+                        "table": table_name,
+                        "description": f"الجدول {table_name} فارغ"
+                    })
+
+        except Exception as e:
+            print(f"❌ خطأ في تحليل الجداول: {e}")
+
+    def analyze_indexes(self):
+        """تحليل الفهارس"""
+        if not self.connection:
+            return
+
+        try:
+            cursor = self.connection.cursor()
+
+            # الحصول على قائمة الفهارس
+            cursor.execute("SELECT name, tbl_name, sql FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'")
+            indexes = cursor.fetchall()
+
+            print(f"\n🔍 تحليل الفهارس ({len(indexes)} فهرس):")
+
+            for index in indexes:
+                index_name = index[0]
+                table_name = index[1]
+                sql = index[2]
+
+                index_info = {
+                    "table": table_name,
+                    "sql": sql
+                }
+
+                self.analysis_results["indexes"][index_name] = index_info
+                print(f"   🔍 {index_name} على الجدول {table_name}")
+
+        except Exception as e:
+            print(f"❌ خطأ في تحليل الفهارس: {e}")
+
+    def check_data_integrity(self):
+        """فحص سلامة البيانات"""
+        if not self.connection:
+            return
+
+        try:
+            cursor = self.connection.cursor()
+
+            print(f"\n🔍 فحص سلامة البيانات:")
+
+            # فحص المفاتيح الخارجية
+            cursor.execute("PRAGMA foreign_key_check")
+            fk_violations = cursor.fetchall()
+
+            if fk_violations:
+                for violation in fk_violations:
+                    self.analysis_results["issues"].append({
+                        "type": "foreign_key_violation",
+                        "description": f"انتهاك مفتاح خارجي: {violation}"
+                    })
+                print(f"   ❌ تم العثور على {len(fk_violations)} انتهاك للمفاتيح الخارجية")
+            else:
+                print(f"   ✅ المفاتيح الخارجية سليمة")
+
+            # فحص سلامة قاعدة البيانات
+            cursor.execute("PRAGMA integrity_check")
+            integrity_result = cursor.fetchone()[0]
+
+            if integrity_result == "ok":
+                print(f"   ✅ سلامة قاعدة البيانات: ممتازة")
+            else:
+                self.analysis_results["issues"].append({
+                    "type": "integrity_issue",
+                    "description": f"مشكلة في سلامة قاعدة البيانات: {integrity_result}"
+                })
+                print(f"   ❌ مشكلة في سلامة قاعدة البيانات: {integrity_result}")
+
+        except Exception as e:
+            print(f"❌ خطأ في فحص سلامة البيانات: {e}")
+
+    def optimize_database(self):
+        """تحسين قاعدة البيانات"""
+        if not self.connection:
+            return
+
+        try:
+            cursor = self.connection.cursor()
+
+            print(f"\n🔧 تحسين قاعدة البيانات:")
+
+            # تحليل الجداول
+            cursor.execute("ANALYZE")
+            print(f"   ✅ تم تحليل الجداول")
+
+            # ضغط قاعدة البيانات
+            cursor.execute("VACUUM")
+            print(f"   ✅ تم ضغط قاعدة البيانات")
+
+            # إعادة فهرسة
+            cursor.execute("REINDEX")
+            print(f"   ✅ تم إعادة الفهرسة")
+
+            self.connection.commit()
+
+        except Exception as e:
+            print(f"❌ خطأ في تحسين قاعدة البيانات: {e}")
+
+    def generate_recommendations(self):
+        """إنشاء التوصيات"""
+        recommendations = []
+
+        # توصيات بناءً على الجداول الفارغة
+        empty_tables = [issue["table"] for issue in self.analysis_results["issues"] if issue["type"] == "empty_table"]
+        if empty_tables:
+            recommendations.append(f"يمكن حذف الجداول الفارغة: {', '.join(empty_tables)}")
+
+        # توصيات بناءً على حجم قاعدة البيانات
+        if self.analysis_results["database_info"]["size_mb"] > 100:
+            recommendations.append("قاعدة البيانات كبيرة الحجم، يُنصح بأرشفة البيانات القديمة")
+
+        # توصيات عامة
+        recommendations.extend([
+            "تشغيل VACUUM دورياً لتحسين الأداء",
+            "إنشاء نسخ احتياطية منتظمة",
+            "مراقبة نمو حجم قاعدة البيانات"
+        ])
+
+        self.analysis_results["recommendations"] = recommendations
+
+    def save_report(self):
+        """حفظ التقرير"""
+        report_file = f"database_analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+
+        try:
+            with open(report_file, 'w', encoding='utf-8') as f:
+                json.dump(self.analysis_results, f, ensure_ascii=False, indent=2)
+            print(f"\n📋 تم حفظ تقرير التحليل: {report_file}")
+        except Exception as e:
+            print(f"❌ خطأ في حفظ التقرير: {e}")
+
+    def run_analysis(self):
+        """تشغيل التحليل الكامل"""
+        print("🔍 بدء تحليل قاعدة البيانات")
+        print("=" * 50)
+
+        if not self.connect():
+            return False
+
+        try:
+            self.get_database_info()
+            self.analyze_tables()
+            self.analyze_indexes()
+            self.check_data_integrity()
+
+            # سؤال المستخدم عن التحسين
+            optimize = input("\n❓ هل تريد تحسين قاعدة البيانات؟ (y/n): ").lower().strip()
+            if optimize in ['y', 'yes', 'نعم']:
+                self.optimize_database()
+
+            self.generate_recommendations()
+            self.save_report()
+
+            print(f"\n🎉 تم الانتهاء من تحليل قاعدة البيانات!")
+
+            # عرض الملخص
+            print(f"\n📊 ملخص التحليل:")
+            print(f"   📋 عدد الجداول: {self.analysis_results['database_info']['table_count']}")
+            print(f"   🔍 عدد الفهارس: {self.analysis_results['database_info']['index_count']}")
+            print(f"   ⚠️ عدد المشاكل: {len(self.analysis_results['issues'])}")
+            print(f"   💡 عدد التوصيات: {len(self.analysis_results['recommendations'])}")
+
+            if self.analysis_results["issues"]:
+                print(f"\n⚠️ المشاكل المكتشفة:")
+                for issue in self.analysis_results["issues"]:
+                    print(f"   - {issue['description']}")
+
+            print(f"\n💡 التوصيات:")
+            for rec in self.analysis_results["recommendations"]:
+                print(f"   - {rec}")
+
+            return True
+
+        except Exception as e:
+            print(f"❌ خطأ في التحليل: {e}")
+            return False
+        finally:
+            if self.connection:
+                self.connection.close()
+
+def main():
+    """الدالة الرئيسية"""
+    analyzer = DatabaseAnalyzer()
+    analyzer.run_analysis()
+
+if __name__ == "__main__":
+    main()

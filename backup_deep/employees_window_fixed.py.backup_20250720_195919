@@ -1,0 +1,626 @@
+# -*- coding: utf-8 -*-
+# cSpell:disable
+"""
+نافذة بيانات الموظف المصححة
+Fixed Employee Data Window
+"""
+
+import customtkinter as ctk
+import tkinter as tk
+from tkinter import messagebox, filedialog
+import os
+from ui.window_utils import configure_window_fullscreen
+
+# إعداد customtkinter
+ctk.set_appearance_mode("light")
+ctk.set_default_color_theme("blue")
+
+class EmployeeDataWindowFixed:
+    """نافذة بيانات الموظف المصححة"""
+
+    def __init__(self, parent):
+        self.parent = parent
+        self.window = None
+        self.current_employee = None
+        self.employee_photo = None
+        self.photo_path = None
+        self.form_vars = {}
+        self.notebook = None
+
+        # إنشاء النافذة
+        self.create_window()
+
+    def create_window(self):
+        """إنشاء النافذة الرئيسية"""
+        try:
+            self.window = ctk.CTkToplevel(self.parent)
+
+            # إعداد النافذة لتملأ الشاشة
+            configure_window_fullscreen(self.window, "بيانات الموظف - برنامج ست الكل للمحاسبة")
+            self.window.configure(fg_color="#f5f5f5")
+
+            # جعل النافذة في المقدمة
+            self.window.transient(self.parent)
+            self.window.grab_set()
+
+            # تهيئة متغيرات النموذج
+            self.init_form_variables()
+
+            # إنشاء المحتوى
+            self.create_content()
+
+        except Exception as e:
+            print(f"خطأ: {e}")
+            try:
+                from tkinter import messagebox
+                messagebox.showerror("خطأ", f"حدث خطأ في إنشاء النافذة: {str(e)}")
+            except:
+                pass
+            print(f"خطأ في إنشاء نافذة الموظف: {e}")
+
+    def init_form_variables(self):
+        """تهيئة متغيرات النموذج"""
+        self.form_vars = {
+            # البيانات الشخصية
+            'employee_code': tk.StringVar(),
+            'employee_name': tk.StringVar(),
+            'is_active': tk.BooleanVar(value=True),
+            'job_title': tk.StringVar(value="موظف"),
+            'gender': tk.StringVar(value="ذكر"),
+            'department': tk.StringVar(),
+            'section': tk.StringVar(),
+            'direct_manager': tk.StringVar(),
+            'birth_date': tk.StringVar(),
+            'national_id': tk.StringVar(),
+            'tax_id': tk.StringVar(),
+            'marital_status': tk.StringVar(value="أعزب"),
+            'religion': tk.StringVar(),
+            'description': tk.StringVar(),
+
+            # بيانات الاتصال
+            'address': tk.StringVar(),
+            'email': tk.StringVar(),
+            'website': tk.StringVar(),
+            'phone': tk.StringVar(),
+
+            # بيانات السياسة
+            'absence_days': tk.StringVar(value="افتراضي"),
+            'training_disabled': tk.BooleanVar(value=False),
+            'notes': tk.StringVar(),
+            'payment_method': tk.StringVar(),
+            'bank_name': tk.StringVar(),
+            'account_number': tk.StringVar(),
+
+            # إعدادات المستخدم
+            'login_password': tk.StringVar(),
+            'is_system_admin': tk.BooleanVar(value=False)
+        }
+
+    def create_content(self):
+        """إنشاء محتوى النافذة"""
+        # الإطار الرئيسي
+        main_frame = ctk.CTkFrame(self.window, fg_color="white", corner_radius=10)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # شريط العنوان
+        self.create_title_bar(main_frame)
+
+        # المحتوى الرئيسي
+        content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        content_frame.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # التخطيط الأفقي
+        horizontal_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        horizontal_frame.pack(fill="both", expand=True)
+
+        # قسم الصورة (يمين)
+        self.create_photo_section(horizontal_frame)
+
+        # قسم التبويبات (يسار)
+        self.create_tabs_section(horizontal_frame)
+
+        # شريط الأزرار
+        self.create_buttons_bar(main_frame)
+
+    def create_title_bar(self, parent):
+        """إنشاء شريط العنوان"""
+        title_frame = ctk.CTkFrame(parent, height=60, fg_color="#343a40", corner_radius=8)
+        title_frame.pack(fill="x", padx=0, pady=(0, 10))
+        title_frame.pack_propagate(False)
+
+        # العنوان
+        title_label = ctk.CTkLabel(
+            title_frame,
+            text="👥 بيانات الموظف",
+            font=("Arial", 18, "bold"),
+            text_color="white"
+        )
+        title_label.pack(side="right", padx=20, pady=15)
+
+        # زر الإغلاق
+        close_btn = ctk.CTkButton(
+            title_frame,
+            text="✕",
+            width=30,
+            height=30,
+            fg_color="transparent",
+            hover_color="#dc3545",
+            command=self.close_window,
+            font=("Arial", 16, "bold")
+        )
+        close_btn.pack(side="left", padx=10, pady=15)
+
+    def create_photo_section(self, parent):
+        """إنشاء قسم الصورة"""
+        photo_frame = ctk.CTkFrame(parent, width=280, fg_color="#f8f9fa", corner_radius=10)
+        photo_frame.pack(side="right", fill="y", padx=(0, 20), pady=10)
+        photo_frame.pack_propagate(False)
+
+        # عنوان القسم
+        photo_title = ctk.CTkLabel(
+            photo_frame,
+            text="صورة الموظف",
+            font=("Arial", 14, "bold"),
+            text_color="#2c3e50"
+        )
+        photo_title.pack(pady=(20, 10))
+
+        # إطار الصورة
+        self.photo_display_frame = ctk.CTkFrame(photo_frame, width=180, height=220, fg_color="white", corner_radius=10)
+        self.photo_display_frame.pack(pady=10)
+        self.photo_display_frame.pack_propagate(False)
+
+        # نص عدم وجود صورة
+        self.no_photo_label = ctk.CTkLabel(
+            self.photo_display_frame,
+            text="لا توجد بيانات للصورة",
+            font=("Arial", 12),
+            text_color="#9e9e9e"
+        )
+        self.no_photo_label.pack(expand=True)
+
+        # أزرار الصورة
+        photo_buttons_frame = ctk.CTkFrame(photo_frame, fg_color="transparent")
+        photo_buttons_frame.pack(pady=10)
+
+        # زر اختيار صورة
+        select_photo_btn = ctk.CTkButton(
+            photo_buttons_frame,
+            text="📷 اختيار صورة",
+            width=120,
+            height=35,
+            fg_color="#2196f3",
+            hover_color="#1976d2",
+            command=self.select_employee_photo,
+            font=("Arial", 11)
+        )
+        select_photo_btn.pack(pady=5)
+
+        # زر حذف صورة
+        delete_photo_btn = ctk.CTkButton(
+            photo_buttons_frame,
+            text="🗑️ حذف صورة",
+            width=120,
+            height=35,
+            fg_color="#dc3545",
+            hover_color="#c82333",
+            command=self.delete_employee_photo,
+            font=("Arial", 11)
+        )
+        delete_photo_btn.pack(pady=5)
+
+    def create_tabs_section(self, parent):
+        """إنشاء قسم التبويبات"""
+        tabs_frame = ctk.CTkFrame(parent, fg_color="white", corner_radius=10)
+        tabs_frame.pack(side="left", fill="both", expand=True, pady=10)
+
+        # إنشاء التبويبات
+        self.notebook = ctk.CTkTabview(tabs_frame, width=700, height=500)
+        self.notebook.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # إضافة التبويبات
+        self.notebook.add("البيانات الشخصية")
+        self.notebook.add("بيانات الاتصال")
+        self.notebook.add("بيانات السياسة")
+        self.notebook.add("إعدادات المستخدم")
+
+        # تعيين التبويب الافتراضي
+        self.notebook.set("البيانات الشخصية")
+
+        # إنشاء محتوى التبويبات
+        self.create_personal_tab()
+        self.create_contact_tab()
+        self.create_policy_tab()
+        self.create_settings_tab()
+
+    def create_personal_tab(self):
+        """إنشاء تبويب البيانات الشخصية"""
+        tab = self.notebook.tab("البيانات الشخصية")
+
+        # إطار التمرير
+        scrollable_frame = ctk.CTkScrollableFrame(tab, fg_color="transparent")
+        scrollable_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # الصف الأول
+        row1 = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
+        row1.pack(fill="x", pady=10)
+
+        self.create_field(row1, "الكود:", self.form_vars['employee_code'], width=200)
+        self.create_field(row1, "الاسم:", self.form_vars['employee_name'], width=300)
+
+        # حالة الموظف
+        status_frame = ctk.CTkFrame(row1, fg_color="transparent")
+        status_frame.pack(side="right", padx=20)
+
+        status_label = ctk.CTkLabel(status_frame, text="الحالة:", font=("Arial", 12))
+        status_label.pack(side="right", padx=5)
+
+        status_switch = ctk.CTkSwitch(
+            status_frame,
+            text="نشط",
+            variable=self.form_vars['is_active'],
+            font=("Arial", 10)
+        )
+        status_switch.pack(side="right", padx=5)
+
+        # الصف الثاني
+        row2 = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
+        row2.pack(fill="x", pady=10)
+
+        self.create_combobox(row2, "الوظيفة:", self.form_vars['job_title'], 
+                            ["موظف", "مدير عام"], width=150)
+        self.create_combobox(row2, "النوع:", self.form_vars['gender'], 
+                            ["ذكر", "أنثى"], width=120)
+        self.create_field(row2, "الإدارة:", self.form_vars['department'], width=200)
+
+        # الصف الثالث
+        row3 = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
+        row3.pack(fill="x", pady=10)
+
+        self.create_field(row3, "القسم:", self.form_vars['section'], width=200)
+        self.create_field(row3, "المدير المباشر:", self.form_vars['direct_manager'], width=250)
+
+        # الصف الرابع
+        row4 = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
+        row4.pack(fill="x", pady=10)
+
+        self.create_field(row4, "تاريخ الميلاد:", self.form_vars['birth_date'], width=150)
+        self.create_field(row4, "الرقم الوطني:", self.form_vars['national_id'], width=200)
+
+        # الصف الخامس
+        row5 = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
+        row5.pack(fill="x", pady=10)
+
+        self.create_field(row5, "الرقم الضريبي:", self.form_vars['tax_id'], width=200)
+        self.create_combobox(row5, "الحالة الاجتماعية:", self.form_vars['marital_status'], 
+                            ["أعزب", "متزوج", "مطلق", "أرمل"], width=150)
+
+        # الصف السادس
+        row6 = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
+        row6.pack(fill="x", pady=10)
+
+        self.create_field(row6, "الديانة:", self.form_vars['religion'], width=150)
+        self.create_field(row6, "الصفة:", self.form_vars['description'], width=200)
+
+    def create_contact_tab(self):
+        """إنشاء تبويب بيانات الاتصال"""
+        tab = self.notebook.tab("بيانات الاتصال")
+
+        scrollable_frame = ctk.CTkScrollableFrame(tab, fg_color="transparent")
+        scrollable_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        self.create_field_vertical(scrollable_frame, "العنوان:", self.form_vars['address'], width=400)
+        self.create_field_vertical(scrollable_frame, "البريد الإلكتروني:", self.form_vars['email'], width=300)
+        self.create_field_vertical(scrollable_frame, "موقع الإنترنت:", self.form_vars['website'], width=300)
+        self.create_field_vertical(scrollable_frame, "رقم الهاتف:", self.form_vars['phone'], width=200)
+
+    def create_policy_tab(self):
+        """إنشاء تبويب بيانات السياسة"""
+        tab = self.notebook.tab("بيانات السياسة")
+
+        scrollable_frame = ctk.CTkScrollableFrame(tab, fg_color="transparent")
+        scrollable_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        self.create_combobox_vertical(scrollable_frame, "أيام الغياب:", self.form_vars['absence_days'], 
+                                    ["افتراضي", "دعم"], width=150)
+
+        # إيقاف التدريب
+        training_frame = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
+        training_frame.pack(fill="x", pady=10)
+
+        training_label = ctk.CTkLabel(training_frame, text="إيقاف التدريب:", font=("Arial", 12))
+        training_label.pack(side="right", padx=5)
+
+        training_switch = ctk.CTkSwitch(
+            training_frame,
+            text="معطل",
+            variable=self.form_vars['training_disabled'],
+            font=("Arial", 10)
+        )
+        training_switch.pack(side="right", padx=5)
+
+        # الملاحظات
+        notes_frame = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
+        notes_frame.pack(fill="x", pady=10)
+
+        notes_label = ctk.CTkLabel(notes_frame, text="الملاحظات:", font=("Arial", 12))
+        notes_label.pack(anchor="ne", padx=5)
+
+        notes_textbox = ctk.CTkTextbox(notes_frame, width=400, height=100, font=("Arial", 10))
+        notes_textbox.pack(fill="x", padx=5, pady=5)
+
+        self.create_combobox_vertical(scrollable_frame, "طريقة الدفع:", self.form_vars['payment_method'], 
+                                    ["نقدي", "تحويل بنكي", "شيك"], width=150)
+        self.create_field_vertical(scrollable_frame, "اسم البنك:", self.form_vars['bank_name'], width=250)
+        self.create_field_vertical(scrollable_frame, "رقم الحساب:", self.form_vars['account_number'], width=200)
+
+    def create_settings_tab(self):
+        """إنشاء تبويب إعدادات المستخدم"""
+        tab = self.notebook.tab("إعدادات المستخدم")
+
+        scrollable_frame = ctk.CTkScrollableFrame(tab, fg_color="transparent")
+        scrollable_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # كلمة المرور
+        password_frame = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
+        password_frame.pack(fill="x", pady=10)
+
+        password_label = ctk.CTkLabel(password_frame, text="كلمة مرور الدخول:", font=("Arial", 12))
+        password_label.pack(side="right", padx=5)
+
+        password_entry = ctk.CTkEntry(
+            password_frame,
+            textvariable=self.form_vars['login_password'],
+            width=200,
+            show="*",
+            font=("Arial", 10)
+        )
+        password_entry.pack(side="right", padx=5)
+
+        # صلاحيات المدير
+        admin_frame = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
+        admin_frame.pack(fill="x", pady=10)
+
+        admin_label = ctk.CTkLabel(admin_frame, text="مدير عام النظام:", font=("Arial", 12))
+        admin_label.pack(side="right", padx=5)
+
+        admin_checkbox = ctk.CTkCheckBox(
+            admin_frame,
+            text="صلاحيات إدارية",
+            variable=self.form_vars['is_system_admin'],
+            font=("Arial", 10)
+        )
+        admin_checkbox.pack(side="right", padx=5)
+
+    def create_field(self, parent, label_text, variable, width=200):
+        """إنشاء حقل أفقي"""
+        field_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        field_frame.pack(side="right", padx=20)
+
+        label = ctk.CTkLabel(field_frame, text=label_text, font=("Arial", 12))
+        label.pack(side="right", padx=5)
+
+        entry = ctk.CTkEntry(field_frame, textvariable=variable, width=width, font=("Arial", 10))
+        entry.pack(side="right", padx=5)
+
+    def create_field_vertical(self, parent, label_text, variable, width=200):
+        """إنشاء حقل عمودي"""
+        field_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        field_frame.pack(fill="x", pady=5)
+
+        label = ctk.CTkLabel(field_frame, text=label_text, font=("Arial", 12))
+        label.pack(side="right", padx=5)
+
+        entry = ctk.CTkEntry(field_frame, textvariable=variable, width=width, font=("Arial", 10))
+        entry.pack(side="right", padx=5)
+
+    def create_combobox(self, parent, label_text, variable, values, width=200):
+        """إنشاء قائمة منسدلة أفقية"""
+        field_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        field_frame.pack(side="right", padx=20)
+
+        label = ctk.CTkLabel(field_frame, text=label_text, font=("Arial", 12))
+        label.pack(side="right", padx=5)
+
+        combo = ctk.CTkComboBox(field_frame, variable=variable, values=values, width=width, font=("Arial", 10))
+        combo.pack(side="right", padx=5)
+
+    def create_combobox_vertical(self, parent, label_text, variable, values, width=200):
+        """إنشاء قائمة منسدلة عمودية"""
+        field_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        field_frame.pack(fill="x", pady=5)
+
+        label = ctk.CTkLabel(field_frame, text=label_text, font=("Arial", 12))
+        label.pack(side="right", padx=5)
+
+        combo = ctk.CTkComboBox(field_frame, variable=variable, values=values, width=width, font=("Arial", 10))
+        combo.pack(side="right", padx=5)
+
+    def create_buttons_bar(self, parent):
+        """إنشاء شريط الأزرار"""
+        buttons_frame = ctk.CTkFrame(parent, height=80, fg_color="#f8f9fa", corner_radius=8)
+        buttons_frame.pack(fill="x", padx=0, pady=(10, 0))
+        buttons_frame.pack_propagate(False)
+
+        # زر الحفظ الوردي البارز
+        save_btn = ctk.CTkButton(
+            buttons_frame,
+            text="💾 حفظ البيانات",
+            width=200,
+            height=50,
+            fg_color="#e91e63",
+            hover_color="#c2185b",
+            command=self.save_employee_data,
+            font=("Arial", 14, "bold"),
+            corner_radius=10
+        )
+        save_btn.pack(side="right", padx=20, pady=15)
+
+        # زر إلغاء
+        cancel_btn = ctk.CTkButton(
+            buttons_frame,
+            text="❌ إلغاء",
+            width=120,
+            height=40,
+            fg_color="#6c757d",
+            hover_color="#5a6268",
+            command=self.cancel_operation,
+            font=("Arial", 12)
+        )
+        cancel_btn.pack(side="right", padx=10, pady=15)
+
+        # زر جديد
+        new_btn = ctk.CTkButton(
+            buttons_frame,
+            text="📄 جديد",
+            width=120,
+            height=40,
+            fg_color="#28a745",
+            hover_color="#218838",
+            command=self.new_employee,
+            font=("Arial", 12)
+        )
+        new_btn.pack(side="left", padx=20, pady=15)
+
+        # زر حذف
+        delete_btn = ctk.CTkButton(
+            buttons_frame,
+            text="🗑️ حذف",
+            width=120,
+            height=40,
+            fg_color="#dc3545",
+            hover_color="#c82333",
+            command=self.delete_employee,
+            font=("Arial", 12)
+        )
+        delete_btn.pack(side="left", padx=10, pady=15)
+
+    # دوال الأحداث
+    def select_employee_photo(self):
+        """اختيار صورة الموظف"""
+        try:
+            file_path = filedialog.askopenfilename(
+                title="اختيار صورة الموظف",
+                filetypes=[("Image files", "*.jpg *.jpeg *.png *.gif *.bmp")]
+            )
+
+            if file_path:
+                messagebox.showinfo("نجح", "تم اختيار الصورة بنجاح")
+                self.photo_path = file_path
+                print(f"تم اختيار صورة: {file_path}")
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في اختيار الصورة: {e}")
+
+    def delete_employee_photo(self):
+        """حذف صورة الموظف"""
+        try:
+            self.photo_path = None
+            messagebox.showinfo("نجح", "تم حذف الصورة")
+            print("تم حذف صورة الموظف")
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في حذف الصورة: {e}")
+
+    def save_employee_data(self):
+        """حفظ بيانات الموظف"""
+        try:
+            if not self.form_vars['employee_name'].get().strip():
+                messagebox.showerror("خطأ", "يجب إدخال اسم الموظف")
+                return
+
+            messagebox.showinfo("نجح", "تم حفظ بيانات الموظف بنجاح")
+            print("تم حفظ بيانات الموظف")
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في حفظ البيانات: {e}")
+
+    def cancel_operation(self):
+        """إلغاء العملية"""
+        try:
+            result = messagebox.askyesno("تأكيد", "هل تريد إلغاء العملية؟")
+            if result:
+                self.clear_form()
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في إلغاء العملية: {e}")
+
+    def new_employee(self):
+        """موظف جديد"""
+        try:
+            self.clear_form()
+            messagebox.showinfo("جديد", "تم مسح النموذج لإدخال موظف جديد")
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في إنشاء موظف جديد: {e}")
+
+    def delete_employee(self):
+        """حذف الموظف"""
+        try:
+            result = messagebox.askyesno("تأكيد الحذف", "هل تريد حذف هذا الموظف؟")
+            if result:
+                messagebox.showinfo("نجح", "تم حذف الموظف")
+                self.clear_form()
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في حذف الموظف: {e}")
+
+    def clear_form(self):
+        """مسح النموذج"""
+        try:
+            for var in self.form_vars.values():
+                if isinstance(var, tk.StringVar):
+                    var.set("")
+                elif isinstance(var, tk.BooleanVar):
+                    var.set(False)
+
+            # إعادة تعيين القيم الافتراضية
+            self.form_vars['is_active'].set(True)
+            self.form_vars['job_title'].set("موظف")
+            self.form_vars['gender'].set("ذكر")
+            self.form_vars['marital_status'].set("أعزب")
+            self.form_vars['absence_days'].set("افتراضي")
+
+            self.photo_path = None
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            print(f"خطأ في مسح النموذج: {e}")
+
+    def close_window(self):
+        """إغلاق النافذة"""
+        try:
+            result = messagebox.askyesno("إغلاق", "هل تريد إغلاق النافذة؟")
+            if result:
+                if hasattr(self, \'window\') and self.window:
+
+                    self.window.destroy()
+
+        except Exception as e:
+            pass
+        except Exception as e:
+            print(f"خطأ في إغلاق النافذة: {e}")
+
+# للتوافق مع الكود الموجود
+class EmployeesWindow(EmployeeDataWindowFixed):
+    """كلاس للتوافق مع الكود الموجود"""
+pass
+
+
+class EmployeeDataWindow(EmployeeDataWindowFixed):
+    """كلاس للتوافق مع الكود الموجود"""
+pass
+

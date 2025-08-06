@@ -1,0 +1,67 @@
+from core.scheduler_manager import SchedulerManager
+from ui.main_window import MainApplication
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# cSpell:disable
+"""
+برنامج ست الكل للمحاسبة
+نقطة البداية الرئيسية للبرنامج
+"""
+
+import sys
+import os
+import logging
+import re
+from pathlib import Path
+
+# الحصول على مسار مجلد المشروع الحالي (المجلد الذي يحتوي على هذا الملف)
+project_root = Path(__file__).parent
+# إضافة مسار المشروع إلى sys.path لضمان إمكانية استيراد الوحدات من مجلد المشروع بسهولة
+sys.path.insert(0, str(project_root))
+
+# إعداد نظام السجلات Logging الخاص بالتطبيق
+logging.basicConfig(
+    level=logging.INFO,  # تعيين مستوى السجلات إلى INFO لعرض الرسائل المهمة
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # صيغة الرسالة لتشمل الوقت، اسم المسجل، مستوى الرسالة، ونص الرسالة
+    handlers=[
+        # تسجيل جميع الرسائل في ملف app.log داخل مجلد logs مع ترميز UTF-8
+        logging.FileHandler('logs/app.log', encoding='utf-8'),
+        # عرض الرسائل مباشرة في مخرجات الطرفية (الكونسول)
+        logging.StreamHandler()
+    ]
+)
+
+def main():
+    """
+    نقطة البداية الرئيسية لتشغيل برنامج ست الكل للمحاسبة.
+
+    الوظيفة تقوم باستيراد الواجهة الرسومية الرئيسية وتشغيلها.
+    إذا حدث أي استثناء أثناء التشغيل، يتم تسجيل الخطأ وإنهاء البرنامج.
+
+    معطيات الدالة: لا يوجد.
+    المخرجات: لا يوجد.
+    """
+    try:
+        # تهيئة وبدء تشغيل نظام الجدولة التلقائية
+        scheduler_manager = SchedulerManager()
+        scheduler_manager.start_scheduler()
+        logging.info("تم تشغيل نظام الجدولة التلقائية للنسخ الاحتياطي")
+
+        # استيراد الكلاس الرئيسي المسؤول عن واجهة البرنامج من وحدة ui.main_window
+
+        # إنشاء مثيل من التطبيق الرئيسي
+        app = MainApplication()
+        # تمرير مدير الجدولة للتطبيق
+        app.scheduler_manager = scheduler_manager
+        # تشغيل التطبيق (وكذلك دخول الحلقة الرئيسية للواجهة الرسومية)
+        app.run()
+
+    except Exception as e:
+        # تسجيل رسالة الخطأ في حال فشل تشغيل البرنامج مع تفاصيل الاستثناء
+        logging.error(f"خطأ في تشغيل البرنامج: {e}")
+        # إنهاء البرنامج مع إشارة إلى حدوث خطأ (كود خروج 1)
+        sys.exit(1)
+
+# التحقق مما إذا كان هذا الملف هو الملف الرئيسي الذي تم تشغيله
+if __name__ == "__main__":
+    main()

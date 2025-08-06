@@ -1,0 +1,284 @@
+# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
+# تحذير أمني: هذا الملف يحتوي على عمليات حساسة
+# يجب مراجعة جميع المدخلات والتأكد من التحقق منها
+# Security Warning: This file contains sensitive operations
+# All inputs must be validated and sanitized
+
+
+"""
+مدير المصادقة والصلاحيات
+"""
+
+import hashlib
+import logging
+from datetime import datetime, timedelta
+from database.database_manager import DatabaseManager
+
+class AuthManager:
+    """مدير المصادقة والصلاحيات"""
+
+    def __init__(self):
+        self.db = DatabaseManager()
+        self.logger = logging.getLogger(__name__)
+        self.current_user = None
+        self.session_timeout = 3600  # ساعة واحدة
+        self.max_login_attempts = 3
+        self.login_attempts = {}
+
+    def hash_password(self, password):
+        """تشفير كلمة المرور"""
+        return hashlib.sha256(password.encode()).hexdigest()
+
+    def verify_password(self, password, password_hash):
+        """التحقق من كلمة المرور"""
+        return self.hash_password(password) == password_hash
+
+    def login(self, username, password):
+        """تسجيل الدخول"""
+        try:
+            # التحقق من محاولات تسجيل الدخول
+            if self.is_account_locked(username):
+                return {
+                    'success': False,
+                    'message': 'الحساب مقفل مؤقتاً بسبب محاولات دخول خاطئة متعددة'
+                }
+
+            # البحث عن المستخدم
+            user = self.db.fetch_one(
+                "SELECT * FROM users WHERE username = ? AND is_active = 1",
+                (username,)
+            )
+
+            if not user:
+                self.record_failed_attempt(username)
+                return {
+                    'success': False,
+                    'message': 'اسم المستخدم أو كلمة المرور غير صحيحة'
+                }
+
+            # التحقق من كلمة المرور
+            if not self.verify_password(password, user['password_hash']):
+                self.record_failed_attempt(username)
+                return {
+                    'success': False,
+                    'message': 'اسم المستخدم أو كلمة المرور غير صحيحة'
+                }
+
+            # تسجيل دخول ناجح
+            self.current_user = dict(user)
+            self.clear_failed_attempts(username)
+
+            # تحديث آخر تسجيل دخول
+            self.db.execute_query(
+                "UPDATE users SET last_login = ? WHERE id = ?",
+                (datetime.now(), user['id'])
+            )
+
+            # تسجيل العملية
+            self.log_activity(user['id'], 'login', 'users', user['id'])
+
+            return {
+                'success': True,
+                'message': 'تم تسجيل الدخول بنجاح',
+                'user': self.current_user
+            }
+
+        except Exception as e:
+            self.logger.error(f"خطأ في تسجيل الدخول: {e}")
+            return {
+                'success': False,
+                'message': 'حدث خطأ في النظام'
+            }
+
+    def logout(self):
+        """تسجيل الخروج"""
+        if self.current_user:
+            self.log_activity(self.current_user['id'], 'logout', 'users', self.current_user['id'])
+            self.current_user = None
+        return True
+
+    def is_account_locked(self, username):
+        """التحقق من قفل الحساب"""
+        if username not in self.login_attempts:
+            return False
+
+        attempts = self.login_attempts[username]
+        if attempts['count'] >= self.max_login_attempts:
+            # التحقق من انتهاء فترة القفل (30 دقيقة)
+            if datetime.now() - attempts['last_attempt'] < timedelta(minutes=30):
+                return True
+            else:
+                # إعادة تعيين المحاولات بعد انتهاء فترة القفل
+                del self.login_attempts[username]
+
+        return False
+
+    def record_failed_attempt(self, username):
+        """تسجيل محاولة دخول فاشلة"""
+        if username not in self.login_attempts:
+            self.login_attempts[username] = {'count': 0, 'last_attempt': None}
+
+        self.login_attempts[username]['count'] += 1
+        self.login_attempts[username]['last_attempt'] = datetime.now()
+
+    def clear_failed_attempts(self, username):
+        """مسح محاولات الدخول الفاشلة"""
+        if username in self.login_attempts:
+            del self.login_attempts[username]
+
+    def has_permission(self, permission):
+        """التحقق من الصلاحية"""
+        if not self.current_user:
+            return False
+
+        role = self.current_user['role']
+
+        # صلاحيات المدير
+        if role == 'admin':
+            return True
+
+        # صلاحيات المحاسب
+        elif role == 'accountant':
+            accountant_permissions = [
+                'view_sales', 'create_sales', 'edit_sales',
+                'view_purchases', 'create_purchases', 'edit_purchases',
+                'view_treasury', 'create_treasury',
+                'view_inventory', 'edit_inventory',
+                'view_customers', 'edit_customers',
+                'view_suppliers', 'edit_suppliers',
+                'view_reports', 'create_reports'
+            ]
+            return permission in accountant_permissions
+
+        # صلاحيات المستخدم العادي
+        elif role == 'user':
+            user_permissions = [
+                'view_sales', 'create_sales',
+                'view_inventory',
+                'view_customers',
+                'view_basic_reports'
+            ]
+            return permission in user_permissions
+
+        return False
+
+    def get_user_permissions(self):
+        """الحصول على قائمة صلاحيات المستخدم الحالي"""
+        if not self.current_user:
+            return []
+
+        role = self.current_user['role']
+
+        if role == 'admin':
+            return [
+                'view_sales', 'create_sales', 'edit_sales', 'delete_sales',
+                'view_purchases', 'create_purchases', 'edit_purchases', 'delete_purchases',
+                'view_treasury', 'create_treasury', 'edit_treasury', 'delete_treasury',
+                'view_inventory', 'create_inventory', 'edit_inventory', 'delete_inventory',
+                'view_customers', 'create_customers', 'edit_customers', 'delete_customers',
+                'view_suppliers', 'create_suppliers', 'edit_suppliers', 'delete_suppliers',
+                'view_reports', 'create_reports',
+                'manage_users', 'system_settings'
+            ]
+        elif role == 'accountant':
+            return [
+                'view_sales', 'create_sales', 'edit_sales',
+                'view_purchases', 'create_purchases', 'edit_purchases',
+                'view_treasury', 'create_treasury',
+                'view_inventory', 'edit_inventory',
+                'view_customers', 'edit_customers',
+                'view_suppliers', 'edit_suppliers',
+                'view_reports', 'create_reports'
+            ]
+        elif role == 'user':
+            return [
+                'view_sales', 'create_sales',
+                'view_inventory',
+                'view_customers',
+                'view_basic_reports'
+            ]
+
+        return []
+
+    def create_user(self, username, password, full_name, role, email=None, phone=None):
+        """إنشاء مستخدم جديد"""
+        if not self.has_permission('manage_users'):
+            return {'success': False, 'message': 'ليس لديك صلاحية لإنشاء المستخدمين'}
+
+        try:
+            # التحقق من عدم وجود المستخدم
+            existing_user = self.db.fetch_one(
+                "SELECT id FROM users WHERE username = ?",
+                (username,)
+            )
+
+            if existing_user:
+                return {'success': False, 'message': 'اسم المستخدم موجود بالفعل'}
+
+            # تشفير كلمة المرور
+            password_hash = self.hash_password(password)
+
+            # إنشاء المستخدم
+            self.db.execute_query('''
+                INSERT INTO users (username, password_hash, full_name, role, email, phone)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (username, password_hash, full_name, role, email, phone))
+
+            # تسجيل العملية
+            self.log_activity(self.current_user['id'], 'create_user', 'users', None)
+
+            return {'success': True, 'message': 'تم إنشاء المستخدم بنجاح'}
+
+        except Exception as e:
+            self.logger.error(f"خطأ في إنشاء المستخدم: {e}")
+            return {'success': False, 'message': 'حدث خطأ في النظام'}
+
+    def change_password(self, old_password, new_password):
+        """تغيير كلمة المرور"""
+        if not self.current_user:
+            return {'success': False, 'message': 'يجب تسجيل الدخول أولاً'}
+
+        try:
+            # التحقق من كلمة المرور القديمة
+            if not self.verify_password(old_password, self.current_user['password_hash']):
+                return {'success': False, 'message': 'كلمة المرور القديمة غير صحيحة'}
+
+            # تشفير كلمة المرور الجديدة
+            new_password_hash = self.hash_password(new_password)
+
+            # تحديث كلمة المرور
+            self.db.execute_query(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (new_password_hash, self.current_user['id'])
+            )
+
+            # تحديث المستخدم الحالي
+            self.current_user['password_hash'] = new_password_hash
+
+            # تسجيل العملية
+            self.log_activity(self.current_user['id'], 'change_password', 'users', self.current_user['id'])
+
+            return {'success': True, 'message': 'تم تغيير كلمة المرور بنجاح'}
+
+        except Exception as e:
+            self.logger.error(f"خطأ في تغيير كلمة المرور: {e}")
+            return {'success': False, 'message': 'حدث خطأ في النظام'}
+
+    def log_activity(self, user_id, action, table_name=None, record_id=None, old_values=None, new_values=None):
+        """تسجيل نشاط المستخدم"""
+        try:
+            self.db.execute_query('''
+                INSERT INTO activity_logs (user_id, action, table_name, record_id, old_values, new_values)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (user_id, action, table_name, record_id, old_values, new_values))
+        except Exception as e:
+            self.logger.error(f"خطأ في تسجيل النشاط: {e}")
+
+    def get_current_user(self):
+        """الحصول على المستخدم الحالي"""
+        return self.current_user
+
+    def is_logged_in(self):
+        """التحقق من تسجيل الدخول"""
+        return self.current_user is not None

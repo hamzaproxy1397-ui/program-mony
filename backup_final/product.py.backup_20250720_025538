@@ -1,0 +1,307 @@
+# -*- coding: utf-8 -*-
+"""
+نموذج المنتج
+"""
+
+from datetime import datetime
+from database.database_manager import DatabaseManager
+
+class Product:
+    """نموذج المنتج"""
+    
+    def __init__(self, product_id=None, name=None, barcode=None, category=None,
+                 unit='قطعة', cost_price=0, selling_price=0, min_stock=0,
+                 current_stock=0, description=None, created_at=None, is_active=True):
+        self.id = product_id
+        self.name = name
+        self.barcode = barcode
+        self.category = category
+        self.unit = unit
+        self.cost_price = cost_price
+        self.selling_price = selling_price
+        self.min_stock = min_stock
+        self.current_stock = current_stock
+        self.description = description
+        self.created_at = created_at or datetime.now()
+        self.is_active = is_active
+        self.db = DatabaseManager()
+    
+    def save(self):
+        """حفظ المنتج"""
+        try:
+            if self.id:
+                # تحديث منتج موجود
+                query = '''
+                    UPDATE products 
+                    SET name=?, barcode=?, category=?, unit=?, cost_price=?, 
+                        selling_price=?, min_stock=?, current_stock=?, 
+                        description=?, is_active=?
+                    WHERE id=?
+                '''
+                params = (self.name, self.barcode, self.category, self.unit,
+                         self.cost_price, self.selling_price, self.min_stock,
+                         self.current_stock, self.description, self.is_active, self.id)
+            else:
+                # إنشاء منتج جديد
+                query = '''
+                    INSERT INTO products (name, barcode, category, unit, cost_price, 
+                                        selling_price, min_stock, current_stock, 
+                                        description, is_active)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                '''
+                params = (self.name, self.barcode, self.category, self.unit,
+                         self.cost_price, self.selling_price, self.min_stock,
+                         self.current_stock, self.description, self.is_active)
+            
+            self.db.execute_query(query, params)
+            
+            if not self.id:
+                # الحصول على ID المنتج الجديد
+                result = self.db.fetch_one("SELECT last_insert_rowid()")
+                self.id = result[0]
+            
+            return True
+        except Exception as e:
+            print(f"خطأ في حفظ المنتج: {e}")
+            return False
+    
+    def delete(self):
+        """حذف المنتج (حذف منطقي)"""
+        try:
+            if self.id:
+                self.db.execute_query(
+                    "UPDATE products SET is_active = 0 WHERE id = ?",
+                    (self.id,)
+                )
+                self.is_active = False
+                return True
+            return False
+        except Exception as e:
+            print(f"خطأ في حذف المنتج: {e}")
+            return False
+    
+    @classmethod
+    def get_by_id(cls, product_id):
+        """الحصول على منتج بالمعرف"""
+        try:
+            db = DatabaseManager()
+            result = db.fetch_one(
+                "SELECT * FROM products WHERE id = ? AND is_active = 1",
+                (product_id,)
+            )
+            
+            if result:
+                return cls(
+                    product_id=result['id'],
+                    name=result['name'],
+                    barcode=result['barcode'],
+                    category=result['category'],
+                    unit=result['unit'],
+                    cost_price=result['cost_price'],
+                    selling_price=result['selling_price'],
+                    min_stock=result['min_stock'],
+                    current_stock=result['current_stock'],
+                    description=result['description'],
+                    created_at=result['created_at'],
+                    is_active=result['is_active']
+                )
+            return None
+        except Exception as e:
+            print(f"خطأ في جلب المنتج: {e}")
+            return None
+    
+    @classmethod
+    def get_by_barcode(cls, barcode):
+        """الحصول على منتج بالباركود"""
+        try:
+            db = DatabaseManager()
+            result = db.fetch_one(
+                "SELECT * FROM products WHERE barcode = ? AND is_active = 1",
+                (barcode,)
+            )
+            
+            if result:
+                return cls(
+                    product_id=result['id'],
+                    name=result['name'],
+                    barcode=result['barcode'],
+                    category=result['category'],
+                    unit=result['unit'],
+                    cost_price=result['cost_price'],
+                    selling_price=result['selling_price'],
+                    min_stock=result['min_stock'],
+                    current_stock=result['current_stock'],
+                    description=result['description'],
+                    created_at=result['created_at'],
+                    is_active=result['is_active']
+                )
+            return None
+        except Exception as e:
+            print(f"خطأ في جلب المنتج بالباركود: {e}")
+            return None
+    
+    @classmethod
+    def get_all(cls, active_only=True):
+        """الحصول على جميع المنتجات"""
+        try:
+            db = DatabaseManager()
+            query = "SELECT * FROM products"
+            if active_only:
+                query += " WHERE is_active = 1"
+            query += " ORDER BY name"
+            
+            results = db.fetch_all(query)
+            products = []
+            
+            for result in results:
+                product = cls(
+                    product_id=result['id'],
+                    name=result['name'],
+                    barcode=result['barcode'],
+                    category=result['category'],
+                    unit=result['unit'],
+                    cost_price=result['cost_price'],
+                    selling_price=result['selling_price'],
+                    min_stock=result['min_stock'],
+                    current_stock=result['current_stock'],
+                    description=result['description'],
+                    created_at=result['created_at'],
+                    is_active=result['is_active']
+                )
+                products.append(product)
+            
+            return products
+        except Exception as e:
+            print(f"خطأ في جلب المنتجات: {e}")
+            return []
+    
+    @classmethod
+    def search(cls, search_term):
+        """البحث في المنتجات"""
+        try:
+            db = DatabaseManager()
+            query = '''
+                SELECT * FROM products 
+                WHERE (name LIKE ? OR barcode LIKE ? OR category LIKE ?) 
+                AND is_active = 1
+                ORDER BY name
+            '''
+            search_pattern = f"%{search_term}%"
+            results = db.fetch_all(query, (search_pattern, search_pattern, search_pattern))
+            
+            products = []
+            for result in results:
+                product = cls(
+                    product_id=result['id'],
+                    name=result['name'],
+                    barcode=result['barcode'],
+                    category=result['category'],
+                    unit=result['unit'],
+                    cost_price=result['cost_price'],
+                    selling_price=result['selling_price'],
+                    min_stock=result['min_stock'],
+                    current_stock=result['current_stock'],
+                    description=result['description'],
+                    created_at=result['created_at'],
+                    is_active=result['is_active']
+                )
+                products.append(product)
+            
+            return products
+        except Exception as e:
+            print(f"خطأ في البحث: {e}")
+            return []
+    
+    def update_stock(self, quantity, movement_type='adjustment'):
+        """تحديث المخزون"""
+        try:
+            if movement_type == 'in':
+                self.current_stock += quantity
+            elif movement_type == 'out':
+                self.current_stock -= quantity
+            else:  # adjustment
+                self.current_stock = quantity
+            
+            # تحديث قاعدة البيانات
+            self.db.execute_query(
+                "UPDATE products SET current_stock = ? WHERE id = ?",
+                (self.current_stock, self.id)
+            )
+            
+            # تسجيل حركة المخزون
+            self.db.execute_query('''
+                INSERT INTO inventory_movements 
+                (product_id, movement_type, quantity, notes, created_by)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (self.id, movement_type, quantity, f"تحديث المخزون", 1))
+            
+            return True
+        except Exception as e:
+            print(f"خطأ في تحديث المخزون: {e}")
+            return False
+    
+    def is_low_stock(self):
+        """التحقق من نقص المخزون"""
+        return self.current_stock <= self.min_stock
+    
+    def get_profit_margin(self):
+        """حساب هامش الربح"""
+        if self.cost_price > 0:
+            return ((self.selling_price - self.cost_price) / self.cost_price) * 100
+        return 0
+    
+    @classmethod
+    def get_low_stock_products(cls):
+        """الحصول على المنتجات ناقصة المخزون"""
+        try:
+            db = DatabaseManager()
+            results = db.fetch_all('''
+                SELECT * FROM products 
+                WHERE current_stock <= min_stock AND is_active = 1
+                ORDER BY (current_stock - min_stock)
+            ''')
+            
+            products = []
+            for result in results:
+                product = cls(
+                    product_id=result['id'],
+                    name=result['name'],
+                    barcode=result['barcode'],
+                    category=result['category'],
+                    unit=result['unit'],
+                    cost_price=result['cost_price'],
+                    selling_price=result['selling_price'],
+                    min_stock=result['min_stock'],
+                    current_stock=result['current_stock'],
+                    description=result['description'],
+                    created_at=result['created_at'],
+                    is_active=result['is_active']
+                )
+                products.append(product)
+            
+            return products
+        except Exception as e:
+            print(f"خطأ في جلب المنتجات ناقصة المخزون: {e}")
+            return []
+    
+    def to_dict(self):
+        """تحويل إلى قاموس"""
+        return {
+            'id': self.id,
+            'name': self.name,
+            'barcode': self.barcode,
+            'category': self.category,
+            'unit': self.unit,
+            'cost_price': self.cost_price,
+            'selling_price': self.selling_price,
+            'min_stock': self.min_stock,
+            'current_stock': self.current_stock,
+            'description': self.description,
+            'created_at': self.created_at,
+            'is_active': self.is_active,
+            'profit_margin': self.get_profit_margin(),
+            'is_low_stock': self.is_low_stock()
+        }
+    
+    def __str__(self):
+        return f"المنتج: {self.name} - المخزون: {self.current_stock} {self.unit}"

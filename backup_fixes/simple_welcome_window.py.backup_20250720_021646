@@ -1,0 +1,354 @@
+# -*- coding: utf-8 -*-
+# cSpell:disable
+"""
+نافذة الترحيب المبسطة
+Simple Welcome Window
+"""
+
+import customtkinter as ctk
+import tkinter as tk
+import threading
+import time
+from ui.window_utils import configure_window_fullscreen
+from pathlib import Path
+from PIL import Image, ImageTk, ImageDraw
+
+class SimpleWelcomeWindow:
+    """نافذة الترحيب المبسطة"""
+    
+    def __init__(self, parent=None):
+        self.parent = parent
+        self.window = None
+        self.create_welcome_window()
+        
+    def create_welcome_window(self):
+        """إنشاء نافذة الترحيب"""
+        # إنشاء النافذة
+        if self.parent:
+            self.window = ctk.CTkToplevel(self.parent)
+        else:
+            self.window = ctk.CTk()
+        
+        # إعداد النافذة لتملأ الشاشة
+        configure_window_fullscreen(self.window, "أهلاً وسهلاً - شركة ست الكل العالمية - برنامج ست الكل للمحاسبة")
+        
+        # ضبط النافذة لملء الشاشة
+        try:
+            self.window.state('zoomed')  # Windows
+        except:
+            try:
+                self.window.attributes('-zoomed', True)  # Linux
+            except:
+                screen_width = self.window.winfo_screenwidth()
+                screen_height = self.window.winfo_screenheight()
+                self.window.geometry(f"{screen_width}x{screen_height}+0+0")
+        
+        self.window.configure(fg_color="#f0f8ff")
+        
+        # المحتوى الرئيسي
+        self.create_content()
+        
+        # بدء التحميل
+        self.start_loading()
+        
+    def create_content(self):
+        """إنشاء المحتوى"""
+        # الإطار الرئيسي
+        main_frame = ctk.CTkFrame(
+            self.window,
+            fg_color="#ffffff",
+            corner_radius=20,
+            border_width=3,
+            border_color="#FFD700"
+        )
+        main_frame.pack(expand=True, fill="both", padx=100, pady=100)
+        
+        # العنوان الرئيسي
+        title_label = ctk.CTkLabel(
+            main_frame,
+            text="🌟 أهلاً وسهلاً بكم 🌟",
+            font=("Arial", 42, "bold"),
+            text_color="#2E8B57"
+        )
+        title_label.pack(pady=(40, 20))
+        
+        # إطار المحتوى
+        content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        content_frame.pack(expand=True, fill="both", padx=50, pady=20)
+        
+        # الجانب الأيسر - الصورة
+        left_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        left_frame.pack(side="left", fill="y", padx=(0, 30))
+        
+        # صورة دائرية بسيطة
+        self.create_simple_image(left_frame)
+        
+        # الجانب الأيمن - النص
+        right_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        right_frame.pack(side="right", fill="both", expand=True)
+        
+        # اسم الشركة
+        company_label = ctk.CTkLabel(
+            right_frame,
+            text="شــركــة ســت الكل العـالـمـية",
+            font=("Arial", 32, "bold"),
+            text_color="#2E8B57"
+        )
+        company_label.pack(pady=(20, 15))
+        
+        # اسم البرنامج
+        program_label = ctk.CTkLabel(
+            right_frame,
+            text="برنامج شركة ست الكل للمحاسبة المالية",
+            font=("Arial", 22, "bold"),
+            text_color="#4682B4"
+        )
+        program_label.pack(pady=(0, 25))
+        
+        # خط فاصل
+        separator = ctk.CTkFrame(
+            right_frame,
+            height=3,
+            fg_color="#FFD700"
+        )
+        separator.pack(fill="x", padx=30, pady=15)
+        
+        # منصب المدير
+        position_label = ctk.CTkLabel(
+            right_frame,
+            text="مدير الشركة ورئيس مجلس الإدارة",
+            font=("Arial", 18, "bold"),
+            text_color="#212529"
+        )
+        position_label.pack(pady=(15, 8))
+        
+        # اسم المدير
+        manager_label = ctk.CTkLabel(
+            right_frame,
+            text="محمود عبد الحميد",
+            font=("Arial", 26, "bold"),
+            text_color="#FFD700"
+        )
+        manager_label.pack(pady=(0, 20))
+        
+        # معلومات المطور
+        dev_frame = ctk.CTkFrame(
+            main_frame,
+            height=100,
+            fg_color="#2E8B57",
+            corner_radius=15
+        )
+        dev_frame.pack(fill="x", side="bottom", padx=30, pady=30)
+        dev_frame.pack_propagate(False)
+        
+        # اسم المطور
+        dev_label = ctk.CTkLabel(
+            dev_frame,
+            text="برنامج ست الكل إعداد وتنفيذ م. حمزة الناعم",
+            font=("Arial", 16, "bold"),
+            text_color="#FFD700"
+        )
+        dev_label.pack(pady=(10, 5))
+        
+        # معلومات الاتصال
+        contact_frame = ctk.CTkFrame(dev_frame, fg_color="transparent")
+        contact_frame.pack()
+        
+        email_label = ctk.CTkLabel(
+            contact_frame,
+            text="📧 mail: Hamzaproxy@yahoo.com",
+            font=("Arial", 12, "bold"),
+            text_color="white"
+        )
+        email_label.pack(side="left", padx=20)
+        
+        mobile_label = ctk.CTkLabel(
+            contact_frame,
+            text="📱 Mobile: +963991555117",
+            font=("Arial", 12, "bold"),
+            text_color="white"
+        )
+        mobile_label.pack(side="right", padx=20)
+        
+        # شريط التقدم
+        self.progress_frame = ctk.CTkFrame(
+            main_frame,
+            height=50,
+            fg_color="transparent"
+        )
+        self.progress_frame.pack(fill="x", side="bottom", padx=30, pady=(0, 20))
+        
+        self.loading_label = ctk.CTkLabel(
+            self.progress_frame,
+            text="🚀 جاري تحميل النظام...",
+            font=("Arial", 14, "bold"),
+            text_color="#2E8B57"
+        )
+        self.loading_label.pack(pady=(0, 8))
+        
+        self.progress_bar = ctk.CTkProgressBar(
+            self.progress_frame,
+            width=500,
+            height=15,
+            progress_color="#2E8B57"
+        )
+        self.progress_bar.pack()
+        self.progress_bar.set(0)
+        
+    def create_simple_image(self, parent):
+        """إنشاء صورة بسيطة"""
+        try:
+            # محاولة تحميل الصورة
+            image_path = "assets/ceo_image.jpg"
+            if Path(image_path).exists():
+                # تحميل ومعالجة الصورة
+                original_image = Image.open(image_path)
+                
+                # تغيير حجم الصورة
+                size = (250, 250)
+                image = original_image.resize(size, Image.Resampling.LANCZOS)
+                
+                # إنشاء قناع دائري
+                mask = Image.new('L', size, 0)
+                draw = ImageDraw.Draw(mask)
+                draw.ellipse((0, 0) + size, fill=255)
+                
+                # تطبيق القناع الدائري
+                circular_image = Image.new('RGBA', size, (0, 0, 0, 0))
+                circular_image.paste(image, (0, 0))
+                circular_image.putalpha(mask)
+                
+                # إضافة إطار ذهبي
+                frame_size = (270, 270)
+                frame_image = Image.new('RGBA', frame_size, (0, 0, 0, 0))
+                frame_draw = ImageDraw.Draw(frame_image)
+                
+                # رسم الإطار الذهبي
+                frame_draw.ellipse((0, 0) + frame_size, outline='#FFD700', width=6)
+                frame_draw.ellipse((3, 3, 267, 267), outline='#FFA500', width=3)
+                
+                # دمج الصورة مع الإطار
+                frame_image.paste(circular_image, (10, 10), circular_image)
+                
+                # تحويل للعرض في customtkinter
+                ctk_image = ctk.CTkImage(light_image=frame_image, dark_image=frame_image, size=(270, 270))
+
+                # عرض الصورة
+                image_label = ctk.CTkLabel(
+                    parent,
+                    image=ctk_image,
+                    text=""
+                )
+                image_label.pack(pady=30)
+                
+            else:
+                # صورة افتراضية
+                self.create_default_image(parent)
+                
+        except Exception as e:
+            print(f"خطأ في تحميل الصورة: {e}")
+            self.create_default_image(parent)
+    
+    def create_default_image(self, parent):
+        """إنشاء صورة افتراضية"""
+        # إطار دائري للصورة الافتراضية
+        image_container = ctk.CTkFrame(
+            parent,
+            width=250,
+            height=250,
+            corner_radius=125,
+            fg_color="#2E8B57",
+            border_width=6,
+            border_color="#FFD700"
+        )
+        image_container.pack(pady=30)
+        image_container.pack_propagate(False)
+        
+        # أيقونة افتراضية
+        default_icon = ctk.CTkLabel(
+            image_container,
+            text="👤",
+            font=("Arial", 100),
+            text_color="white"
+        )
+        default_icon.pack(expand=True)
+        
+    def start_loading(self):
+        """بدء عملية التحميل"""
+        def loading_animation():
+            loading_texts = [
+                "🔄 تهيئة النظام...",
+                "📊 تحميل قاعدة البيانات...",
+                "🎨 إعداد الواجهة...",
+                "🔐 فحص الصلاحيات...",
+                "📦 تحميل الوحدات...",
+                "✅ اكتمل التحميل!"
+            ]
+
+            for i, text in enumerate(loading_texts):
+                try:
+                    if self.window and hasattr(self.window, 'winfo_exists') and self.window.winfo_exists():
+                        self.loading_label.configure(text=text)
+                        progress = (i + 1) / len(loading_texts)
+                        self.progress_bar.set(progress)
+                        time.sleep(1.2)
+                    else:
+                        break
+                except Exception as e:
+                    print(f"خطأ في تحديث التحميل: {e}")
+                    break
+
+            # إغلاق نافذة الترحيب بعد التحميل
+            try:
+                time.sleep(1)
+                self.close_welcome()
+            except Exception:
+                # تجاهل أخطاء الإغلاق
+                pass
+        
+        # تشغيل التحميل في خيط منفصل
+        loading_thread = threading.Thread(target=loading_animation)
+        loading_thread.daemon = True
+        loading_thread.start()
+        
+    def close_welcome(self):
+        """إغلاق نافذة الترحيب بطريقة آمنة"""
+        try:
+            if self.window:
+                # إلغاء جميع المهام المجدولة
+                self.window.after_cancel("all")
+
+                # التحقق من وجود النافذة قبل الإغلاق
+                if hasattr(self.window, 'winfo_exists'):
+                    try:
+                        if self.window.winfo_exists():
+                            self.window.quit()  # إيقاف mainloop أولاً
+                            self.if window and hasattr(window, "destroy"):
+    window.destroy()  # ثم تدمير النافذة
+                    except tk.TclError:
+                        # النافذة مدمرة بالفعل
+                        pass
+                else:
+                    # محاولة إغلاق مباشر
+                    self.window.quit()
+                    self.if window and hasattr(window, "destroy"):
+    window.destroy()
+
+                self.window = None  # تنظيف المرجع
+
+        except Exception as e:
+            # تجاهل أخطاء الإغلاق - هذا طبيعي عند إغلاق النوافذ
+            pass
+    
+    def show(self):
+        """عرض نافذة الترحيب"""
+        if self.window:
+            self.window.mainloop()
+
+def main():
+    """تشغيل نافذة الترحيب للاختبار"""
+    welcome = SimpleWelcomeWindow()
+    welcome.show()
+
+if __name__ == "__main__":
+    main()

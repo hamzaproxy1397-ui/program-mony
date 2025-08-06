@@ -1,0 +1,39 @@
+# كود الشريط الأخضر المُصحح
+        green_icons = [
+            ("assets\icons\employees.ico", "الموظفين"),
+            ("assets\icons\48.ico", "المحاسبة"),
+            ("assets\icons\43.ico", "الحسابات"),
+            ("assets\icons\40.ico", "الخزينة"),
+            ("assets\icons\5.ico", "الفواتير"),
+            ("assets\icons\4.ico", "التقارير"),
+        ]
+
+# كود الصف الأول المُصحح
+        first_row_icons = [
+            ("assets\icons\1.ico", "أهلاً بكم", "#5DADE2"),
+            ("assets\icons\2.ico", "إعداد", "#5DADE2"),
+            ("assets\icons\3.ico", "إدخال الأصناف", "#4ECDC4"),
+            ("assets\icons\43.ico", "إدخال الحسابات", "#F39C12"),
+            ("assets\icons\6.ico", "الحركة اليومية", "#8E44AD"),
+            ("assets\icons\7.ico", "تحليل المبيعات", "#3498DB"),
+        ]
+
+# كود الصف الثاني المُصحح
+        second_row_icons = [
+            ("assets\icons\8.ico", "مخزن", "#F39C12"),
+            ("assets\icons\9.ico", "بيع", "#27AE60"),
+            ("assets\icons\10.ico", "شراء", "#E74C3C"),
+            ("assets\icons\11.ico", "صرف", "#E67E22"),
+            ("assets\icons\12.ico", "مؤشرات", "#16A085"),
+            ("assets\icons\13.ico", "مرتجع بيع", "#27AE60"),
+        ]
+
+# كود الصف الثالث المُصحح
+        third_row_icons = [
+            ("assets\icons\14.ico", "عرض أسعار", "#16A085"),
+            ("assets\icons\15.ico", "مرتجع شراء", "#8E44AD"),
+            ("assets\icons\16.ico", "كمية", "#9B59B6"),
+            ("assets\icons\17.ico", "تحويل لمخزن", "#3498DB"),
+            ("assets\icons\18.ico", "تسوية مخزن", "#1ABC9C"),
+            ("assets\icons\19.ico", "مؤشرات", "#16A085"),
+        ]

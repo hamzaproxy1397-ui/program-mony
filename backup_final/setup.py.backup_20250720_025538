@@ -1,0 +1,59 @@
+# -*- coding: utf-8 -*-
+"""
+ملف الإعداد لبرنامج ست الكل للمحاسبة
+"""
+
+import os
+
+# قراءة ملف README
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+
+# قراءة المتطلبات
+with open("requirements.txt", "r", encoding="utf-8") as fh:
+    requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
+
+setup(
+    name="accounting-software",
+    version="1.0.0",
+    author="فريق التطوير",
+    author_email="dev@example.com",
+    description="برنامج ست الكل للمحاسبة - نظام إدارة المبيعات والمحاسبة المتكامل",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/your-username/accounting-software",
+    packages=find_packages(),
+    classifiers=[
+        "Development Status :: 5 - Production/Stable",
+        "Intended Audience :: End Users/Desktop",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: Microsoft :: Windows",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Topic :: Office/Business :: Financial :: Accounting",
+        "Natural Language :: Arabic",
+    ],
+    python_requires=">=3.8",
+    install_requires=requirements,
+    entry_points={
+        "console_scripts": [
+            "accounting-software=main:main",
+        ],
+    },
+    include_package_data=True,
+    package_data={
+        "": ["*.md", "*.txt", "*.json", "*.sql"],
+        "assets": ["*"],
+        "themes": ["*"],
+        "config": ["*"],
+    },
+    keywords="accounting, sales, inventory, arabic, rtl, business, finance",
+    project_urls={
+        "Bug Reports": "https://github.com/your-username/accounting-software/issues",
+        "Source": "https://github.com/your-username/accounting-software",
+        "Documentation": "https://github.com/your-username/accounting-software/wiki",
+    },
+)

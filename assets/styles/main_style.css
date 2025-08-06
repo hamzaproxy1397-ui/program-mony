@@ -1,0 +1,264 @@
+/* ملف الأنماط الرئيسي لبرنامج ست الكل للمحاسبة */
+
+/* الألوان الأساسية */
+:root {
+    --primary-color: #2E8B57;
+    --secondary-color: #1B5E20;
+    --background-dark: #2C2C2C;
+    --background-medium: #3C3C3C;
+    --background-light: #F5F5F5;
+    --text-primary: #FFFFFF;
+    --text-secondary: #333333;
+    --border-color: #CCCCCC;
+    --hover-color: #E0E0E0;
+}
+
+/* الشريط العلوي */
+.top-menu-bar {
+    background-color: var(--background-light);
+    height: 35px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+}
+
+.search-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.search-input {
+    width: 200px;
+    height: 25px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 0 10px;
+    font-family: 'Cairo', Arial, sans-serif;
+    direction: rtl;
+}
+
+.search-button {
+    width: 30px;
+    height: 25px;
+    background-color: #4CAF50;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+}
+
+.menu-container {
+    display: flex;
+    gap: 2px;
+}
+
+.menu-item {
+    padding: 5px 15px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-family: 'Cairo', Arial, sans-serif;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.menu-item:hover {
+    background-color: var(--hover-color);
+}
+
+/* الشريط الأخضر */
+.green-bar {
+    background-color: var(--primary-color);
+    height: 160px;
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+    gap: 30px;
+}
+
+.logo-container {
+    width: 280px;
+    height: 140px;
+    background-color: var(--secondary-color);
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-primary);
+    font-family: 'Cairo', Arial, sans-serif;
+    font-size: 18px;
+    font-weight: bold;
+    text-align: center;
+    line-height: 1.4;
+}
+
+.icons-container {
+    flex: 1;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    height: 130px;
+}
+
+.icon-item {
+    width: 110px;
+    height: 130px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.icon-item:hover {
+    transform: scale(1.05);
+}
+
+.icon-symbol {
+    font-size: 30px;
+    margin-bottom: 10px;
+}
+
+.icon-text {
+    color: var(--text-primary);
+    font-family: 'Cairo', Arial, sans-serif;
+    font-size: 12px;
+    text-align: center;
+}
+
+/* المنطقة الرئيسية */
+.main-grid-area {
+    background-color: var(--background-medium);
+    flex: 1;
+    padding: 20px 50px;
+}
+
+.reports-title {
+    color: var(--text-primary);
+    font-family: 'Cairo', Arial, sans-serif;
+    font-size: 16px;
+    font-weight: bold;
+    text-align: right;
+    margin-bottom: 20px;
+}
+
+.grid-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.grid-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 16px;
+}
+
+.grid-button {
+    width: 120px;
+    height: 120px;
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.grid-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.grid-button-icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+}
+
+.grid-button-text {
+    color: var(--text-primary);
+    font-family: 'Cairo', Arial, sans-serif;
+    font-size: 11px;
+    text-align: center;
+    line-height: 1.2;
+    max-width: 100px;
+}
+
+/* ألوان الأزرار */
+.button-blue-light { background-color: #5DADE2; }
+.button-teal { background-color: #4ECDC4; }
+.button-orange { background-color: #F39C12; }
+.button-purple { background-color: #8E44AD; }
+.button-blue { background-color: #3498DB; }
+.button-green { background-color: #27AE60; }
+.button-red { background-color: #E74C3C; }
+.button-orange-red { background-color: #E67E22; }
+.button-teal-dark { background-color: #16A085; }
+.button-purple-light { background-color: #9B59B6; }
+.button-teal-light { background-color: #1ABC9C; }
+
+/* تأثيرات الحركة */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* استجابة للشاشات المختلفة */
+@media (max-width: 1200px) {
+    .grid-button {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .grid-button-icon {
+        font-size: 20px;
+    }
+    
+    .grid-button-text {
+        font-size: 10px;
+    }
+}
+
+/* تحسينات للنص العربي */
+.arabic-text {
+    font-family: 'Cairo', 'Amiri', 'Noto Sans Arabic', Arial, sans-serif;
+    direction: rtl;
+    text-align: right;
+}
+
+/* تأثيرات الظلال */
+.shadow-light {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.shadow-medium {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.shadow-heavy {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* تأثيرات الانتقال */
+.transition-all {
+    transition: all 0.3s ease;
+}
+
+.transition-transform {
+    transition: transform 0.2s ease;
+}
+
+.transition-color {
+    transition: background-color 0.2s ease, color 0.2s ease;
+}

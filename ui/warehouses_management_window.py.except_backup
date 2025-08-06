@@ -1,0 +1,346 @@
+# -*- coding: utf-8 -*-
+"""
+نافذة إدارة المخازن
+Warehouses Management Window
+"""
+
+import customtkinter as ctk
+import tkinter as tk
+from tkinter import messagebox, ttk
+
+try:
+    from themes.modern_theme import MODERN_COLORS, FONTS
+except Exception as e:
+    print(f"خطأ: {e}")
+from ui.window_utils import configure_window_fullscreen
+except ImportError:
+    MODERN_COLORS = {
+        'primary': '#1f538d',
+        'secondary': '#2c3e50',
+        'success': '#27ae60',
+        'danger': '#e74c3c',
+        'error': '#e74c3c',
+        'warning': '#f39c12',
+        'info': '#3498db',
+        'background': '#ecf0f1',
+        'surface': '#ffffff',
+        'text_primary': '#2c3e50',
+        'text_secondary': '#7f8c8d',
+        'border': '#bdc3c7'
+    }
+    FONTS = {'arabic': 'Arial', 'english': 'Arial'}
+
+class WarehousesManagementWindow:
+    """نافذة إدارة المخازن"""
+    
+    def __init__(self, parent, db_manager=None):
+        self.parent = parent
+        self.db_manager = db_manager
+        self.window = None
+        self.current_warehouse_id = None
+        self.warehouses_data = []
+        
+        # إعداد النافذة
+        self.create_window()
+        self.load_warehouses_data()
+        
+    def create_window(self):
+        """إنشاء النافذة الرئيسية"""
+        self.window = ctk.CTkToplevel(self.parent)
+        
+        # إعداد النافذة لتملأ الشاشة
+        configure_window_fullscreen(self.window, "🏪 إدارة المخازن - برنامج ست الكل للمحاسبة")
+
+        # ضبط النافذة لملء الشاشة
+        self.window  # ملء الشاشة في Windows
+
+        # للأنظمة الأخرى كبديل
+        try:
+            self.window  # Linux
+        except:
+        except:
+            pass
+
+        # كبديل احتياطي - استخدام أبعاد الشاشة الكاملة
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        self.window.geometry(f"{screen_width}x{screen_height}+0+0")
+
+        self.window.configure(fg_color=MODERN_COLORS['background'])
+
+        # جعل النافذة في المقدمة
+        self.window.transient(self.parent)
+        self.window.grab_set()
+        
+        # إنشاء المحتوى
+        self.create_header()
+        self.create_main_layout()
+        
+    def create_header(self):
+        """إنشاء رأس النافذة"""
+        header_frame = ctk.CTkFrame(self.window, height=80, fg_color=MODERN_COLORS['primary'])
+        header_frame.pack(fill="x", padx=20, pady=(20, 10))
+        header_frame.pack_propagate(False)
+        
+        # الأيقونة والعنوان
+        title_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        title_frame.pack(side="right", padx=20, pady=15)
+        
+        title_label = ctk.CTkLabel(
+            title_frame,
+            text="🏪 إدارة المخازن",
+            font=(FONTS['arabic'], 24, "bold"),
+            text_color="white"
+        )
+        title_label.pack()
+        
+        subtitle_label = ctk.CTkLabel(
+            title_frame,
+            text="إدارة وتنظيم المخازن والفروع",
+            font=(FONTS['arabic'], 12),
+            text_color="white"
+        )
+        subtitle_label.pack()
+        
+        # معلومات سريعة
+        info_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        info_frame.pack(side="left", padx=20, pady=15)
+        
+        self.warehouses_count_label = ctk.CTkLabel(
+            info_frame,
+            text="إجمالي المخازن: 0",
+            font=(FONTS['arabic'], 12),
+            text_color="white"
+        )
+        self.warehouses_count_label.pack()
+        
+        self.active_warehouses_label = ctk.CTkLabel(
+            info_frame,
+            text="المخازن النشطة: 0",
+            font=(FONTS['arabic'], 12),
+            text_color="white"
+        )
+        self.active_warehouses_label.pack()
+    
+    def create_main_layout(self):
+        """إنشاء التخطيط الرئيسي"""
+        # إطار المحتوى الرئيسي
+        main_container = ctk.CTkFrame(self.window, fg_color="transparent")
+        main_container.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        
+        # الجانب الأيمن - نموذج إضافة/تعديل المخزن
+        self.create_warehouse_form(main_container)
+        
+        # الجانب الأيسر - جدول المخازن
+        self.create_warehouses_table(main_container)
+    
+    def create_warehouse_form(self, parent):
+        """إنشاء نموذج إضافة/تعديل المخزن"""
+        # إطار النموذج
+        form_frame = ctk.CTkFrame(parent, width=450, fg_color=MODERN_COLORS['surface'])
+        form_frame.pack(side="right", fill="y", padx=(0, 10))
+        form_frame.pack_propagate(False)
+        
+        # عنوان النموذج
+        form_title = ctk.CTkLabel(
+            form_frame,
+            text="📝 بيانات المخزن",
+            font=(FONTS['arabic'], 18, "bold"),
+            text_color=MODERN_COLORS['primary']
+        )
+        form_title.pack(pady=(20, 10))
+        
+        # إطار قابل للتمرير للحقول
+        scroll_frame = ctk.CTkScrollableFrame(form_frame, height=500)
+        scroll_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        
+        # معلومات أساسية
+        basic_info_label = ctk.CTkLabel(
+            scroll_frame,
+            text="📋 المعلومات الأساسية",
+            font=(FONTS['arabic'], 14, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        basic_info_label.pack(pady=(10, 5), anchor="e")
+        
+        # كود المخزن
+        self.create_form_field(scroll_frame, "كود المخزن:", "warehouse_code", required=True)
+        
+        # اسم المخزن
+        self.create_form_field(scroll_frame, "اسم المخزن:", "name", required=True)
+        
+        # الوصف
+        self.create_textarea_field(scroll_frame, "وصف المخزن:", "description")
+        
+        # معلومات الموقع
+        location_info_label = ctk.CTkLabel(
+            scroll_frame,
+            text="📍 معلومات الموقع",
+            font=(FONTS['arabic'], 14, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        location_info_label.pack(pady=(20, 5), anchor="e")
+        
+        # العنوان
+        self.create_form_field(scroll_frame, "العنوان:", "address")
+        
+        # المدينة
+        self.create_form_field(scroll_frame, "المدينة:", "city")
+        
+        # الهاتف
+        self.create_form_field(scroll_frame, "الهاتف:", "phone")
+        
+        # معلومات المسؤول
+        manager_info_label = ctk.CTkLabel(
+            scroll_frame,
+            text="👤 معلومات المسؤول",
+            font=(FONTS['arabic'], 14, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        manager_info_label.pack(pady=(20, 5), anchor="e")
+        
+        # اسم المسؤول
+        self.create_form_field(scroll_frame, "اسم المسؤول:", "manager_name")
+        
+        # هاتف المسؤول
+        self.create_form_field(scroll_frame, "هاتف المسؤول:", "manager_phone")
+        
+        # حالة المخزن
+        self.create_checkbox_field(scroll_frame, "المخزن نشط", "is_active")
+        
+        # أزرار الإجراءات
+        self.create_form_buttons(form_frame)
+    
+    def create_form_field(self, parent, label_text, field_name, required=False):
+        """إنشاء حقل في النموذج"""
+        # إطار الحقل
+        field_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        field_frame.pack(fill="x", pady=5)
+        
+        # التسمية
+        label_text_with_required = f"{label_text} *" if required else label_text
+        label = ctk.CTkLabel(
+            field_frame,
+            text=label_text_with_required,
+            font=(FONTS['arabic'], 12, "bold" if required else "normal"),
+            text_color=MODERN_COLORS['error'] if required else MODERN_COLORS['text_primary']
+        )
+        label.pack(anchor="e", pady=(0, 5))
+        
+        # الحقل
+        entry = ctk.CTkEntry(
+            field_frame,
+            placeholder_text=f"أدخل {label_text}",
+            font=(FONTS['arabic'], 12),
+            height=35
+        )
+        entry.pack(fill="x", pady=(0, 5))
+        
+        # حفظ مرجع الحقل
+        setattr(self, f"{field_name}_entry", entry)
+        
+        return entry
+    
+    def create_textarea_field(self, parent, label_text, field_name):
+        """إنشاء حقل نص متعدد الأسطر"""
+        # إطار الحقل
+        field_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        field_frame.pack(fill="x", pady=5)
+        
+        # التسمية
+        label = ctk.CTkLabel(
+            field_frame,
+            text=label_text,
+            font=(FONTS['arabic'], 12),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        label.pack(anchor="e", pady=(0, 5))
+        
+        # حقل النص
+        textbox = ctk.CTkTextbox(
+            field_frame,
+            height=60,
+            font=(FONTS['arabic'], 12)
+        )
+        textbox.pack(fill="x", pady=(0, 5))
+        
+        # حفظ مرجع الحقل
+        setattr(self, f"{field_name}_textbox", textbox)
+        
+        return textbox
+    
+    def create_checkbox_field(self, parent, label_text, field_name):
+        """إنشاء حقل مربع اختيار"""
+        # إطار الحقل
+        field_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        field_frame.pack(fill="x", pady=10)
+        
+        # مربع الاختيار
+        checkbox = ctk.CTkCheckBox(
+            field_frame,
+            text=label_text,
+            font=(FONTS['arabic'], 12)
+        )
+        checkbox.pack(anchor="e")
+        checkbox.select()  # محدد افتراضياً
+        
+        # حفظ مرجع الحقل
+        setattr(self, f"{field_name}_checkbox", checkbox)
+        
+        return checkbox
+    
+    def create_form_buttons(self, parent):
+        """إنشاء أزرار النموذج"""
+        buttons_frame = ctk.CTkFrame(parent, height=80, fg_color="transparent")
+        buttons_frame.pack(fill="x", padx=20, pady=10)
+        buttons_frame.pack_propagate(False)
+        
+        # زر حفظ
+        save_btn = ctk.CTkButton(
+            buttons_frame,
+            text="💾 حفظ المخزن",
+            command=self.save_warehouse,
+            fg_color=MODERN_COLORS['success'],
+            width=120,
+            height=40,
+            font=(FONTS['arabic'], 12, "bold")
+        )
+        save_btn.pack(side="right", padx=5, pady=10)
+        
+        # زر تعديل
+        self.edit_btn = ctk.CTkButton(
+            buttons_frame,
+            text="✏️ تعديل",
+            command=self.update_warehouse,
+            fg_color=MODERN_COLORS['info'],
+            width=100,
+            height=40,
+            font=(FONTS['arabic'], 12, "bold"),
+            state="disabled"
+        )
+        self.edit_btn.pack(side="right", padx=5, pady=10)
+        
+        # زر جديد
+        new_btn = ctk.CTkButton(
+            buttons_frame,
+            text="📄 جديد",
+            command=self.clear_form,
+            fg_color=MODERN_COLORS['primary'],
+            width=100,
+            height=40,
+            font=(FONTS['arabic'], 12, "bold")
+        )
+        new_btn.pack(side="right", padx=5, pady=10)
+        
+        # زر حذف
+        self.delete_btn = ctk.CTkButton(
+            buttons_frame,
+            text="🗑️ حذف",
+            command=self.delete_warehouse,
+            fg_color=MODERN_COLORS['error'],
+            width=100,
+            height=40,
+            font=(FONTS['arabic'], 12, "bold"),
+            state="disabled"
+        )
+        self.delete_btn.pack(side="left", padx=5, pady=10)

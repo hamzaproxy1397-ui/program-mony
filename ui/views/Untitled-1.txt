@@ -1,0 +1,4 @@
+try:
+    db_manager.connect()
+except Exception as e:
+    log_error(f"Database connection failed: {e}")

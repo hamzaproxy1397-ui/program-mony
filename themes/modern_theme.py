@@ -1,0 +1,142 @@
+"""
+ثيم حديث للواجهة الرئيسية
+Modern theme for main interface
+"""
+# cSpell:ignore للواجهة الرئيسية الأساسية التمرير
+
+# ألوان الثيم الحديث (الوضع الفاتح)
+MODERN_COLORS = {
+    # الألوان الأساسية
+    'primary': '#2E8B57',       # أخضر البرنامج الرئيسي
+    'primary_light': '#4CAF50', # أخضر فاتح
+    'primary_dark': '#1B5E20',  # أخضر غامق
+    'secondary': '#4682B4',     # أزرق ثانوي
+
+    # ألوان الخلفية (الوضع الفاتح)
+    'background': '#f8f9fa',    # رمادي فاتح جداً
+    'surface': '#ffffff',       # أبيض
+    'card': '#f8f9fa',          # رمادي فاتح
+    'border': '#dee2e6',        # رمادي الحدود
+
+    # ألوان النص (الوضع الفاتح)
+    'text_primary': '#212529',   # أسود داكن
+    'text_secondary': '#6c757d', # رمادي متوسط
+    'text_disabled': '#adb5bd',  # رمادي فاتح
+
+    # ألوان الحالة
+    'success': '#28a745',       # أخضر النجاح
+    'success_hover': '#218838', # أخضر النجاح عند التمرير
+    'warning': '#ffc107',       # أصفر التحذير
+    'error': '#dc3545',         # أحمر الخطر
+    'danger': '#dc3545',        # أحمر الخطر (مرادف)
+    'info': '#17a2b8',          # أزرق المعلومات
+
+    # ألوان الأيقونات
+    'icon_blue': '#2E5984',
+    'icon_purple': '#8B4A6B',
+    'icon_yellow': '#E6A500',
+    'icon_cyan': '#4ECDC4',
+    'icon_light_blue': '#5DADE2',
+    'icon_sky_blue': '#85C1E9',
+    'icon_teal': '#16A085',
+    'icon_red': '#E74C3C',
+    'icon_dark_red': '#C0392B',
+    'icon_green': '#27AE60',
+    'icon_dark_teal': '#1ABC9C',
+    'icon_blue_2': '#3498DB',
+    'icon_violet': '#9B59B6',
+    'icon_dark_violet': '#8E44AD',
+    'icon_light_green': '#2ECC71',
+    'icon_orange': '#FF8C00'
+}
+
+# إعدادات الخطوط
+FONTS = {
+    'arabic': 'Cairo',  # الخط العربي الافتراضي
+    'arabic_alt1': 'Amiri',  # خط عربي بديل 1
+    'arabic_alt2': 'Noto Naskh Arabic',  # خط عربي بديل 2
+    'english': 'Arial',
+    'icon': 'Segoe UI Emoji',
+
+    'sizes': {
+        'small': 10,
+        'normal': 12,
+        'medium': 14,
+        'large': 16,
+        'xlarge': 18,
+        'title': 20
+    }
+}
+
+# إعدادات الأبعاد
+DIMENSIONS = {
+    'button_width': 150,  # حجم معقول ومحسن قليلاً
+    'button_height': 150,  # حجم مربع متوازن
+    'icon_size': 36,  # حجم معقول ومحسن قليلاً
+    'border_radius': 8,
+    'padding': 10,
+    'margin': 8,
+
+    'top_bar_height': 35,
+    'green_bar_height': 140,
+    'bottom_bar_height': 50,
+    'user_info_height': 120
+}
+
+# إعدادات التأثيرات
+EFFECTS = {
+    'hover_brightness': 1.2,
+    'click_scale': 0.95,
+    'transition_duration': 200,
+    'shadow_blur': 5,
+    'shadow_offset': 2
+}
+
+def get_hover_color(base_color):
+    """الحصول على لون التمرير"""
+    hover_colors = {
+        MODERN_COLORS['icon_blue']: '#4A9BC7',
+        MODERN_COLORS['icon_purple']: '#B85588',
+        MODERN_COLORS['icon_yellow']: '#F4A533',
+        MODERN_COLORS['icon_cyan']: '#6DD5CE',
+        MODERN_COLORS['icon_light_blue']: '#7BBDE8',
+        MODERN_COLORS['icon_sky_blue']: '#9BCAED',
+        MODERN_COLORS['icon_teal']: '#2EAE96',
+        MODERN_COLORS['icon_red']: '#EA6153',
+        MODERN_COLORS['icon_dark_red']: '#C85450',
+        MODERN_COLORS['icon_green']: '#42C177',
+        MODERN_COLORS['icon_dark_teal']: '#34C7A9',
+        MODERN_COLORS['icon_blue_2']: '#52A8E2',
+        MODERN_COLORS['icon_violet']: '#A970C4',
+        MODERN_COLORS['icon_dark_violet']: '#9C5BB8',
+        MODERN_COLORS['icon_light_green']: '#4DD388',
+        MODERN_COLORS['icon_orange']: '#FFA533'
+    }
+    return hover_colors.get(base_color, base_color)
+
+def get_icon_for_function(function_name):
+    """الحصول على الأيقونة المناسبة للوظيفة"""
+    icons = {
+        'reports': '📊',
+        'invoices': '📄',
+        'treasury': '💰',
+        'accounts': '👥',
+        'accounting': '📋',
+        'sales_analysis': '📈',
+        'daily_movement': '📋',
+        'account_entry': '📝',
+        'items_entry': '📦',
+        'settings': '⚙️',
+        'welcome': '👋',
+        'indicators': '📊',
+        'expenses': '💸',
+        'purchases': '🛒',
+        'sales': '💰',
+        'inventory_adjustment': '⚙️',
+        'inventory_transfer': '🚚',
+        'value': '💎',
+        'purchase_returns': '↩️',
+        'price_list': '💲',
+        'sales_returns': '🔄'
+    }
+    return icons.get(function_name, '📋')

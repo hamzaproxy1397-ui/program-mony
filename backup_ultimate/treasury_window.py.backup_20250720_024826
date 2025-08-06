@@ -1,0 +1,597 @@
+# -*- coding: utf-8 -*-
+# cSpell:disable
+"""
+نافذة إدارة الخزينة المحسنة
+Treasury Management Window
+"""
+
+import customtkinter as ctk
+import tkinter as tk
+from tkinter import messagebox, ttk
+from datetime import datetime, timedelta, date
+from services.treasury_manager import TreasuryManager
+try:
+    from themes.modern_theme import MODERN_COLORS, FONTS
+    from ui.window_utils import configure_window_fullscreen
+except ImportError:
+    MODERN_COLORS = {
+        'primary': '#1f538d',
+        'background': '#f0f0f0',
+        'surface': '#ffffff',
+        'text_primary': '#000000',
+        'success': '#28a745',
+        'error': '#dc3545',
+        'warning': '#ffc107',
+        'info': '#17a2b8'
+    }
+    FONTS = {'arabic': 'Arial'}
+
+class TreasuryWindow:
+    def __init__(self, parent):
+        self.parent = parent
+        self.window = None
+        self.treasury_manager = TreasuryManager()
+        self.transactions = []
+        self.create_window()
+
+    def create_window(self):
+        """إنشاء نافذة الخزينة"""
+        try:
+            self.window = ctk.CTkToplevel(self.parent)
+
+            # إعداد النافذة لتملأ الشاشة
+            configure_window_fullscreen(self.window, "إدارة الخزينة - برنامج ست الكل للمحاسبة")
+
+            # جعل النافذة في المقدمة
+            self.window.transient(self.parent)
+            self.window.grab_set()
+
+            # إنشاء المحتوى
+            self.create_header()
+            self.create_main_content()
+
+        except Exception as e:
+            try:
+                from tkinter import messagebox
+                messagebox.showerror("خطأ", f"خطأ في إنشاء نافذة الخزينة: {str(e)}")
+            except:
+                pass
+            print(f"خطأ في إنشاء نافذة الخزينة: {e}")
+
+    def create_header(self):
+        """إنشاء رأس النافذة"""
+        header_frame = ctk.CTkFrame(self.window, height=100, fg_color=MODERN_COLORS['success'])
+        header_frame.pack(fill="x", padx=10, pady=(10, 0))
+        header_frame.pack_propagate(False)
+
+        # عنوان النافذة
+        title_label = ctk.CTkLabel(
+            header_frame,
+            text="💰 إدارة الخزينة والنقدية",
+            font=("Arial", 24, "bold"),
+            text_color="white"
+        )
+        title_label.pack(side="right", padx=20, pady=15)
+
+        # الرصيد الحالي
+        balance_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        balance_frame.pack(side="left", padx=20, pady=15)
+
+        ctk.CTkLabel(balance_frame, text="الرصيد الحالي:",
+                    font=("Arial", 14), text_color="white").pack()
+
+        # جلب الرصيد الحقيقي من قاعدة البيانات
+        current_balance = self.treasury_manager.get_total_treasury_balance()
+        self.balance_label = ctk.CTkLabel(
+            balance_frame,
+            text=f"{current_balance:,.2f} ريال",
+            font=("Arial", 20, "bold"),
+            text_color="yellow"
+        )
+        self.balance_label.pack()
+
+        # زر تحديث الرصيد
+        refresh_btn = ctk.CTkButton(
+            balance_frame,
+            text="🔄 تحديث",
+            width=80,
+            height=25,
+            command=self.refresh_balance,
+            fg_color="transparent",
+            border_width=1
+        )
+        refresh_btn.pack(pady=(5, 0))
+
+        # تاريخ اليوم
+        date_label = ctk.CTkLabel(
+            header_frame,
+            text=f"التاريخ: {datetime.now().strftime('%Y-%m-%d')}",
+            font=("Arial", 12),
+            text_color="white"
+        )
+        date_label.pack(side="left", padx=(0, 20), pady=15)
+
+    def create_main_content(self):
+        """إنشاء المحتوى الرئيسي"""
+        main_frame = ctk.CTkFrame(self.window, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # تقسيم إلى قسمين
+        # القسم العلوي - العمليات الجديدة
+        operations_frame = ctk.CTkFrame(main_frame, height=250)
+        operations_frame.pack(fill="x", pady=(0, 10))
+        operations_frame.pack_propagate(False)
+
+        # القسم السفلي - سجل الحركات
+        transactions_frame = ctk.CTkFrame(main_frame)
+        transactions_frame.pack(fill="both", expand=True)
+
+        # إنشاء محتوى الأقسام
+        self.create_operations_section(operations_frame)
+        self.create_transactions_section(transactions_frame)
+
+    def create_operations_section(self, parent):
+        """إنشاء قسم العمليات الجديدة"""
+        # عنوان القسم
+        title = ctk.CTkLabel(
+            parent,
+            text="العمليات النقدية الجديدة",
+            font=("Arial", 18, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        title.pack(pady=(15, 10))
+
+        # إطار العمليات
+        ops_container = ctk.CTkFrame(parent, fg_color="transparent")
+        ops_container.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # قسم القبض (يسار)
+        receipt_frame = ctk.CTkFrame(ops_container, fg_color=MODERN_COLORS['success'])
+        receipt_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
+
+        ctk.CTkLabel(receipt_frame, text="💵 سند قبض",
+                    font=("Arial", 16, "bold"), text_color="white").pack(pady=10)
+
+        # حقول سند القبض
+        ctk.CTkLabel(receipt_frame, text="المبلغ:",
+                    font=("Arial", 12), text_color="white").pack(pady=2)
+        self.receipt_amount = ctk.CTkEntry(receipt_frame, width=200, placeholder_text="أدخل المبلغ")
+        self.receipt_amount.pack(pady=5)
+
+        ctk.CTkLabel(receipt_frame, text="البيان:",
+                    font=("Arial", 12), text_color="white").pack(pady=2)
+        self.receipt_desc = ctk.CTkEntry(receipt_frame, width=200, placeholder_text="وصف العملية")
+        self.receipt_desc.pack(pady=5)
+
+        ctk.CTkLabel(receipt_frame, text="من:",
+                    font=("Arial", 12), text_color="white").pack(pady=2)
+        self.receipt_from = ctk.CTkEntry(receipt_frame, width=200, placeholder_text="اسم الدافع")
+        self.receipt_from.pack(pady=5)
+
+        ctk.CTkButton(receipt_frame, text="تسجيل القبض",
+                    command=self.add_receipt, fg_color="darkgreen").pack(pady=10)
+
+        # قسم الدفع (يمين)
+        payment_frame = ctk.CTkFrame(ops_container, fg_color=MODERN_COLORS['error'])
+        payment_frame.pack(side="right", fill="both", expand=True, padx=(5, 0))
+
+        ctk.CTkLabel(payment_frame, text="💸 سند دفع",
+                    font=("Arial", 16, "bold"), text_color="white").pack(pady=10)
+
+        # حقول سند الدفع
+        ctk.CTkLabel(payment_frame, text="المبلغ:",
+                    font=("Arial", 12), text_color="white").pack(pady=2)
+        self.payment_amount = ctk.CTkEntry(payment_frame, width=200, placeholder_text="أدخل المبلغ")
+        self.payment_amount.pack(pady=5)
+
+        ctk.CTkLabel(payment_frame, text="البيان:",
+                    font=("Arial", 12), text_color="white").pack(pady=2)
+        self.payment_desc = ctk.CTkEntry(payment_frame, width=200, placeholder_text="وصف العملية")
+        self.payment_desc.pack(pady=5)
+
+        ctk.CTkLabel(payment_frame, text="إلى:",
+                    font=("Arial", 12), text_color="white").pack(pady=2)
+        self.payment_to = ctk.CTkEntry(payment_frame, width=200, placeholder_text="اسم المستلم")
+        self.payment_to.pack(pady=5)
+
+        ctk.CTkButton(payment_frame, text="تسجيل الدفع",
+                    command=self.add_payment, fg_color="darkred").pack(pady=10)
+
+    def create_transactions_section(self, parent):
+        """إنشاء قسم سجل الحركات"""
+        # عنوان القسم
+        title = ctk.CTkLabel(
+            parent,
+            text="سجل حركات الخزينة",
+            font=("Arial", 18, "bold"),
+            text_color=MODERN_COLORS['text_primary']
+        )
+        title.pack(pady=(15, 10))
+
+        # شريط الأدوات
+        toolbar = ctk.CTkFrame(parent, height=50)
+        toolbar.pack(fill="x", padx=20, pady=5)
+        toolbar.pack_propagate(False)
+
+        # فلاتر التاريخ
+        ctk.CTkLabel(toolbar, text="من تاريخ:", font=("Arial", 12)).pack(side="right", padx=5, pady=15)
+        self.from_date = ctk.CTkEntry(toolbar, width=100, placeholder_text="YYYY-MM-DD")
+        self.from_date.pack(side="right", padx=5, pady=15)
+        self.from_date.insert(0, (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+
+        ctk.CTkLabel(toolbar, text="إلى تاريخ:", font=("Arial", 12)).pack(side="right", padx=5, pady=15)
+        self.to_date = ctk.CTkEntry(toolbar, width=100, placeholder_text="YYYY-MM-DD")
+        self.to_date.pack(side="right", padx=5, pady=15)
+        self.to_date.insert(0, datetime.now().strftime('%Y-%m-%d'))
+
+        # أزرار
+        ctk.CTkButton(toolbar, text="🔍 بحث", width=80,
+                    command=self.filter_transactions).pack(side="right", padx=10, pady=15)
+        ctk.CTkButton(toolbar, text="🖨️ طباعة", width=80,
+                    command=self.print_transactions).pack(side="left", padx=10, pady=15)
+        ctk.CTkButton(toolbar, text="❌ إغلاق", width=80,
+                    command=self.close_window).pack(side="left", padx=5, pady=15)
+
+        # جدول الحركات
+        table_frame = ctk.CTkFrame(parent)
+        table_frame.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # إنشاء Treeview
+        columns = ("date", "type", "description", "from_to", "amount", "balance")
+        self.transactions_tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=15)
+
+        # تعريف الأعمدة
+        self.transactions_tree.heading("date", text="التاريخ")
+        self.transactions_tree.heading("type", text="النوع")
+        self.transactions_tree.heading("description", text="البيان")
+        self.transactions_tree.heading("from_to", text="من/إلى")
+        self.transactions_tree.heading("amount", text="المبلغ")
+        self.transactions_tree.heading("balance", text="الرصيد")
+
+        # تحديد عرض الأعمدة
+        self.transactions_tree.column("date", width=100)
+        self.transactions_tree.column("type", width=80)
+        self.transactions_tree.column("description", width=200)
+        self.transactions_tree.column("from_to", width=150)
+        self.transactions_tree.column("amount", width=100)
+        self.transactions_tree.column("balance", width=100)
+
+        # شريط التمرير
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.transactions_tree.yview)
+        self.transactions_tree.configure(yscrollcommand=scrollbar.set)
+
+        # تخطيط الجدول
+        self.transactions_tree.pack(side="right", fill="both", expand=True)
+        scrollbar.pack(side="left", fill="y")
+
+        # تحميل البيانات الحقيقية
+        self.load_real_transactions()
+
+    def add_receipt(self):
+        """إضافة سند قبض"""
+        try:
+            amount = float(self.receipt_amount.get())
+            description = self.receipt_desc.get().strip()
+            from_person = self.receipt_from.get().strip()
+
+            if amount <= 0:
+                messagebox.showerror("خطأ", "المبلغ يجب أن يكون أكبر من صفر")
+                return
+
+            if not description:
+                messagebox.showerror("خطأ", "يرجى إدخال بيان العملية")
+                return
+
+            # استخدام TreasuryManager لإضافة القبض
+            result = self.treasury_manager.add_cash_receipt(
+                amount=amount,
+                description=description,
+                from_party=from_person or 'غير محدد'
+            )
+
+            if result['success']:
+                # مسح الحقول
+                self.receipt_amount.delete(0, "end")
+                self.receipt_desc.delete(0, "end")
+                self.receipt_from.delete(0, "end")
+
+                # تحديث العرض
+                self.refresh_balance()
+
+                messagebox.showinfo("نجح", f"تم تسجيل سند القبض بمبلغ {amount:,.2f} ريال\nرقم القيد: {result['entry_number']}")
+            else:
+                error_msg = "\n".join(result['errors'])
+                messagebox.showerror("خطأ", f"فشل في تسجيل القبض:\n{error_msg}")
+
+        except ValueError:
+            messagebox.showerror("خطأ", "يرجى إدخال مبلغ صحيح")
+        except Exception as e:
+            messagebox.showerror("خطأ", f"حدث خطأ: {str(e)}")
+
+    def add_payment(self):
+        """إضافة سند دفع"""
+        try:
+            amount = float(self.payment_amount.get())
+            description = self.payment_desc.get().strip()
+            to_person = self.payment_to.get().strip()
+
+            if amount <= 0:
+                messagebox.showerror("خطأ", "المبلغ يجب أن يكون أكبر من صفر")
+                return
+
+            if not description:
+                messagebox.showerror("خطأ", "يرجى إدخال بيان العملية")
+                return
+
+            # استخدام TreasuryManager لإضافة الدفع
+            result = self.treasury_manager.add_cash_payment(
+                amount=amount,
+                description=description,
+                to_party=to_person or 'غير محدد'
+            )
+
+            if result['success']:
+                # مسح الحقول
+                self.payment_amount.delete(0, "end")
+                self.payment_desc.delete(0, "end")
+                self.payment_to.delete(0, "end")
+
+                # تحديث العرض
+                self.refresh_balance()
+
+                messagebox.showinfo("نجح", f"تم تسجيل سند الدفع بمبلغ {amount:,.2f} ريال\nرقم القيد: {result['entry_number']}")
+            else:
+                error_msg = "\n".join(result['errors'])
+                messagebox.showerror("خطأ", f"فشل في تسجيل الدفع:\n{error_msg}")
+
+        except ValueError:
+            messagebox.showerror("خطأ", "يرجى إدخال مبلغ صحيح")
+        except Exception as e:
+            messagebox.showerror("خطأ", f"حدث خطأ: {str(e)}")
+
+    def update_balance_display(self):
+        """تحديث عرض الرصيد"""
+        current_balance = self.treasury_manager.get_total_treasury_balance()
+        self.balance_label.configure(text=f"{current_balance:,.2f} ريال")
+
+    def update_transactions_display(self):
+        """تحديث عرض الحركات"""
+        self.load_real_transactions()
+
+    def load_sample_transactions(self):
+        """تحميل بيانات تجريبية"""
+        sample_transactions = [
+            {
+                'date': '2024-01-15 09:00',
+                'type': 'قبض',
+                'description': 'مبيعات نقدية',
+                'from_to': 'عميل نقدي',
+                'amount': '+15000.00',
+                'balance': '65000.00'
+            },
+            {
+                'date': '2024-01-15 14:30',
+                'type': 'دفع',
+                'description': 'شراء مواد خام',
+                'from_to': 'شركة الإمدادات',
+                'amount': '-8000.00',
+                'balance': '57000.00'
+            },
+            {
+                'date': '2024-01-16 10:15',
+                'type': 'قبض',
+                'description': 'تحصيل من عميل',
+                'from_to': 'أحمد محمد',
+                'amount': '+5000.00',
+                'balance': '62000.00'
+            }
+        ]
+
+        for transaction in sample_transactions:
+            self.transactions_tree.insert("", "end", values=(
+                transaction['date'],
+                transaction['type'],
+                transaction['description'],
+                transaction['from_to'],
+                transaction['amount'],
+                transaction['balance']
+            ))
+
+    def filter_transactions(self):
+        """فلترة الحركات حسب التاريخ"""
+        messagebox.showinfo("فلترة", "سيتم تطبيق فلترة الحركات حسب التاريخ المحدد")
+
+    def print_transactions(self):
+        """طباعة سجل الحركات"""
+        messagebox.showinfo("طباعة", "سيتم طباعة سجل حركات الخزينة")
+
+    def refresh_balance(self):
+        """تحديث الرصيد"""
+        try:
+            current_balance = self.treasury_manager.get_total_treasury_balance()
+            self.balance_label.configure(text=f"{current_balance:,.2f} ريال")
+            self.load_real_transactions()
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في تحديث الرصيد: {e}")
+
+    def load_real_transactions(self):
+        """تحميل الحركات الحقيقية من قاعدة البيانات"""
+        try:
+            # مسح البيانات السابقة
+            for item in self.transactions_tree.get_children():
+                self.transactions_tree.delete(item)
+
+            # جلب الحركات من آخر 30 يوم
+            end_date = date.today()
+            start_date = end_date - timedelta(days=30)
+
+            movements = self.treasury_manager.get_treasury_movements(start_date, end_date)
+
+            for movement in movements:
+                amount_text = f"+{movement['amount']:.2f}" if movement['type'] == 'قبض' else f"-{movement['amount']:.2f}"
+
+                self.transactions_tree.insert("", "end", values=(
+                    movement['date'],
+                    movement['type'],
+                    movement['description'],
+                    movement.get('entry_number', ''),
+                    amount_text,
+                    movement['account']
+                ))
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في تحميل الحركات: {e}")
+            # تحميل البيانات التجريبية في حالة الخطأ
+            self.load_sample_transactions()
+
+    def add_cash_receipt(self):
+        """إضافة قبض نقدي"""
+        try:
+            # نافذة إدخال بيانات القبض
+            receipt_window = ctk.CTkToplevel(self.window)
+            receipt_window.title("قبض نقدي")
+            receipt_window.geometry("400x300")
+            receipt_window.configure(fg_color=MODERN_COLORS['background'])
+
+            # جعل النافذة في المقدمة
+            receipt_window.transient(self.window)
+            receipt_window.grab_set()
+
+            # حقول الإدخال
+            ctk.CTkLabel(receipt_window, text="المبلغ:", font=("Arial", 12)).pack(pady=10)
+            amount_entry = ctk.CTkEntry(receipt_window, width=200, placeholder_text="أدخل المبلغ")
+            amount_entry.pack(pady=5)
+
+            ctk.CTkLabel(receipt_window, text="الوصف:", font=("Arial", 12)).pack(pady=10)
+            desc_entry = ctk.CTkEntry(receipt_window, width=200, placeholder_text="وصف العملية")
+            desc_entry.pack(pady=5)
+
+            ctk.CTkLabel(receipt_window, text="من:", font=("Arial", 12)).pack(pady=10)
+            from_entry = ctk.CTkEntry(receipt_window, width=200, placeholder_text="الجهة المحصل منها")
+            from_entry.pack(pady=5)
+
+            def save_receipt():
+                try:
+                    amount = float(amount_entry.get())
+                    description = desc_entry.get().strip()
+                    from_party = from_entry.get().strip()
+
+                    if amount <= 0:
+                        messagebox.showerror("خطأ", "المبلغ يجب أن يكون أكبر من صفر")
+                        return
+
+                    if not description:
+                        messagebox.showerror("خطأ", "الوصف مطلوب")
+                        return
+
+                    result = self.treasury_manager.add_cash_receipt(
+                        amount=amount,
+                        description=description,
+                        from_party=from_party
+                    )
+
+                    if result['success']:
+                        messagebox.showinfo("نجح", f"تم تسجيل القبض بنجاح\nرقم القيد: {result['entry_number']}")
+                        if receipt_window and hasattr(receipt_window, "destroy"):
+    if receipt_window and hasattr(receipt_window, "destroy"):
+    receipt_window.destroy()
+                        self.refresh_balance()
+                    else:
+                        error_msg = "\n".join(result['errors'])
+                        messagebox.showerror("خطأ", f"فشل في تسجيل القبض:\n{error_msg}")
+
+                except ValueError:
+                    messagebox.showerror("خطأ", "يرجى إدخال مبلغ صحيح")
+                except Exception as e:
+                    messagebox.showerror("خطأ", f"خطأ في حفظ القبض: {e}")
+
+            # أزرار
+            buttons_frame = ctk.CTkFrame(receipt_window, fg_color="transparent")
+            buttons_frame.pack(pady=20)
+
+            ctk.CTkButton(buttons_frame, text="حفظ", command=save_receipt,
+                        fg_color=MODERN_COLORS['success']).pack(side="right", padx=10)
+            ctk.CTkButton(buttons_frame, text="إلغاء", command=receipt_window.destroy,
+                        fg_color=MODERN_COLORS['error']).pack(side="left", padx=10)
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في فتح نافذة القبض: {e}")
+
+    def add_cash_payment(self):
+        """إضافة دفع نقدي"""
+        try:
+            # نافذة إدخال بيانات الدفع
+            payment_window = ctk.CTkToplevel(self.window)
+            payment_window.title("دفع نقدي")
+            payment_window.geometry("400x300")
+            payment_window.configure(fg_color=MODERN_COLORS['background'])
+
+            # جعل النافذة في المقدمة
+            payment_window.transient(self.window)
+            payment_window.grab_set()
+
+            # حقول الإدخال
+            ctk.CTkLabel(payment_window, text="المبلغ:", font=("Arial", 12)).pack(pady=10)
+            amount_entry = ctk.CTkEntry(payment_window, width=200, placeholder_text="أدخل المبلغ")
+            amount_entry.pack(pady=5)
+
+            ctk.CTkLabel(payment_window, text="الوصف:", font=("Arial", 12)).pack(pady=10)
+            desc_entry = ctk.CTkEntry(payment_window, width=200, placeholder_text="وصف العملية")
+            desc_entry.pack(pady=5)
+
+            ctk.CTkLabel(payment_window, text="إلى:", font=("Arial", 12)).pack(pady=10)
+            to_entry = ctk.CTkEntry(payment_window, width=200, placeholder_text="الجهة المدفوع لها")
+            to_entry.pack(pady=5)
+
+            def save_payment():
+                try:
+                    amount = float(amount_entry.get())
+                    description = desc_entry.get().strip()
+                    to_party = to_entry.get().strip()
+
+                    if amount <= 0:
+                        messagebox.showerror("خطأ", "المبلغ يجب أن يكون أكبر من صفر")
+                        return
+
+                    if not description:
+                        messagebox.showerror("خطأ", "الوصف مطلوب")
+                        return
+
+                    result = self.treasury_manager.add_cash_payment(
+                        amount=amount,
+                        description=description,
+                        to_party=to_party
+                    )
+
+                    if result['success']:
+                        messagebox.showinfo("نجح", f"تم تسجيل الدفع بنجاح\nرقم القيد: {result['entry_number']}")
+                        if payment_window and hasattr(payment_window, "destroy"):
+    if payment_window and hasattr(payment_window, "destroy"):
+    payment_window.destroy()
+                        self.refresh_balance()
+                    else:
+                        error_msg = "\n".join(result['errors'])
+                        messagebox.showerror("خطأ", f"فشل في تسجيل الدفع:\n{error_msg}")
+
+                except ValueError:
+                    messagebox.showerror("خطأ", "يرجى إدخال مبلغ صحيح")
+                except Exception as e:
+                    messagebox.showerror("خطأ", f"خطأ في حفظ الدفع: {e}")
+
+            # أزرار
+            buttons_frame = ctk.CTkFrame(payment_window, fg_color="transparent")
+            buttons_frame.pack(pady=20)
+
+            ctk.CTkButton(buttons_frame, text="حفظ", command=save_payment,
+                        fg_color=MODERN_COLORS['success']).pack(side="right", padx=10)
+            ctk.CTkButton(buttons_frame, text="إلغاء", command=payment_window.destroy,
+                        fg_color=MODERN_COLORS['error']).pack(side="left", padx=10)
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في فتح نافذة الدفع: {e}")
+
+    def close_window(self):
+        """إغلاق النافذة"""
+        self.if window and hasattr(window, "destroy"):
+    if window and hasattr(window, "destroy"):
+    window.destroy()

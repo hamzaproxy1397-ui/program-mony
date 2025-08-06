@@ -1,0 +1,664 @@
+# -*- coding: utf-8 -*-
+"""
+مدير المخازن الاحترافي المتكامل
+Professional Warehouse Management System
+"""
+
+import logging
+from datetime import datetime, date
+from database.database_manager import DatabaseManager
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import List, Dict, Optional, Tuple, Any, Union, Callable
+
+class WarehouseManager:
+    """مدير المخازن الاحترافي مع دعم شامل للمواقع والصلاحيات"""
+    
+    def __init__(self, db_manager: DatabaseManager = None):
+        self.db_manager = db_manager or DatabaseManager()
+        self.logger = logging.getLogger(__name__)
+        self.init_warehouse_tables()
+    
+    def init_warehouse_tables(self):
+        """إنشاء جداول المخازن والجداول المرتبطة"""
+        try:
+            # جدول المخازن الرئيسي
+            warehouses_table = """
+                CREATE TABLE IF NOT EXISTS warehouses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    warehouse_code TEXT UNIQUE NOT NULL,
+                    name_ar TEXT NOT NULL,
+                    name_en TEXT,
+                    branch_id INTEGER,
+                    location_address TEXT,
+                    geo_latitude REAL,
+                    geo_longitude REAL,
+                    manager_name TEXT,
+                    manager_phone TEXT,
+                    is_default BOOLEAN DEFAULT 0,
+                    is_active BOOLEAN DEFAULT 1,
+                    max_capacity REAL DEFAULT 0,
+                    current_capacity REAL DEFAULT 0,
+                    supports_returns BOOLEAN DEFAULT 1,
+                    supports_production BOOLEAN DEFAULT 0,
+                    note TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (branch_id) REFERENCES branches(id)
+                )
+            """
+            
+            # جدول صلاحيات المستخدمين للمخازن
+            user_warehouse_access_table = """
+                CREATE TABLE IF NOT EXISTS user_warehouse_access (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    warehouse_id INTEGER NOT NULL,
+                    access_level TEXT DEFAULT 'read',
+                    can_view BOOLEAN DEFAULT 1,
+                    can_add BOOLEAN DEFAULT 0,
+                    can_edit BOOLEAN DEFAULT 0,
+                    can_delete BOOLEAN DEFAULT 0,
+                    can_transfer BOOLEAN DEFAULT 0,
+                    can_adjust BOOLEAN DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
+                    UNIQUE(user_id, warehouse_id)
+                )
+            """
+            
+            # جدول حركات المخزون
+            stock_movements_table = """
+                CREATE TABLE IF NOT EXISTS stock_movements (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    warehouse_id INTEGER NOT NULL,
+                    product_id INTEGER NOT NULL,
+                    movement_type TEXT NOT NULL,
+                    quantity REAL NOT NULL,
+                    unit_cost REAL DEFAULT 0,
+                    total_cost REAL DEFAULT 0,
+                    reference_type TEXT,
+                    reference_id INTEGER,
+                    notes TEXT,
+                    user_id INTEGER,
+                    movement_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
+                    FOREIGN KEY (product_id) REFERENCES products(id),
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+            """
+            
+            # جدول أرصدة المخزون
+            stock_balance_table = """
+                CREATE TABLE IF NOT EXISTS stock_balance (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    warehouse_id INTEGER NOT NULL,
+                    product_id INTEGER NOT NULL,
+                    current_stock REAL DEFAULT 0,
+                    reserved_stock REAL DEFAULT 0,
+                    available_stock REAL DEFAULT 0,
+                    min_stock_level REAL DEFAULT 0,
+                    max_stock_level REAL DEFAULT 0,
+                    reorder_point REAL DEFAULT 0,
+                    last_movement_date DATETIME,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
+                    FOREIGN KEY (product_id) REFERENCES products(id),
+                    UNIQUE(warehouse_id, product_id)
+                )
+            """
+            
+            # تنفيذ إنشاء الجداول
+            self.db_manager.execute_query(warehouses_table)
+            self.db_manager.execute_query(user_warehouse_access_table)
+            self.db_manager.execute_query(stock_movements_table)
+            self.db_manager.execute_query(stock_balance_table)
+            
+            # إنشاء فهارس لتحسين الأداء
+            self._create_warehouse_indexes()
+            
+            # إدراج بيانات افتراضية
+            self._insert_default_warehouses()
+            
+            self.logger.info("تم إنشاء جداول المخازن بنجاح")
+            
+        except Exception as e:
+            self.logger.error(f"خطأ في إنشاء جداول المخازن: {e}")
+            raise
+    
+    def _create_warehouse_indexes(self):
+        """إنشاء فهارس لتحسين أداء الاستعلامات"""
+        indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_warehouses_code ON warehouses(warehouse_code)",
+            "CREATE INDEX IF NOT EXISTS idx_warehouses_active ON warehouses(is_active)",
+            "CREATE INDEX IF NOT EXISTS idx_warehouses_branch ON warehouses(branch_id)",
+            "CREATE INDEX IF NOT EXISTS idx_stock_movements_warehouse ON stock_movements(warehouse_id)",
+            "CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id)",
+            "CREATE INDEX IF NOT EXISTS idx_stock_movements_date ON stock_movements(movement_date)",
+            "CREATE INDEX IF NOT EXISTS idx_stock_balance_warehouse ON stock_balance(warehouse_id)",
+            "CREATE INDEX IF NOT EXISTS idx_stock_balance_product ON stock_balance(product_id)",
+            "CREATE INDEX IF NOT EXISTS idx_user_warehouse_access ON user_warehouse_access(user_id, warehouse_id)"
+        ]
+        
+        for index in indexes:
+            try:
+                self.db_manager.execute_query(index)
+            except Exception as e:
+                self.logger.warning(f"تحذير في إنشاء الفهرس: {e}")
+    
+    def _insert_default_warehouses(self):
+        """إدراج مخازن افتراضية"""
+        try:
+            # التحقق من وجود مخازن
+            existing = self.db_manager.fetch_one("SELECT COUNT(*) as count FROM warehouses")
+            if existing and existing['count'] > 0:
+                return
+            
+            # إدراج المخزن الرئيسي الافتراضي
+            default_warehouse = {
+                'warehouse_code': 'WH001',
+                'name_ar': 'المخزن الرئيسي',
+                'name_en': 'Main Warehouse',
+                'location_address': 'المقر الرئيسي',
+                'manager_name': 'مدير المخزن',
+                'is_default': 1,
+                'is_active': 1,
+                'max_capacity': 10000,
+                'supports_returns': 1,
+                'supports_production': 0,
+                'note': 'المخزن الرئيسي الافتراضي للنظام'
+            }
+            
+            self.add_warehouse(default_warehouse)
+            self.logger.info("تم إدراج المخزن الافتراضي")
+            
+        except Exception as e:
+            self.logger.error(f"خطأ في إدراج المخازن الافتراضية: {e}")
+    
+    def add_warehouse(self, warehouse_data: Dict) -> Dict:
+        """إضافة مخزن جديد"""
+        try:
+            # التحقق من صحة البيانات
+            validation_result = self._validate_warehouse_data(warehouse_data)
+            if not validation_result['valid']:
+                return validation_result
+            
+            # التحقق من عدم تكرار الكود
+            existing = self.db_manager.fetch_one(
+                "SELECT id FROM warehouses WHERE warehouse_code = ?",
+                (warehouse_data['warehouse_code'],)
+            )
+            if existing:
+                return {
+                    'success': False,
+                    'message': f"رمز المخزن {warehouse_data['warehouse_code']} موجود مسبقاً"
+                }
+            
+            # إعداد البيانات للإدراج
+            insert_data = {
+                'warehouse_code': warehouse_data['warehouse_code'],
+                'name_ar': warehouse_data['name_ar'],
+                'name_en': warehouse_data.get('name_en', ''),
+                'branch_id': warehouse_data.get('branch_id'),
+                'location_address': warehouse_data.get('location_address', ''),
+                'geo_latitude': warehouse_data.get('geo_latitude'),
+                'geo_longitude': warehouse_data.get('geo_longitude'),
+                'manager_name': warehouse_data.get('manager_name', ''),
+                'manager_phone': warehouse_data.get('manager_phone', ''),
+                'is_default': warehouse_data.get('is_default', 0),
+                'is_active': warehouse_data.get('is_active', 1),
+                'max_capacity': warehouse_data.get('max_capacity', 0),
+                'current_capacity': warehouse_data.get('current_capacity', 0),
+                'supports_returns': warehouse_data.get('supports_returns', 1),
+                'supports_production': warehouse_data.get('supports_production', 0),
+                'note': warehouse_data.get('note', ''),
+                'created_at': datetime.now(),
+                'updated_at': datetime.now()
+            }
+            
+            # إدراج المخزن
+            query = """
+                INSERT INTO warehouses (
+                    warehouse_code, name_ar, name_en, branch_id, location_address,
+                    geo_latitude, geo_longitude, manager_name, manager_phone,
+                    is_default, is_active, max_capacity, current_capacity,
+                    supports_returns, supports_production, note, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+            
+            warehouse_id = self.db_manager.execute_query(query, tuple(insert_data.values()))
+            
+            # إذا كان المخزن افتراضي، إلغاء الافتراضية من المخازن الأخرى
+            if insert_data['is_default']:
+                self._set_default_warehouse(warehouse_id)
+            
+            self.logger.info(f"تم إضافة المخزن: {warehouse_data['name_ar']}")
+            
+            return {
+                'success': True,
+                'warehouse_id': warehouse_id,
+                'message': f"تم إضافة المخزن {warehouse_data['name_ar']} بنجاح"
+            }
+            
+        except Exception as e:
+            self.logger.error(f"خطأ في إضافة المخزن: {e}")
+            return {
+                'success': False,
+                'message': f"خطأ في إضافة المخزن: {e}"
+            }
+    
+    def update_warehouse(self, warehouse_id: int, warehouse_data: Dict) -> Dict:
+        """تحديث بيانات مخزن"""
+        try:
+            # التحقق من وجود المخزن
+            existing = self.db_manager.fetch_one(
+                "SELECT * FROM warehouses WHERE id = ?",
+                (warehouse_id,)
+            )
+            if not existing:
+                return {
+                    'success': False,
+                    'message': 'المخزن غير موجود'
+                }
+            
+            # التحقق من صحة البيانات
+            validation_result = self._validate_warehouse_data(warehouse_data, warehouse_id)
+            if not validation_result['valid']:
+                return validation_result
+            
+            # إعداد البيانات للتحديث
+            update_fields = []
+            update_values = []
+            
+            updatable_fields = [
+                'warehouse_code', 'name_ar', 'name_en', 'branch_id', 'location_address',
+                'geo_latitude', 'geo_longitude', 'manager_name', 'manager_phone',
+                'is_default', 'is_active', 'max_capacity', 'supports_returns',
+                'supports_production', 'note'
+            ]
+            
+            for field in updatable_fields:
+                if field in warehouse_data:
+                    update_fields.append(f"{field} = ?")
+                    update_values.append(warehouse_data[field])
+            
+            if not update_fields:
+                return {
+                    'success': False,
+                    'message': 'لا توجد بيانات للتحديث'
+                }
+            
+            # إضافة تاريخ التحديث
+            update_fields.append("updated_at = ?")
+            update_values.append(datetime.now())
+            update_values.append(warehouse_id)
+            
+            # تنفيذ التحديث
+            query = f"UPDATE warehouses SET {', '.join(update_fields)} WHERE id = ?"
+            self.db_manager.execute_query(query, update_values)
+            
+            # إذا كان المخزن افتراضي، إلغاء الافتراضية من المخازن الأخرى
+            if warehouse_data.get('is_default'):
+                self._set_default_warehouse(warehouse_id)
+            
+            self.logger.info(f"تم تحديث المخزن: {warehouse_id}")
+            
+            return {
+                'success': True,
+                'message': 'تم تحديث المخزن بنجاح'
+            }
+            
+        except Exception as e:
+            self.logger.error(f"خطأ في تحديث المخزن: {e}")
+            return {
+                'success': False,
+                'message': f"خطأ في تحديث المخزن: {e}"
+            }
+    
+    def delete_warehouse(self, warehouse_id: int) -> Dict:
+        """حذف مخزن (مع التحقق من الاستخدام)"""
+        try:
+            # التحقق من وجود المخزن
+            warehouse = self.db_manager.fetch_one(
+                "SELECT * FROM warehouses WHERE id = ?",
+                (warehouse_id,)
+            )
+            if not warehouse:
+                return {
+                    'success': False,
+                    'message': 'المخزن غير موجود'
+                }
+            
+            # التحقق من عدم وجود حركات مخزنية
+            movements = self.db_manager.fetch_one(
+                "SELECT COUNT(*) as count FROM stock_movements WHERE warehouse_id = ?",
+                (warehouse_id,)
+            )
+            if movements and movements['count'] > 0:
+                return {
+                    'success': False,
+                    'message': 'لا يمكن حذف المخزن لوجود حركات مخزنية مرتبطة به'
+                }
+            
+            # التحقق من عدم وجود أرصدة
+            balances = self.db_manager.fetch_one(
+                "SELECT COUNT(*) as count FROM stock_balance WHERE warehouse_id = ? AND current_stock > 0",
+                (warehouse_id,)
+            )
+            if balances and balances['count'] > 0:
+                return {
+                    'success': False,
+                    'message': 'لا يمكن حذف المخزن لوجود أرصدة مخزنية'
+                }
+            
+            # حذف البيانات المرتبطة
+            self.db_manager.execute_query(
+                "DELETE FROM user_warehouse_access WHERE warehouse_id = ?",
+                (warehouse_id,)
+            )
+            self.db_manager.execute_query(
+                "DELETE FROM stock_balance WHERE warehouse_id = ?",
+                (warehouse_id,)
+            )
+            
+            # حذف المخزن
+            self.db_manager.execute_query(
+                "DELETE FROM warehouses WHERE id = ?",
+                (warehouse_id,)
+            )
+            
+            self.logger.info(f"تم حذف المخزن: {warehouse_id}")
+            
+            return {
+                'success': True,
+                'message': 'تم حذف المخزن بنجاح'
+            }
+            
+        except Exception as e:
+            self.logger.error(f"خطأ في حذف المخزن: {e}")
+            return {
+                'success': False,
+                'message': f"خطأ في حذف المخزن: {e}"
+            }
+
+    def get_warehouse_by_id(self, warehouse_id: int) -> Optional[Dict]:
+        """جلب مخزن بالمعرف"""
+        try:
+            query = """
+                SELECT w.*,
+                       CASE WHEN w.max_capacity > 0
+                            THEN (w.current_capacity / w.max_capacity) * 100
+                            ELSE 0 END as occupancy_rate
+                FROM warehouses w
+                WHERE w.id = ?
+            """
+            result = self.db_manager.fetch_one(query, (warehouse_id,))
+            return dict(result) if result else None
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب المخزن: {e}")
+            return None
+
+    def get_warehouse_by_code(self, warehouse_code: str) -> Optional[Dict]:
+        """جلب مخزن بالرمز"""
+        try:
+            query = """
+                SELECT w.*,
+                       CASE WHEN w.max_capacity > 0
+                            THEN (w.current_capacity / w.max_capacity) * 100
+                            ELSE 0 END as occupancy_rate
+                FROM warehouses w
+                WHERE w.warehouse_code = ?
+            """
+            result = self.db_manager.fetch_one(query, (warehouse_code,))
+            return dict(result) if result else None
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب المخزن بالرمز: {e}")
+            return None
+
+    def get_all_warehouses(self, active_only: bool = True) -> List[Dict]:
+        """جلب جميع المخازن"""
+        try:
+            query = """
+                SELECT w.*,
+                       CASE WHEN w.max_capacity > 0
+                            THEN (w.current_capacity / w.max_capacity) * 100
+                            ELSE 0 END as occupancy_rate
+                FROM warehouses w
+            """
+
+            if active_only:
+                query += " WHERE w.is_active = 1"
+
+            query += " ORDER BY w.is_default DESC, w.name_ar"
+
+            results = self.db_manager.fetch_all(query)
+            return [dict(row) for row in results]
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب المخازن: {e}")
+            return []
+
+    def get_default_warehouse(self) -> Optional[Dict]:
+        """جلب المخزن الافتراضي"""
+        try:
+            query = """
+                SELECT w.*,
+                       CASE WHEN w.max_capacity > 0
+                            THEN (w.current_capacity / w.max_capacity) * 100
+                            ELSE 0 END as occupancy_rate
+                FROM warehouses w
+                WHERE w.is_default = 1 AND w.is_active = 1
+                LIMIT 1
+            """
+            result = self.db_manager.fetch_one(query)
+            return dict(result) if result else None
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب المخزن الافتراضي: {e}")
+            return None
+
+    def set_default_warehouse(self, warehouse_id: int) -> Dict:
+        """تعيين مخزن كافتراضي"""
+        try:
+            return self._set_default_warehouse(warehouse_id)
+        except Exception as e:
+            self.logger.error(f"خطأ في تعيين المخزن الافتراضي: {e}")
+            return {
+                'success': False,
+                'message': f"خطأ في تعيين المخزن الافتراضي: {e}"
+            }
+
+    def _set_default_warehouse(self, warehouse_id: int) -> Dict:
+        """تعيين مخزن كافتراضي (دالة داخلية)"""
+        # إلغاء الافتراضية من جميع المخازن
+        self.db_manager.execute_query("UPDATE warehouses SET is_default = 0")
+
+        # تعيين المخزن الجديد كافتراضي
+        self.db_manager.execute_query(
+            "UPDATE warehouses SET is_default = 1 WHERE id = ?",
+            (warehouse_id,)
+        )
+
+        return {
+            'success': True,
+            'message': 'تم تعيين المخزن الافتراضي بنجاح'
+        }
+
+    def generate_warehouse_code(self, prefix: str = "WH") -> str:
+        """توليد رمز مخزن تلقائي"""
+        try:
+            # جلب آخر رقم مستخدم
+            query = """
+                SELECT warehouse_code FROM warehouses
+                WHERE warehouse_code LIKE ?
+                ORDER BY warehouse_code DESC
+                LIMIT 1
+            """
+            result = self.db_manager.fetch_one(query, (f"{prefix}%",))
+
+            if result:
+                # استخراج الرقم من الرمز
+                last_code = result['warehouse_code']
+                try:
+                    last_number = int(last_code.replace(prefix, ""))
+                    new_number = last_number + 1
+                except ValueError:
+                    new_number = 1
+            else:
+                new_number = 1
+
+            # تكوين الرمز الجديد
+            return f"{prefix}{new_number:03d}"
+
+        except Exception as e:
+            self.logger.error(f"خطأ في توليد رمز المخزن: {e}")
+            return f"{prefix}001"
+
+    def _validate_warehouse_data(self, data: Dict, warehouse_id: int = None) -> Dict:
+        """التحقق من صحة بيانات المخزن"""
+        errors = []
+
+        # التحقق من الحقول المطلوبة
+        required_fields = ['warehouse_code', 'name_ar']
+        for field in required_fields:
+            if not data.get(field):
+                errors.append(f"الحقل {field} مطلوب")
+
+        # التحقق من طول النصوص
+        if data.get('warehouse_code') and len(data['warehouse_code']) > 20:
+            errors.append("رمز المخزن يجب أن يكون أقل من 20 حرف")
+
+        if data.get('name_ar') and len(data['name_ar']) > 100:
+            errors.append("اسم المخزن يجب أن يكون أقل من 100 حرف")
+
+        # التحقق من القيم الرقمية
+        numeric_fields = ['max_capacity', 'current_capacity', 'geo_latitude', 'geo_longitude']
+        for field in numeric_fields:
+            if field in data and data[field] is not None:
+                try:
+                    float(data[field])
+                except (ValueError, TypeError):
+                    errors.append(f"الحقل {field} يجب أن يكون رقم")
+
+        # التحقق من الإحداثيات
+        if data.get('geo_latitude') is not None:
+            lat = float(data['geo_latitude'])
+            if not (-90 <= lat <= 90):
+                errors.append("دائرة العرض يجب أن تكون بين -90 و 90")
+
+        if data.get('geo_longitude') is not None:
+            lng = float(data['geo_longitude'])
+            if not (-180 <= lng <= 180):
+                errors.append("خط الطول يجب أن يكون بين -180 و 180")
+
+        # التحقق من رقم الهاتف
+        if data.get('manager_phone'):
+            phone = str(data['manager_phone']).strip()
+            if phone and not phone.replace('+', '').replace('-', '').replace(' ', '').isdigit():
+                errors.append("رقم الهاتف غير صحيح")
+
+        # التحقق من تكرار الرمز
+        if data.get('warehouse_code'):
+            query = "SELECT id FROM warehouses WHERE warehouse_code = ?"
+            params = [data['warehouse_code']]
+
+            if warehouse_id:
+                query += " AND id != ?"
+                params.append(warehouse_id)
+
+            existing = self.db_manager.fetch_one(query, params)
+            if existing:
+                errors.append(f"رمز المخزن {data['warehouse_code']} موجود مسبقاً")
+
+        return {
+            'valid': len(errors) == 0,
+            'errors': errors,
+            'message': '; '.join(errors) if errors else 'البيانات صحيحة'
+        }
+
+    def get_warehouse_statistics(self, warehouse_id: int = None) -> Dict:
+        """جلب إحصائيات المخازن"""
+        try:
+            stats = {}
+
+            if warehouse_id:
+                # إحصائيات مخزن محدد
+                warehouse = self.get_warehouse_by_id(warehouse_id)
+                if not warehouse:
+                    return {'error': 'المخزن غير موجود'}
+
+                # عدد المنتجات
+                products_count = self.db_manager.fetch_one(
+                    "SELECT COUNT(*) as count FROM stock_balance WHERE warehouse_id = ? AND current_stock > 0",
+                    (warehouse_id,)
+                )
+
+                # إجمالي القيمة
+                total_value = self.db_manager.fetch_one(
+                    """
+                    SELECT COALESCE(SUM(sb.current_stock * p.cost_price), 0) as total_value
+                    FROM stock_balance sb
+                    JOIN products p ON sb.product_id = p.id
+                    WHERE sb.warehouse_id = ?
+                    """,
+                    (warehouse_id,)
+                )
+
+                # عدد الحركات اليوم
+                today_movements = self.db_manager.fetch_one(
+                    """
+                    SELECT COUNT(*) as count
+                    FROM stock_movements
+                    WHERE warehouse_id = ? AND DATE(movement_date) = DATE('now')
+                    """,
+                    (warehouse_id,)
+                )
+
+                stats = {
+                    'warehouse': warehouse,
+                    'products_count': products_count['count'] if products_count else 0,
+                    'total_value': total_value['total_value'] if total_value else 0,
+                    'today_movements': today_movements['count'] if today_movements else 0,
+                    'occupancy_rate': warehouse.get('occupancy_rate', 0)
+                }
+            else:
+                # إحصائيات عامة لجميع المخازن
+                total_warehouses = self.db_manager.fetch_one("SELECT COUNT(*) as count FROM warehouses WHERE is_active = 1")
+                active_warehouses = self.db_manager.fetch_one("SELECT COUNT(*) as count FROM warehouses WHERE is_active = 1")
+
+                # إجمالي القيمة في جميع المخازن
+                total_value = self.db_manager.fetch_one(
+                    """
+                    SELECT COALESCE(SUM(sb.current_stock * p.cost_price), 0) as total_value
+                    FROM stock_balance sb
+                    JOIN products p ON sb.product_id = p.id
+                    JOIN warehouses w ON sb.warehouse_id = w.id
+                    WHERE w.is_active = 1
+                    """
+                )
+
+                # المخازن حسب معدل الإشغال
+                high_occupancy = self.db_manager.fetch_one(
+                    """
+                    SELECT COUNT(*) as count FROM warehouses
+                    WHERE is_active = 1 AND max_capacity > 0
+                    AND (current_capacity / max_capacity) > 0.8
+                    """
+                )
+
+                stats = {
+                    'total_warehouses': total_warehouses['count'] if total_warehouses else 0,
+                    'active_warehouses': active_warehouses['count'] if active_warehouses else 0,
+                    'total_inventory_value': total_value['total_value'] if total_value else 0,
+                    'high_occupancy_warehouses': high_occupancy['count'] if high_occupancy else 0
+                }
+
+            return stats
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب إحصائيات المخازن: {e}")
+            return {'error': str(e)}

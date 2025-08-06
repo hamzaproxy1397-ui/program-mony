@@ -1,0 +1,205 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+تشغيل آمن للوحة التحكم المركزية مع معالجة شاملة للأخطاء
+"""
+
+import sys
+import os
+import subprocess
+from pathlib import Path
+import traceback
+
+def check_python():
+    """فحص إصدار Python"""
+    print(f"🐍 إصدار Python: {sys.version}")
+    if sys.version_info < (3, 8):
+        print("⚠️ تحذير: يُنصح باستخدام Python 3.8 أو أحدث")
+    return True
+
+def install_requirements():
+    """تثبيت المتطلبات"""
+    requirements = ['customtkinter']
+    
+    for package in requirements:
+        try:
+            __import__(package)
+            print(f"✅ {package} متوفر")
+        except ImportError:
+            print(f"📦 تثبيت {package}...")
+            try:
+                subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
+                print(f"✅ تم تثبيت {package} بنجاح")
+            except subprocess.CalledProcessError as e:
+                print(f"❌ فشل في تثبيت {package}: {e}")
+                return False
+    return True
+
+def check_files():
+    """فحص الملفات المطلوبة"""
+    required_files = [
+        'ui/central_control_panel.py',
+        'ui/advanced_sections.py',
+        'ui/advanced_sections_part2.py',
+        'ui/control_panel_integration.py',
+        'themes/modern_theme.py',
+        'config/settings.py'
+    ]
+    
+    missing_files = []
+    for file_path in required_files:
+        if not Path(file_path).exists():
+            missing_files.append(file_path)
+        else:
+            print(f"✅ {file_path}")
+    
+    if missing_files:
+        print(f"❌ ملفات مفقودة: {missing_files}")
+        return False
+    
+    print("✅ جميع الملفات المطلوبة متوفرة")
+    return True
+
+def create_directories():
+    """إنشاء المجلدات المطلوبة"""
+    directories = [
+        'data/settings',
+        'assets/icons',
+        'logs'
+    ]
+    
+    for directory in directories:
+        Path(directory).mkdir(parents=True, exist_ok=True)
+        print(f"📁 {directory}")
+    
+    return True
+
+def run_control_panel():
+    """تشغيل لوحة التحكم"""
+    try:
+        # استيراد المكتبات
+        import customtkinter as ctk
+        from tkinter import messagebox
+        
+        # تعيين المظهر
+        ctk.set_appearance_mode("light")
+        ctk.set_default_color_theme("blue")
+        
+        # إنشاء النافذة الرئيسية
+        root = ctk.CTk()
+        root.title("🎛️ لوحة التحكم المركزية المطورة - نظام المحاسبة الشامل")
+        root.geometry("1400x900")
+        
+        # محاولة ملء الشاشة
+        try:
+            root.state('zoomed')
+        except Exception as e:
+            pass
+        except:
+            try:
+                root.attributes('-zoomed', True)
+            except:
+                pass
+        
+        # تعيين الأيقونة إذا كانت متوفرة
+        icon_path = Path("assets/icons/control_panel.ico")
+        if icon_path.exists():
+            try:
+                root.iconbitmap(str(icon_path))
+            except:
+                pass
+        
+        # استيراد لوحة التحكم
+        from ui.central_control_panel import CentralControlPanel
+from tkinter import messagebox
+        
+        # إنشاء لوحة التحكم
+        control_panel = CentralControlPanel(root)
+        
+        # رسالة ترحيب
+        welcome_message = """
+🎉 مرحباً بك في لوحة التحكم المركزية المطورة!
+
+✨ الميزات الجديدة:
+• 🧾 إعدادات الفواتير المتقدمة
+• 💰 نظام الرواتب والضرائب الشامل  
+• 🏪 إدارة المخازن مع تكامل الباركود
+• 👥 إدارة المستخدمين والصلاحيات
+• 🔧 التحكم الكامل في الموديلات
+• 💾 نظام النسخ الاحتياطي المتقدم
+• 📊 استيراد وتصدير البيانات
+• 🎨 تخصيص الواجهة والثيمات
+• 🛡️ نظام الأمان المتطور
+• 🔢 الأرقام التسلسلية القابلة للتخصيص
+• ⚙️ إعدادات النظام الشاملة
+
+🚀 استكشف جميع الأقسام واستمتع بالتحكم الكامل!
+        """
+        
+        messagebox.showinfo("🎛️ لوحة التحكم المطورة", welcome_message)
+        
+        print("🎉 تم تشغيل لوحة التحكم بنجاح!")
+        print("🎛️ استمتع بالتحكم الكامل في نظامك!")
+        
+        # بدء حلقة الأحداث
+        root.mainloop()
+        
+        return True
+        
+    except ImportError as e:
+        print(f"❌ خطأ في الاستيراد: {e}")
+        print("💡 تأكد من تثبيت جميع المتطلبات")
+        return False
+        
+    except Exception as e:
+        print(f"❌ خطأ في التشغيل: {e}")
+        print("🔍 تفاصيل الخطأ:")
+        traceback.print_exc()
+        return False
+
+def main():
+    """الدالة الرئيسية"""
+    print("🚀 بدء تشغيل لوحة التحكم المركزية المطورة...")
+    print("=" * 60)
+    
+    # فحص Python
+    print("🔍 فحص Python...")
+    if not check_python():
+        input("اضغط Enter للخروج...")
+        return
+    
+    # فحص الملفات
+    print("\n📁 فحص الملفات المطلوبة...")
+    if not check_files():
+        print("❌ بعض الملفات مفقودة. تأكد من وجود جميع ملفات المشروع.")
+        input("اضغط Enter للخروج...")
+        return
+    
+    # إنشاء المجلدات
+    print("\n📂 إنشاء المجلدات...")
+    create_directories()
+    
+    # تثبيت المتطلبات
+    print("\n📦 فحص وتثبيت المتطلبات...")
+    if not install_requirements():
+        print("❌ فشل في تثبيت المتطلبات")
+        input("اضغط Enter للخروج...")
+        return
+    
+    # تشغيل لوحة التحكم
+    print("\n🎛️ تشغيل لوحة التحكم...")
+    print("=" * 60)
+    
+    success = run_control_panel()
+    
+    if success:
+        print("\n✅ تم إغلاق لوحة التحكم بنجاح")
+    else:
+        print("\n❌ حدث خطأ في تشغيل لوحة التحكم")
+        print("💡 راجع الأخطاء أعلاه وحاول مرة أخرى")
+    
+    print("\n👋 شكراً لاستخدام نظام المحاسبة!")
+    input("اضغط Enter للخروج...")
+
+if __name__ == "__main__":
+    main()

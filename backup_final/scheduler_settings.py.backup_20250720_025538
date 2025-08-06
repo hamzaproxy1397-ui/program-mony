@@ -1,0 +1,144 @@
+# -*- coding: utf-8 -*-
+"""
+إعدادات نظام الجدولة التلقائية
+"""
+
+
+# إعدادات النسخ الاحتياطي التلقائي
+BACKUP_SETTINGS = {
+    # وقت النسخ الاحتياطي اليومي (الساعة والدقيقة)
+    'daily_backup_time': {
+        'hour': 23,  # 11:00 PM
+        'minute': 0
+    },
+    
+    # عدد النسخ الاحتياطية المحفوظة
+    'max_backups_to_keep': 30,
+    
+    # تفعيل النسخ الاحتياطي التلقائي
+    'auto_backup_enabled': True,
+    
+    # مجلد النسخ الاحتياطية
+    'backup_directory': 'backups',
+    
+    # بادئة اسم ملف النسخة الاحتياطية
+    'backup_filename_prefix': 'scheduled_backup_',
+    
+    # تنسيق التاريخ في اسم الملف
+    'timestamp_format': '%Y%m%d_%H%M%S'
+}
+
+# إعدادات تنظيف الملفات القديمة
+CLEANUP_SETTINGS = {
+    # تنظيف النسخ الاحتياطية القديمة (أسبوعياً)
+    'backup_cleanup': {
+        'enabled': True,
+        'day_of_week': 0,  # الأحد (0=الأحد, 6=السبت)
+        'hour': 1,
+        'minute': 0,
+        'keep_count': 30  # الاحتفاظ بآخر 30 نسخة احتياطية
+    },
+    
+    # تنظيف ملفات السجلات القديمة (شهرياً)
+    'logs_cleanup': {
+        'enabled': True,
+        'day': 1,  # أول كل شهر
+        'hour': 2,
+        'minute': 0,
+        'keep_days': 90  # الاحتفاظ بالسجلات لمدة 90 يوم
+    }
+}
+
+# إعدادات المجدول
+SCHEDULER_SETTINGS = {
+    # المنطقة الزمنية
+    'timezone': 'Asia/Riyadh',
+    
+    # تشغيل المجدول في الخلفية
+    'daemon': True,
+    
+    # الحد الأقصى لعدد المثيلات المتزامنة للمهمة الواحدة
+    'max_instances': 1,
+    
+    # إعادة المحاولة عند فشل المهمة
+    'retry_on_failure': True,
+    'max_retries': 3,
+    'retry_delay': 300  # 5 دقائق
+}
+
+# إعدادات السجلات للجدولة
+LOGGING_SETTINGS = {
+    # مستوى السجلات
+    'log_level': 'INFO',
+    
+    # ملف سجل الجدولة
+    'scheduler_log_file': 'logs/scheduler.log',
+    
+    # تنسيق رسائل السجل
+    'log_format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    
+    # ترميز ملف السجل
+    'log_encoding': 'utf-8'
+}
+
+# مهام مخصصة إضافية (يمكن تخصيصها حسب الحاجة)
+CUSTOM_JOBS = {
+    # مثال: تنظيف ملفات مؤقتة يومياً
+    'temp_cleanup': {
+        'enabled': False,
+        'function': 'cleanup_temp_files',
+        'trigger': 'cron',
+        'hour': 3,
+        'minute': 0,
+        'name': 'تنظيف الملفات المؤقتة'
+    },
+    
+    # مثال: إرسال تقرير أسبوعي
+    'weekly_report': {
+        'enabled': False,
+        'function': 'send_weekly_report',
+        'trigger': 'cron',
+        'day_of_week': 1,  # الاثنين
+        'hour': 9,
+        'minute': 0,
+        'name': 'إرسال التقرير الأسبوعي'
+    }
+}
+
+# رسائل النظام
+MESSAGES = {
+    'backup_success': 'تم إنشاء النسخة الاحتياطية بنجاح',
+    'backup_failed': 'فشل في إنشاء النسخة الاحتياطية',
+    'scheduler_started': 'تم بدء تشغيل نظام الجدولة بنجاح',
+    'scheduler_stopped': 'تم إيقاف نظام الجدولة',
+    'job_executed': 'تم تنفيذ المهمة بنجاح',
+    'job_failed': 'فشل في تنفيذ المهمة',
+    'cleanup_completed': 'تم تنظيف الملفات القديمة',
+    'database_error': 'خطأ في قاعدة البيانات'
+}
+
+# دوال مساعدة
+def get_backup_time():
+    """الحصول على وقت النسخ الاحتياطي"""
+    settings = BACKUP_SETTINGS['daily_backup_time']
+    return time(hour=settings['hour'], minute=settings['minute'])
+
+def is_auto_backup_enabled():
+    """التحقق من تفعيل النسخ الاحتياطي التلقائي"""
+    return BACKUP_SETTINGS.get('auto_backup_enabled', True)
+
+def get_max_backups():
+    """الحصول على العدد الأقصى للنسخ الاحتياطية المحفوظة"""
+    return BACKUP_SETTINGS.get('max_backups_to_keep', 30)
+
+def get_timezone():
+    """الحصول على المنطقة الزمنية"""
+    return SCHEDULER_SETTINGS.get('timezone', 'Asia/Riyadh')
+
+def get_backup_directory():
+    """الحصول على مجلد النسخ الاحتياطية"""
+    return BACKUP_SETTINGS.get('backup_directory', 'backups')
+
+def get_log_retention_days():
+    """الحصول على عدد أيام الاحتفاظ بالسجلات"""
+    return CLEANUP_SETTINGS['logs_cleanup'].get('keep_days', 90)

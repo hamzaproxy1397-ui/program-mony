@@ -1,0 +1,470 @@
+try:
+    import pyodbc
+except ImportError:
+    print("تحذير: مكتبة pyodbc غير متوفرة - سيتم استخدام SQLite فقط")
+    pyodbc = None
+from database.postgresql_manager import PostgreSQLManager
+from services.postgresql_sales_manager import PostgreSQLSalesManager
+from database.sqlserver_manager import SQLServerManager
+from config.sqlserver_config import SQLSERVER_CONFIG
+from services.sales_manager import SalesManager
+from database.database_manager import DatabaseManager
+from services.sales_manager import SalesManager
+from database.products_manager import ProductsManager
+import sqlite3
+# -*- coding: utf-8 -*-
+"""
+مدير قاعدة البيانات المدمج - SQLite و PostgreSQL و SQL Server
+Hybrid Database Manager - SQLite & PostgreSQL & SQL Server
+"""
+
+import logging
+import os
+from typing import Dict, List, Optional, Any
+from enum import Enum
+from typing import List, Dict, Optional, Tuple, Any, Union, Callable
+
+class DatabaseType(Enum):
+    """أنواع قواعد البيانات المدعومة"""
+    SQLITE = "sqlite"
+    POSTGRESQL = "postgresql"
+    SQLSERVER = "sqlserver"
+
+class HybridDatabaseManager:
+    """مدير قاعدة البيانات المدمج"""
+
+    def __init__(self, db_type: DatabaseType = None, config: Dict = None):
+        """
+        تهيئة مدير قاعدة البيانات المدمج
+
+        Args:
+            db_type (DatabaseType): نوع قاعدة البيانات
+            config (Dict): إعدادات الاتصال
+        """
+        self.logger = logging.getLogger(__name__)
+
+        # تحديد نوع قاعدة البيانات
+        if db_type is None:
+            db_type = self._detect_database_type()
+
+        self.db_type = db_type
+        self.config = config or {}
+
+        # إنشاء مدير قاعدة البيانات المناسب
+        if self.db_type == DatabaseType.POSTGRESQL:
+            self._init_postgresql()
+        elif self.db_type == DatabaseType.SQLSERVER:
+            self._init_sqlserver()
+        else:
+            self._init_sqlite()
+
+        self.logger.info(f"تم تهيئة مدير قاعدة البيانات: {self.db_type.value}")
+
+    def _detect_database_type(self) -> DatabaseType:
+        """اكتشاف نوع قاعدة البيانات المناسب"""
+        try:
+            # محاولة استيراد pyodbc لـ SQL Server
+            # التحقق من وجود برامج تشغيل SQL Server
+            sql_drivers = [d for d in pyodbc.drivers() if 'SQL Server' in d]
+            if sql_drivers and os.getenv('USE_SQLSERVER', '').lower() == 'true':
+                return DatabaseType.SQLSERVER
+        except ImportError:
+            pass
+
+        try:
+            # محاولة استيراد psycopg2
+
+            # التحقق من متغيرات البيئة
+            if os.getenv('DATABASE_URL') or os.getenv('POSTGRES_HOST'):
+                return DatabaseType.POSTGRESQL
+
+            # التحقق من إعدادات PostgreSQL
+            pg_config = {
+                'host': os.getenv('POSTGRES_HOST', 'localhost'),
+                'port': int(os.getenv('POSTGRES_PORT', 5432)),
+                'database': os.getenv('POSTGRES_DB', 'accounting_db'),
+                'user': os.getenv('POSTGRES_USER', 'postgres'),
+                'password': os.getenv('POSTGRES_PASSWORD', 'postgres')
+            }
+
+            # محاولة الاتصال بـ PostgreSQL
+            try:
+                conn = psycopg2.connect(**pg_config)
+                conn.close()
+                self.config = pg_config
+                return DatabaseType.POSTGRESQL
+            except:
+                pass
+
+        except ImportError:
+            pass
+
+        # الافتراضي هو SQLite
+        return DatabaseType.SQLITE
+
+    def _init_postgresql(self):
+        """تهيئة PostgreSQL"""
+        try:
+
+            self.db_manager = PostgreSQLManager(self.config)
+            self.sales_manager = PostgreSQLSalesManager(self.db_manager)
+
+            self.logger.info("تم تهيئة PostgreSQL بنجاح")
+
+        except Exception as e:
+            self.logger.error(f"فشل في تهيئة PostgreSQL: {e}")
+            self.logger.info("التبديل إلى SQLite...")
+            self._init_sqlite()
+
+    def _init_sqlserver(self):
+        """تهيئة SQL Server"""
+        try:
+
+            # استخدام الإعدادات المرسلة أو الإعدادات الافتراضية
+            config = self.config or SQLSERVER_CONFIG
+
+            self.db_manager = SQLServerManager(config)
+            # يمكن إنشاء sales_manager مخصص لـ SQL Server لاحقاً
+            self.sales_manager = SalesManager()
+
+            self.logger.info("تم تهيئة SQL Server بنجاح")
+
+        except Exception as e:
+            self.logger.error(f"فشل في تهيئة SQL Server: {e}")
+            self.logger.info("التبديل إلى SQLite...")
+            self._init_sqlite()
+
+    def _init_sqlite(self):
+        """تهيئة SQLite"""
+        try:
+
+            self.db_manager = DatabaseManager()
+            self.sales_manager = SalesManager()
+            self.db_type = DatabaseType.SQLITE
+
+            self.logger.info("تم تهيئة SQLite بنجاح")
+
+        except Exception as e:
+            self.logger.error(f"فشل في تهيئة SQLite: {e}")
+            raise
+
+    def get_database_info(self) -> Dict:
+        """الحصول على معلومات قاعدة البيانات"""
+        try:
+            info = self.db_manager.get_database_info()
+            info['database_type'] = self.db_type.value
+            return info
+        except Exception as e:
+            self.logger.error(f"خطأ في الحصول على معلومات قاعدة البيانات: {e}")
+            return {'database_type': self.db_type.value}
+
+    def get_all_products(self) -> List[Dict]:
+        """جلب جميع المنتجات"""
+        try:
+            if hasattr(self.sales_manager, 'get_all_products'):
+                return self.sales_manager.get_all_products()
+            else:
+                # للتوافق مع SalesManager القديم
+                products_manager = ProductsManager(self.db_manager)
+                return products_manager.get_all_products()
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب المنتجات: {e}")
+            return []
+
+    def process_sale(self, customer_name: str, items: List[Dict], total_amount: float,
+                    **kwargs) -> Dict:
+        """معالجة عملية بيع"""
+        try:
+            return self.sales_manager.process_sale(
+                customer_name=customer_name,
+                items=items,
+                total_amount=total_amount,
+                **kwargs
+            )
+        except Exception as e:
+            self.logger.error(f"خطأ في معالجة البيع: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'message': 'فشل في معالجة عملية البيع'
+            }
+
+    def save_invoice_simple(self, customer_name: str, items: List[Dict], 
+                            total_amount: float) -> Dict:
+        """حفظ فاتورة مبسطة"""
+        try:
+            if hasattr(self.sales_manager, 'save_invoice_simple'):
+                return self.sales_manager.save_invoice_simple(
+                    customer_name, items, total_amount
+                )
+            else:
+                # استخدام الطريقة العادية
+                return self.sales_manager.process_sale(
+                    customer_name=customer_name,
+                    items=items,
+                    total_amount=total_amount,
+                    update_stock=True
+                )
+        except Exception as e:
+            self.logger.error(f"خطأ في حفظ الفاتورة المبسطة: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'message': 'فشل في حفظ الفاتورة'
+            }
+
+    def get_invoice(self, invoice_id: int) -> Optional[Dict]:
+        """الحصول على فاتورة"""
+        try:
+            return self.sales_manager.get_invoice(invoice_id)
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب الفاتورة: {e}")
+            return None
+
+    def backup_database(self, backup_path: str = None) -> Optional[str]:
+        """إنشاء نسخة احتياطية"""
+        try:
+            return self.db_manager.backup_database(backup_path)
+        except Exception as e:
+            self.logger.error(f"خطأ في إنشاء النسخة الاحتياطية: {e}")
+            return None
+
+    def migrate_to_postgresql(self, pg_config: Dict) -> Dict:
+        """ترحيل البيانات من SQLite إلى PostgreSQL"""
+        try:
+            if self.db_type == DatabaseType.POSTGRESQL:
+                return {
+                    'success': False,
+                    'message': 'قاعدة البيانات PostgreSQL نشطة بالفعل'
+                }
+
+            self.logger.info("بدء ترحيل البيانات إلى PostgreSQL...")
+
+            # إنشاء مدير PostgreSQL جديد
+            pg_manager = PostgreSQLManager(pg_config)
+
+            # ترحيل المنتجات
+            products = self.get_all_products()
+            migrated_products = 0
+
+            with pg_manager.get_connection() as conn:
+                cursor = conn.cursor()
+
+                for product in products:
+                    try:
+                        cursor.execute("""
+                            INSERT INTO products 
+                            (name, barcode, category, unit, cost_price, selling_price,
+                                min_stock, current_stock, stock, price, description, is_active)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (
+                            product.get('name'),
+                            product.get('barcode'),
+                            product.get('category'),
+                            product.get('unit', 'قطعة'),
+                            product.get('cost_price', 0),
+                            product.get('selling_price', 0),
+                            product.get('min_stock', 0),
+                            product.get('current_stock', 0),
+                            product.get('stock', 0),
+                            product.get('price', 0),
+                            product.get('description'),
+                            True
+                        ))
+                        migrated_products += 1
+                    except Exception as e:
+                        self.logger.warning(f"فشل في ترحيل المنتج {product.get('name')}: {e}")
+
+                conn.commit()
+
+            # التبديل إلى PostgreSQL
+            self.config = pg_config
+            self._init_postgresql()
+
+            self.logger.info(f"تم ترحيل {migrated_products} منتج إلى PostgreSQL")
+
+            return {
+                'success': True,
+                'migrated_products': migrated_products,
+                'message': f'تم ترحيل {migrated_products} منتج إلى PostgreSQL بنجاح'
+            }
+
+        except Exception as e:
+            self.logger.error(f"خطأ في ترحيل البيانات: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'message': 'فشل في ترحيل البيانات إلى PostgreSQL'
+            }
+
+    def get_connection_status(self) -> Dict:
+        """الحصول على حالة الاتصال"""
+        try:
+            if self.db_type == DatabaseType.POSTGRESQL:
+                with self.db_manager.get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT version()")
+                    version = cursor.fetchone()[0]
+
+                    return {
+                        'connected': True,
+                        'database_type': 'PostgreSQL',
+                        'version': version,
+                        'host': self.config.get('host'),
+                        'database': self.config.get('database')
+                    }
+            else:
+                conn = sqlite3.connect(self.db_manager.db_path)
+                cursor = conn.cursor()
+                cursor.execute("SELECT sqlite_version()")
+                version = cursor.fetchone()[0]
+                conn.close()
+
+                return {
+                    'connected': True,
+                    'database_type': 'SQLite',
+                    'version': version,
+                    'path': self.db_manager.db_path
+                }
+
+        except Exception as e:
+            return {
+                'connected': False,
+                'error': str(e)
+            }
+
+    def test_connection(self) -> bool:
+        """اختبار الاتصال بقاعدة البيانات"""
+        try:
+            status = self.get_connection_status()
+            return status.get('connected', False)
+        except:
+            return False
+
+    def fetch_all(self, table_name_or_query: str, params: tuple = None, as_dict: bool = True) -> List:
+        """
+        جلب جميع السجلات من جدول أو تنفيذ استعلام
+
+        Args:
+            table_name_or_query (str): اسم الجدول أو الاستعلام الكامل
+            params (tuple): معاملات الاستعلام (اختياري)
+            as_dict (bool): إرجاع النتائج كـ dict أو tuple
+
+        Returns:
+            List: قائمة بالسجلات
+        """
+        try:
+            # التحقق من وجود مدير قاعدة البيانات
+            if not hasattr(self, 'db_manager') or self.db_manager is None:
+                self.logger.error("مدير قاعدة البيانات غير متوفر")
+                return []
+
+            # تحديد ما إذا كان المدخل جدول أم استعلام
+            if ' ' in table_name_or_query.strip() or 'SELECT' in table_name_or_query.upper():
+                # استعلام كامل
+                query = table_name_or_query
+            else:
+                # اسم جدول فقط
+                query = f"SELECT * FROM {table_name_or_query}"
+
+            # تنفيذ الاستعلام حسب نوع قاعدة البيانات
+            if self.db_type == DatabaseType.POSTGRESQL:
+                return self._fetch_all_postgresql(query, params, as_dict)
+            elif self.db_type == DatabaseType.SQLSERVER:
+                return self._fetch_all_sqlserver(query, params, as_dict)
+            else:
+                return self._fetch_all_sqlite(query, params, as_dict)
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب البيانات: {e}")
+            return []
+
+    def _fetch_all_sqlite(self, query: str, params: tuple = None, as_dict: bool = True) -> List:
+        """جلب البيانات من SQLite"""
+        try:
+            conn = self.db_manager.get_connection()
+            if as_dict:
+                conn.row_factory = self.db_manager.dict_factory
+
+            cursor = conn.cursor()
+
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+
+            results = cursor.fetchall()
+            cursor.close()
+
+            return results if results else []
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب البيانات من SQLite: {e}")
+            return []
+
+    def _fetch_all_postgresql(self, query: str, params: tuple = None, as_dict: bool = True) -> List:
+        """جلب البيانات من PostgreSQL"""
+        try:
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+
+                if params:
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
+
+                results = cursor.fetchall()
+
+                if as_dict and results:
+                    # تحويل النتائج إلى قاموس
+                    columns = [desc[0] for desc in cursor.description]
+                    return [dict(zip(columns, row)) for row in results]
+
+                return results if results else []
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب البيانات من PostgreSQL: {e}")
+            return []
+
+    def _fetch_all_sqlserver(self, query: str, params: tuple = None, as_dict: bool = True) -> List:
+        """جلب البيانات من SQL Server"""
+        try:
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+
+                if params:
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
+
+                results = cursor.fetchall()
+
+                if as_dict and results:
+                    # تحويل النتائج إلى قاموس
+                    columns = [column[0] for column in cursor.description]
+                    return [dict(zip(columns, row)) for row in results]
+
+                return results if results else []
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب البيانات من SQL Server: {e}")
+            return []
+
+    def fetch_one(self, table_name_or_query: str, params: tuple = None, as_dict: bool = True):
+        """
+        جلب سجل واحد من جدول أو تنفيذ استعلام
+
+        Args:
+            table_name_or_query (str): اسم الجدول أو الاستعلام الكامل
+            params (tuple): معاملات الاستعلام (اختياري)
+            as_dict (bool): إرجاع النتيجة كـ dict أو tuple
+
+        Returns:
+            dict/tuple: السجل المطلوب أو None
+        """
+        try:
+            results = self.fetch_all(table_name_or_query, params, as_dict)
+            return results[0] if results else None
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب السجل: {e}")
+            return None

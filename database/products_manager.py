@@ -1,0 +1,432 @@
+# -*- coding: utf-8 -*-
+"""
+مدير المنتجات - إدارة شاملة للمنتجات والمخزون
+Products Manager - Comprehensive Product and Inventory Management
+"""
+
+import logging
+from database.database_manager import DatabaseManager
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import List, Dict, Optional, Tuple, Any, Union, Callable
+
+class ProductsManager:
+    """مدير المنتجات مع عمليات CRUD كاملة"""
+
+    def __init__(self, db_manager: DatabaseManager):
+        self.db_manager = db_manager
+        self.logger = logging.getLogger(__name__)
+
+    def add_product(self, product_data: Dict) -> Dict:
+        """إضافة منتج جديد"""
+        try:
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # التحقق من عدم تكرار الباركود
+                if product_data.get('barcode'):
+                    cursor.execute("SELECT id FROM products WHERE barcode = ?", 
+                                 (product_data['barcode'],))
+                    if cursor.fetchone():
+                        return {
+                            'success': False,
+                            'error': 'barcode_exists',
+                            'message': 'الباركود موجود مسبقاً'
+                        }
+
+                # إدراج المنتج الجديد
+                cursor.execute("""
+                    INSERT INTO products 
+                    (name, barcode, category, unit, cost_price, selling_price, 
+                     min_stock, current_stock, description, is_active)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    product_data['name'],
+                    product_data.get('barcode'),
+                    product_data.get('category', ''),
+                    product_data.get('unit', 'قطعة'),
+                    product_data.get('cost_price', 0),
+                    product_data.get('selling_price', 0),
+                    product_data.get('min_stock', 0),
+                    product_data.get('current_stock', 0),
+                    product_data.get('description', ''),
+                    product_data.get('is_active', True)
+                ))
+
+                product_id = cursor.lastrowid
+                conn.commit()
+
+                self.logger.info(f"تم إضافة المنتج: {product_data['name']} (ID: {product_id})")
+
+                return {
+                    'success': True,
+                    'product_id': product_id,
+                    'message': f'تم إضافة المنتج {product_data["name"]} بنجاح'
+                }
+
+        except Exception as e:
+            self.logger.error(f"خطأ في إضافة المنتج: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'message': 'فشل في إضافة المنتج'
+            }
+
+    def get_product(self, product_id: int) -> Optional[Dict]:
+        """الحصول على منتج بالمعرف"""
+        try:
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM products WHERE id = ?", (product_id,))
+                product = cursor.fetchone()
+
+                if product:
+                    return dict(product)
+                return None
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب المنتج: {e}")
+            return None
+
+    def get_product_by_barcode(self, barcode: str) -> Optional[Dict]:
+        """الحصول على منتج بالباركود"""
+        try:
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM products WHERE barcode = ? AND is_active = 1", 
+                             (barcode,))
+                product = cursor.fetchone()
+
+                if product:
+                    return dict(product)
+                return None
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب المنتج بالباركود: {e}")
+            return None
+
+    def update_product(self, product_id: int, product_data: Dict) -> Dict:
+        """تحديث بيانات منتج"""
+        try:
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # التحقق من وجود المنتج
+                cursor.execute("SELECT id FROM products WHERE id = ?", (product_id,))
+                if not cursor.fetchone():
+                    return {
+                        'success': False,
+                        'error': 'product_not_found',
+                        'message': 'المنتج غير موجود'
+                    }
+
+                # التحقق من تكرار الباركود (إذا تم تغييره)
+                if product_data.get('barcode'):
+                    cursor.execute("""
+                        SELECT id FROM products 
+                        WHERE barcode = ? AND id != ?
+                    """, (product_data['barcode'], product_id))
+                    if cursor.fetchone():
+                        return {
+                            'success': False,
+                            'error': 'barcode_exists',
+                            'message': 'الباركود موجود لمنتج آخر'
+                        }
+
+                # تحديث المنتج
+                update_fields = []
+                update_values = []
+
+                for field in ['name', 'barcode', 'category', 'unit', 'cost_price', 
+                             'selling_price', 'min_stock', 'current_stock', 'description', 'is_active']:
+                    if field in product_data:
+                        update_fields.append(f"{field} = ?")
+                        update_values.append(product_data[field])
+
+                if update_fields:
+                    update_values.append(product_id)
+                    cursor.execute(f"""
+                        UPDATE products 
+                        SET {', '.join(update_fields)}
+                        WHERE id = ?
+                    """, update_values)
+
+                    conn.commit()
+
+                    self.logger.info(f"تم تحديث المنتج ID: {product_id}")
+
+                    return {
+                        'success': True,
+                        'message': 'تم تحديث المنتج بنجاح'
+                    }
+                else:
+                    return {
+                        'success': False,
+                        'error': 'no_data',
+                        'message': 'لا توجد بيانات للتحديث'
+                    }
+
+        except Exception as e:
+            self.logger.error(f"خطأ في تحديث المنتج: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'message': 'فشل في تحديث المنتج'
+            }
+
+    def delete_product(self, product_id: int, soft_delete: bool = True) -> Dict:
+        """حذف منتج (حذف ناعم أو صلب)"""
+        try:
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # التحقق من وجود المنتج
+                cursor.execute("SELECT name FROM products WHERE id = ?", (product_id,))
+                product = cursor.fetchone()
+                if not product:
+                    return {
+                        'success': False,
+                        'error': 'product_not_found',
+                        'message': 'المنتج غير موجود'
+                    }
+
+                # التحقق من وجود مبيعات للمنتج
+                cursor.execute("""
+                    SELECT COUNT(*) FROM sales_invoice_items WHERE product_id = ?
+                """, (product_id,))
+                sales_count = cursor.fetchone()[0]
+
+                if sales_count > 0 and not soft_delete:
+                    return {
+                        'success': False,
+                        'error': 'has_sales',
+                        'message': 'لا يمكن حذف المنتج لوجود مبيعات مرتبطة به'
+                    }
+
+                if soft_delete:
+                    # حذف ناعم - تعطيل المنتج
+                    cursor.execute("UPDATE products SET is_active = 0 WHERE id = ?", 
+                                 (product_id,))
+                    action = "تعطيل"
+                else:
+                    # حذف صلب
+                    cursor.execute("DELETE FROM products WHERE id = ?", (product_id,))
+                    action = "حذف"
+
+                conn.commit()
+
+                self.logger.info(f"تم {action} المنتج: {product['name']} (ID: {product_id})")
+
+                return {
+                    'success': True,
+                    'message': f'تم {action} المنتج بنجاح'
+                }
+
+        except Exception as e:
+            self.logger.error(f"خطأ في حذف المنتج: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'message': 'فشل في حذف المنتج'
+            }
+
+    def search_products(self, search_term: str, category: str = None, 
+                       active_only: bool = True, limit: int = 100) -> List[Dict]:
+        """البحث في المنتجات"""
+        try:
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+
+                query = """
+                    SELECT * FROM products 
+                    WHERE (name LIKE ? OR barcode LIKE ? OR description LIKE ?)
+                """
+                params = [f'%{search_term}%', f'%{search_term}%', f'%{search_term}%']
+
+                if category:
+                    query += " AND category = ?"
+                    params.append(category)
+
+                if active_only:
+                    query += " AND is_active = 1"
+
+                query += " ORDER BY name LIMIT ?"
+                params.append(limit)
+
+                cursor.execute(query, params)
+                products = cursor.fetchall()
+
+                return [dict(product) for product in products]
+
+        except Exception as e:
+            self.logger.error(f"خطأ في البحث: {e}")
+            return []
+
+    def get_all_products(self, active_only: bool = True, 
+                        category: str = None) -> List[Dict]:
+        """الحصول على جميع المنتجات"""
+        try:
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+
+                query = "SELECT * FROM products"
+                params = []
+                conditions = []
+
+                if active_only:
+                    conditions.append("is_active = 1")
+
+                if category:
+                    conditions.append("category = ?")
+                    params.append(category)
+
+                if conditions:
+                    query += " WHERE " + " AND ".join(conditions)
+
+                query += " ORDER BY name"
+
+                cursor.execute(query, params)
+                products = cursor.fetchall()
+
+                return [dict(product) for product in products]
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب المنتجات: {e}")
+            return []
+
+    def get_categories(self) -> List[str]:
+        """الحصول على قائمة الفئات"""
+        try:
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT DISTINCT category 
+                    FROM products 
+                    WHERE category IS NOT NULL AND category != '' AND is_active = 1
+                    ORDER BY category
+                """)
+                categories = cursor.fetchall()
+
+                return [category[0] for category in categories]
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب الفئات: {e}")
+            return []
+
+    def update_stock(self, product_id: int, quantity_change: float, 
+                    operation_type: str = 'adjustment') -> Dict:
+        """تحديث المخزون"""
+        try:
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # الحصول على المخزون الحالي
+                cursor.execute("SELECT current_stock, name FROM products WHERE id = ?", 
+                             (product_id,))
+                result = cursor.fetchone()
+
+                if not result:
+                    return {
+                        'success': False,
+                        'error': 'product_not_found',
+                        'message': 'المنتج غير موجود'
+                    }
+
+                current_stock, product_name = result
+                new_stock = current_stock + quantity_change
+
+                # التحقق من عدم السماح بمخزون سالب
+                if new_stock < 0:
+                    return {
+                        'success': False,
+                        'error': 'insufficient_stock',
+                        'message': f'المخزون غير كافي. المتاح: {current_stock}'
+                    }
+
+                # تحديث المخزون
+                cursor.execute("""
+                    UPDATE products 
+                    SET current_stock = ?
+                    WHERE id = ?
+                """, (new_stock, product_id))
+
+                conn.commit()
+
+                self.logger.info(f"تم تحديث مخزون {product_name}: {current_stock} -> {new_stock}")
+
+                return {
+                    'success': True,
+                    'old_stock': current_stock,
+                    'new_stock': new_stock,
+                    'message': f'تم تحديث المخزون من {current_stock} إلى {new_stock}'
+                }
+
+        except Exception as e:
+            self.logger.error(f"خطأ في تحديث المخزون: {e}")
+            return {
+                'success': False,
+                'error': str(e),
+                'message': 'فشل في تحديث المخزون'
+            }
+
+    def get_low_stock_products(self) -> List[Dict]:
+        """الحصول على المنتجات ذات المخزون المنخفض"""
+        try:
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT * FROM products 
+                    WHERE current_stock <= min_stock AND is_active = 1
+                    ORDER BY (current_stock - min_stock) ASC
+                """)
+                products = cursor.fetchall()
+
+                return [dict(product) for product in products]
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب المنتجات منخفضة المخزون: {e}")
+            return []
+
+    def get_inventory_value(self) -> Dict:
+        """حساب قيمة المخزون"""
+        try:
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # قيمة المخزون بسعر التكلفة
+                cursor.execute("""
+                    SELECT SUM(current_stock * cost_price) as cost_value
+                    FROM products 
+                    WHERE is_active = 1
+                """)
+                cost_value = cursor.fetchone()[0] or 0
+
+                # قيمة المخزون بسعر البيع
+                cursor.execute("""
+                    SELECT SUM(current_stock * selling_price) as selling_value
+                    FROM products 
+                    WHERE is_active = 1
+                """)
+                selling_value = cursor.fetchone()[0] or 0
+
+                # عدد الأصناف
+                cursor.execute("""
+                    SELECT COUNT(*) as total_products,
+                           SUM(current_stock) as total_quantity
+                    FROM products 
+                    WHERE is_active = 1
+                """)
+                counts = cursor.fetchone()
+
+                return {
+                    'cost_value': round(cost_value, 2),
+                    'selling_value': round(selling_value, 2),
+                    'potential_profit': round(selling_value - cost_value, 2),
+                    'total_products': counts[0] or 0,
+                    'total_quantity': counts[1] or 0
+                }
+
+        except Exception as e:
+            self.logger.error(f"خطأ في حساب قيمة المخزون: {e}")
+            return {}

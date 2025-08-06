@@ -1,0 +1,134 @@
+{
+  "timestamp": "2025-07-22T08:49:03.288057",
+  "core_system_tests": {
+    "main_application": {
+      "file_exists": true,
+      "importable": true,
+      "functional": true,
+      "has_main_class": false,
+      "error": null,
+      "score": 75
+    },
+    "login_system": {
+      "file_exists": true,
+      "importable": true,
+      "functional": true,
+      "has_main_class": true,
+      "error": null,
+      "score": 100
+    },
+    "main_interface": {
+      "file_exists": true,
+      "importable": true,
+      "functional": true,
+      "has_main_class": true,
+      "error": null,
+      "score": 100
+    },
+    "database_manager": {
+      "file_exists": true,
+      "importable": true,
+      "functional": true,
+      "has_main_class": true,
+      "error": null,
+      "score": 100
+    },
+    "authentication": {
+      "file_exists": true,
+      "importable": true,
+      "functional": true,
+      "has_main_class": true,
+      "error": null,
+      "score": 100
+    },
+    "scheduler": {
+      "file_exists": true,
+      "importable": true,
+      "functional": true,
+      "has_main_class": true,
+      "error": null,
+      "score": 100
+    }
+  },
+  "ui_component_tests": {
+    "pos_system": {
+      "file_exists": true,
+      "importable": true,
+      "has_ui_elements": true,
+      "has_event_handlers": true,
+      "error": null,
+      "score": 100
+    },
+    "pos_simple": {
+      "file_exists": true,
+      "importable": true,
+      "has_ui_elements": true,
+      "has_event_handlers": true,
+      "error": null,
+      "score": 100
+    },
+    "admin_panel": {
+      "file_exists": true,
+      "importable": true,
+      "has_ui_elements": true,
+      "has_event_handlers": true,
+      "error": null,
+      "score": 100
+    },
+    "accounts_window": {
+      "file_exists": true,
+      "importable": true,
+      "has_ui_elements": true,
+      "has_event_handlers": true,
+      "error": null,
+      "score": 100
+    },
+    "reports_window": {
+      "file_exists": true,
+      "importable": true,
+      "has_ui_elements": true,
+      "has_event_handlers": true,
+      "error": null,
+      "score": 100
+    },
+    "sales_window": {
+      "file_exists": true,
+      "importable": true,
+      "has_ui_elements": true,
+      "has_event_handlers": true,
+      "error": null,
+      "score": 100
+    },
+    "purchases_window": {
+      "file_exists": true,
+      "importable": true,
+      "has_ui_elements": true,
+      "has_event_handlers": true,
+      "error": null,
+      "score": 100
+    }
+  },
+  "database_tests": {
+    "sqlite_connection": true,
+    "database_creation": true,
+    "table_operations": true,
+    "data_integrity": true,
+    "backup_system": true,
+    "score": 100
+  },
+  "integration_tests": {
+    "ui_database_integration": true,
+    "auth_system_integration": true,
+    "scheduler_integration": true,
+    "service_integration": true,
+    "score": 100
+  },
+  "performance_tests": {
+    "import_speed": "0.00s",
+    "file_sizes_optimized": true,
+    "memory_efficiency": "unknown",
+    "startup_readiness": true,
+    "score": 100
+  },
+  "overall_functionality_score": 98.3
+}

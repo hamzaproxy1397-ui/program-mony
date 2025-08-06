@@ -1,0 +1,316 @@
+# -*- coding: utf-8 -*-
+"""
+نموذج الفاتورة
+"""
+
+from datetime import datetime
+from database.database_manager import DatabaseManager
+
+class SalesInvoice:
+    """نموذج فاتورة المبيعات"""
+
+    def __init__(self, invoice_id=None, invoice_number=None, customer_id=None,
+                 total_amount=0, discount_amount=0, tax_amount=0, net_amount=0,
+                 payment_status='pending', invoice_date=None, due_date=None,
+                 notes=None, created_by=None, items=None):
+        self.id = invoice_id
+        self.invoice_number = invoice_number
+        self.customer_id = customer_id
+        self.total_amount = total_amount
+        self.discount_amount = discount_amount
+        self.tax_amount = tax_amount
+        self.net_amount = net_amount
+        self.payment_status = payment_status
+        self.invoice_date = invoice_date or datetime.now()
+        self.due_date = due_date
+        self.notes = notes
+        self.created_by = created_by
+        self.items = items or []
+        self.db = DatabaseManager()
+
+    def generate_invoice_number(self):
+        """توليد رقم فاتورة جديد"""
+        try:
+            # الحصول على آخر رقم فاتورة
+            result = self.db.fetch_one('''
+                SELECT invoice_number FROM sales_invoices 
+                ORDER BY id DESC LIMIT 1
+            ''')
+
+            if result and result['invoice_number']:
+                # استخراج الرقم من آخر فاتورة
+                last_number = result['invoice_number']
+                if last_number.startswith('INV-'):
+                    number_part = int(last_number.split('-')[1]) + 1
+                else:
+                    number_part = 1
+            else:
+                number_part = 1
+
+            self.invoice_number = f"INV-{number_part:06d}"
+            return self.invoice_number
+        except Exception as e:
+            print(f"خطأ في توليد رقم الفاتورة: {e}")
+            self.invoice_number = f"INV-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            return self.invoice_number
+
+    def add_item(self, product_id, quantity, unit_price):
+        """إضافة عنصر للفاتورة"""
+        total_price = quantity * unit_price
+        item = {
+            'product_id': product_id,
+            'quantity': quantity,
+            'unit_price': unit_price,
+            'total_price': total_price
+        }
+        self.items.append(item)
+        self.calculate_totals()
+
+    def remove_item(self, index):
+        """إزالة عنصر من الفاتورة"""
+        if 0 <= index < len(self.items):
+            self.items.pop(index)
+            self.calculate_totals()
+
+    def calculate_totals(self):
+        """حساب إجماليات الفاتورة"""
+        self.total_amount = sum(item['total_price'] for item in self.items)
+        self.net_amount = self.total_amount - self.discount_amount + self.tax_amount
+
+    def save(self):
+        """حفظ الفاتورة"""
+        try:
+            if not self.invoice_number:
+                self.generate_invoice_number()
+
+            if self.id:
+                # تحديث فاتورة موجودة
+                query = '''
+                    UPDATE sales_invoices 
+                    SET invoice_number=?, customer_id=?, total_amount=?, 
+                        discount_amount=?, tax_amount=?, net_amount=?, 
+                        payment_status=?, invoice_date=?, due_date=?, notes=?
+                    WHERE id=?
+                '''
+                params = (self.invoice_number, self.customer_id, self.total_amount,
+                         self.discount_amount, self.tax_amount, self.net_amount,
+                         self.payment_status, self.invoice_date, self.due_date,
+                         self.notes, self.id)
+            else:
+                # إنشاء فاتورة جديدة
+                query = '''
+                    INSERT INTO sales_invoices 
+                    (invoice_number, customer_id, total_amount, discount_amount, 
+                     tax_amount, net_amount, payment_status, invoice_date, 
+                     due_date, notes, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                '''
+                params = (self.invoice_number, self.customer_id, self.total_amount,
+                         self.discount_amount, self.tax_amount, self.net_amount,
+                         self.payment_status, self.invoice_date, self.due_date,
+                         self.notes, self.created_by)
+
+            self.db.execute_query(query, params)
+
+            if not self.id:
+                # الحصول على ID الفاتورة الجديدة
+                result = self.db.fetch_one("SELECT last_insert_rowid()")
+                self.id = result[0]
+
+            # حفظ عناصر الفاتورة
+            self.save_items()
+
+            return True
+        except Exception as e:
+            print(f"خطأ في حفظ الفاتورة: {e}")
+            return False
+
+    def save_items(self):
+        """حفظ عناصر الفاتورة"""
+        try:
+            # حذف العناصر القديمة
+            self.db.execute_query(
+                "DELETE FROM sales_invoice_items WHERE invoice_id = ?",
+                (self.id,)
+            )
+
+            # إضافة العناصر الجديدة
+            for item in self.items:
+                self.db.execute_query('''
+                    INSERT INTO sales_invoice_items 
+                    (invoice_id, product_id, quantity, unit_price, total_price)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (self.id, item['product_id'], item['quantity'],
+                      item['unit_price'], item['total_price']))
+
+            return True
+        except Exception as e:
+            print(f"خطأ في حفظ عناصر الفاتورة: {e}")
+            return False
+
+    def load_items(self):
+        """تحميل عناصر الفاتورة"""
+        try:
+            if self.id:
+                results = self.db.fetch_all('''
+                    SELECT sii.*, p.name as product_name, p.unit
+                    FROM sales_invoice_items sii
+                    JOIN products p ON sii.product_id = p.id
+                    WHERE sii.invoice_id = ?
+                ''', (self.id,))
+
+                self.items = []
+                for result in results:
+                    item = {
+                        'product_id': result['product_id'],
+                        'product_name': result['product_name'],
+                        'unit': result['unit'],
+                        'quantity': result['quantity'],
+                        'unit_price': result['unit_price'],
+                        'total_price': result['total_price']
+                    }
+                    self.items.append(item)
+
+            return True
+        except Exception as e:
+            print(f"خطأ في تحميل عناصر الفاتورة: {e}")
+            return False
+
+    @classmethod
+    def get_by_id(cls, invoice_id):
+        """الحصول على فاتورة بالمعرف"""
+        try:
+            db = DatabaseManager()
+            result = db.fetch_one(
+                "SELECT * FROM sales_invoices WHERE id = ?",
+                (invoice_id,)
+            )
+
+            if result:
+                invoice = cls(
+                    invoice_id=result['id'],
+                    invoice_number=result['invoice_number'],
+                    customer_id=result['customer_id'],
+                    total_amount=result['total_amount'],
+                    discount_amount=result['discount_amount'],
+                    tax_amount=result['tax_amount'],
+                    net_amount=result['net_amount'],
+                    payment_status=result['payment_status'],
+                    invoice_date=result['invoice_date'],
+                    due_date=result['due_date'],
+                    notes=result['notes'],
+                    created_by=result['created_by']
+                )
+                invoice.load_items()
+                return invoice
+            return None
+        except Exception as e:
+            print(f"خطأ في جلب الفاتورة: {e}")
+            return None
+
+    @classmethod
+    def get_by_number(cls, invoice_number):
+        """الحصول على فاتورة برقم الفاتورة"""
+        try:
+            db = DatabaseManager()
+            result = db.fetch_one(
+                "SELECT * FROM sales_invoices WHERE invoice_number = ?",
+                (invoice_number,)
+            )
+
+            if result:
+                invoice = cls(
+                    invoice_id=result['id'],
+                    invoice_number=result['invoice_number'],
+                    customer_id=result['customer_id'],
+                    total_amount=result['total_amount'],
+                    discount_amount=result['discount_amount'],
+                    tax_amount=result['tax_amount'],
+                    net_amount=result['net_amount'],
+                    payment_status=result['payment_status'],
+                    invoice_date=result['invoice_date'],
+                    due_date=result['due_date'],
+                    notes=result['notes'],
+                    created_by=result['created_by']
+                )
+                invoice.load_items()
+                return invoice
+            return None
+        except Exception as e:
+            print(f"خطأ في جلب الفاتورة برقم الفاتورة: {e}")
+            return None
+
+    @classmethod
+    def get_all(cls, limit=None):
+        """الحصول على جميع الفواتير"""
+        try:
+            db = DatabaseManager()
+            query = '''
+                SELECT si.*, c.name as customer_name
+                FROM sales_invoices si
+                LEFT JOIN customers c ON si.customer_id = c.id
+                ORDER BY si.invoice_date DESC
+            '''
+            if limit:
+                query += f" LIMIT {limit}"
+
+            results = db.fetch_all(query)
+            invoices = []
+
+            for result in results:
+                invoice = cls(
+                    invoice_id=result['id'],
+                    invoice_number=result['invoice_number'],
+                    customer_id=result['customer_id'],
+                    total_amount=result['total_amount'],
+                    discount_amount=result['discount_amount'],
+                    tax_amount=result['tax_amount'],
+                    net_amount=result['net_amount'],
+                    payment_status=result['payment_status'],
+                    invoice_date=result['invoice_date'],
+                    due_date=result['due_date'],
+                    notes=result['notes'],
+                    created_by=result['created_by']
+                )
+                # إضافة اسم العميل
+                invoice.customer_name = result.get('customer_name', 'غير محدد')
+                invoices.append(invoice)
+
+            return invoices
+        except Exception as e:
+            print(f"خطأ في جلب الفواتير: {e}")
+            return []
+
+    def update_payment_status(self, status):
+        """تحديث حالة الدفع"""
+        try:
+            self.payment_status = status
+            self.db.execute_query(
+                "UPDATE sales_invoices SET payment_status = ? WHERE id = ?",
+                (status, self.id)
+            )
+            return True
+        except Exception as e:
+            print(f"خطأ في تحديث حالة الدفع: {e}")
+            return False
+
+    def to_dict(self):
+        """تحويل إلى قاموس"""
+        return {
+            'id': self.id,
+            'invoice_number': self.invoice_number,
+            'customer_id': self.customer_id,
+            'total_amount': self.total_amount,
+            'discount_amount': self.discount_amount,
+            'tax_amount': self.tax_amount,
+            'net_amount': self.net_amount,
+            'payment_status': self.payment_status,
+            'invoice_date': self.invoice_date,
+            'due_date': self.due_date,
+            'notes': self.notes,
+            'created_by': self.created_by,
+            'items': self.items
+        }
+
+    def __str__(self):
+        return f"فاتورة رقم: {self.invoice_number} - المبلغ: {self.net_amount}"

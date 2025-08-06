@@ -1,0 +1,685 @@
+# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
+# تحذير أمني: هذا الملف يحتوي على عمليات حساسة
+# يجب مراجعة جميع المدخلات والتأكد من التحقق منها
+# Security Warning: This file contains sensitive operations
+# All inputs must be validated and sanitized
+
+
+"""
+مدير قاعدة البيانات الرئيسي
+"""
+
+import sqlite3
+import logging
+import hashlib
+from datetime import datetime
+from config.settings import DATABASE_PATH, DB_SETTINGS
+
+class DatabaseManager:
+    """مدير قاعدة البيانات الرئيسي"""
+
+    def __init__(self):
+        self.db_path = DATABASE_PATH
+        self.logger = logging.getLogger(__name__)
+        self.init_database()
+
+    def get_connection(self):
+        """إنشاء اتصال جديد بقاعدة البيانات"""
+        try:
+            conn = sqlite3.connect(
+                self.db_path,
+                timeout=DB_SETTINGS['timeout'],
+                check_same_thread=DB_SETTINGS['check_same_thread'],
+                isolation_level=DB_SETTINGS['isolation_level']
+            )
+            conn.row_factory = sqlite3.Row
+            return conn
+        except Exception as e:
+            self.logger.error(f"خطأ في الاتصال بقاعدة البيانات: {e}")
+            raise
+
+    @staticmethod
+    def dict_factory(cursor, row):
+        """تحويل النتائج إلى قاموس"""
+        return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
+
+    def init_database(self):
+        """إنشاء جداول قاعدة البيانات"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # جدول المستخدمين والصلاحيات
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        username TEXT UNIQUE NOT NULL,
+                        password_hash TEXT NOT NULL,
+                        full_name TEXT NOT NULL,
+                        role TEXT NOT NULL CHECK (role IN ('admin', 'accountant', 'user')),
+                        email TEXT,
+                        phone TEXT,
+                        is_active BOOLEAN DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        last_login TIMESTAMP,
+                        profile_image TEXT
+                    )
+                ''')
+
+                # جدول العملاء
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS customers (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        phone TEXT,
+                        email TEXT,
+                        address TEXT,
+                        tax_number TEXT,
+                        credit_limit REAL DEFAULT 0,
+                        current_balance REAL DEFAULT 0,
+                        customer_type TEXT DEFAULT 'regular',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        is_active BOOLEAN DEFAULT 1
+                    )
+                ''')
+
+                # جدول الموردين
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS suppliers (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        phone TEXT,
+                        email TEXT,
+                        address TEXT,
+                        tax_number TEXT,
+                        current_balance REAL DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        is_active BOOLEAN DEFAULT 1
+                )
+                ''')
+
+                # جدول الأصناف والمنتجات
+                # ينشئ هذا القسم جدولًا باسم "products" داخل قاعدة البيانات إذا لم يكن موجودًا سابقًا.
+                # يحتوي الجدول على الأعمدة التالية:
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS products (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        barcode TEXT UNIQUE,
+                        category TEXT,
+                        unit TEXT DEFAULT 'قطعة',
+                        cost_price REAL DEFAULT 0,
+                        selling_price REAL DEFAULT 0,
+                        min_stock REAL DEFAULT 0,
+                        current_stock REAL DEFAULT 0,
+                        description TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        is_active BOOLEAN DEFAULT 1
+                    )
+                ''')
+
+                # جدول فواتير المبيعات
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS sales_invoices (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        invoice_number TEXT UNIQUE NOT NULL,
+                        customer_id INTEGER,
+                        total_amount REAL NOT NULL,
+                        discount_amount REAL DEFAULT 0,
+                        tax_amount REAL DEFAULT 0,
+                        net_amount REAL NOT NULL,
+                        payment_status TEXT DEFAULT 'pending',
+                        invoice_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        due_date TIMESTAMP,
+                        notes TEXT,
+                        created_by INTEGER,
+                        FOREIGN KEY (customer_id) REFERENCES customers (id),
+                        FOREIGN KEY (created_by) REFERENCES users (id)
+                    )
+                ''')
+
+                # جدول تفاصيل فواتير المبيعات
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS sales_invoice_items (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        invoice_id INTEGER NOT NULL,
+                        product_id INTEGER NOT NULL,
+                        quantity REAL NOT NULL,
+                        unit_price REAL NOT NULL,
+                        total_price REAL NOT NULL,
+                        FOREIGN KEY (invoice_id) REFERENCES sales_invoices (id),
+                        FOREIGN KEY (product_id) REFERENCES products (id)
+                    )
+                ''')
+
+                # جدول فواتير المشتريات
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS purchase_invoices (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        invoice_number TEXT UNIQUE NOT NULL,
+                        supplier_id INTEGER,
+                        total_amount REAL NOT NULL,
+                        discount_amount REAL DEFAULT 0,
+                        tax_amount REAL DEFAULT 0,
+                        net_amount REAL NOT NULL,
+                        payment_status TEXT DEFAULT 'pending',
+                        invoice_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        due_date TIMESTAMP,
+                        notes TEXT,
+                        created_by INTEGER,
+                        FOREIGN KEY (supplier_id) REFERENCES suppliers (id),
+                        FOREIGN KEY (created_by) REFERENCES users (id)
+                    )
+                ''')
+
+                # جدول تفاصيل فواتير المشتريات
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS purchase_invoice_items (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        invoice_id INTEGER NOT NULL,
+                        product_id INTEGER NOT NULL,
+                        quantity REAL NOT NULL,
+                        unit_price REAL NOT NULL,
+                        total_price REAL NOT NULL,
+                        FOREIGN KEY (invoice_id) REFERENCES purchase_invoices (id),
+                        FOREIGN KEY (product_id) REFERENCES products (id)
+                    )
+                ''')
+
+                # جدول حركات الخزينة
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS treasury_transactions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        transaction_type TEXT NOT NULL CHECK (transaction_type IN ('income', 'expense')),
+                        amount REAL NOT NULL,
+                        description TEXT NOT NULL,
+                        reference_type TEXT,
+                        reference_id INTEGER,
+                        transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        created_by INTEGER,
+                        FOREIGN KEY (created_by) REFERENCES users (id)
+                    )
+                ''')
+
+                # جدول حركات المخزون
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS inventory_movements (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        product_id INTEGER NOT NULL,
+                        movement_type TEXT NOT NULL CHECK (movement_type IN ('in', 'out', 'adjustment')),
+                        quantity REAL NOT NULL,
+                        reference_type TEXT,
+                        reference_id INTEGER,
+                        notes TEXT,
+                        movement_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        created_by INTEGER,
+                        FOREIGN KEY (product_id) REFERENCES products (id),
+                        FOREIGN KEY (created_by) REFERENCES users (id)
+                    )
+                ''')
+
+                # جدول دليل الحسابات
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS chart_of_accounts (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        account_code TEXT UNIQUE NOT NULL,
+                        account_name TEXT NOT NULL,
+                        account_type TEXT NOT NULL CHECK (account_type IN ('asset', 'liability', 'equity', 'revenue', 'expense')),
+                        parent_account_id INTEGER,
+                        account_level INTEGER DEFAULT 1,
+                        is_main_account BOOLEAN DEFAULT 0,
+                        current_balance REAL DEFAULT 0,
+                        debit_balance REAL DEFAULT 0,
+                        credit_balance REAL DEFAULT 0,
+                        account_nature TEXT NOT NULL CHECK (account_nature IN ('debit', 'credit')),
+                        is_active BOOLEAN DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        created_by INTEGER,
+                        FOREIGN KEY (parent_account_id) REFERENCES chart_of_accounts (id),
+                        FOREIGN KEY (created_by) REFERENCES users (id)
+                    )
+                ''')
+
+                # جدول القيود المحاسبية
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS journal_entries (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        entry_number TEXT UNIQUE NOT NULL,
+                        entry_date DATE NOT NULL,
+                        description TEXT NOT NULL,
+                        reference_type TEXT,
+                        reference_id INTEGER,
+                        total_debit REAL NOT NULL DEFAULT 0,
+                        total_credit REAL NOT NULL DEFAULT 0,
+                        is_balanced BOOLEAN DEFAULT 0,
+                        status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'posted', 'cancelled')),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        created_by INTEGER,
+                        posted_at TIMESTAMP,
+                        posted_by INTEGER,
+                        FOREIGN KEY (created_by) REFERENCES users (id),
+                        FOREIGN KEY (posted_by) REFERENCES users (id)
+                    )
+                ''')
+
+                # جدول تفاصيل القيود المحاسبية
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS journal_entry_details (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        journal_entry_id INTEGER NOT NULL,
+                        account_id INTEGER NOT NULL,
+                        description TEXT,
+                        debit_amount REAL DEFAULT 0,
+                        credit_amount REAL DEFAULT 0,
+                        line_number INTEGER DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (journal_entry_id) REFERENCES journal_entries (id) ON DELETE CASCADE,
+                        FOREIGN KEY (account_id) REFERENCES chart_of_accounts (id)
+                    )
+                ''')
+
+                # جدول فواتير الشراء
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS purchase_invoices (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        invoice_number TEXT UNIQUE NOT NULL,
+                        supplier_id INTEGER NOT NULL,
+                        invoice_date DATE NOT NULL,
+                        total_amount REAL NOT NULL DEFAULT 0,
+                        discount_amount REAL DEFAULT 0,
+                        tax_amount REAL DEFAULT 0,
+                        net_amount REAL NOT NULL DEFAULT 0,
+                        payment_status TEXT DEFAULT 'pending' CHECK (payment_status IN ('pending', 'partial', 'paid')),
+                        notes TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        created_by INTEGER,
+                        FOREIGN KEY (supplier_id) REFERENCES suppliers (id),
+                        FOREIGN KEY (created_by) REFERENCES users (id)
+                    )
+                ''')
+
+                # جدول تفاصيل فواتير الشراء
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS purchase_invoice_items (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        invoice_id INTEGER NOT NULL,
+                        product_id INTEGER NOT NULL,
+                        quantity REAL NOT NULL,
+                        unit_price REAL NOT NULL,
+                        total_price REAL NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (invoice_id) REFERENCES purchase_invoices (id) ON DELETE CASCADE,
+                        FOREIGN KEY (product_id) REFERENCES products (id)
+                    )
+                ''')
+
+                # جدول الموظفين
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS employees (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        position TEXT,
+                        department TEXT,
+                        phone TEXT,
+                        email TEXT,
+                        hire_date DATE,
+                        termination_date DATE,
+                        salary REAL DEFAULT 0,
+                        national_id TEXT,
+                        address TEXT,
+                        emergency_contact TEXT,
+                        is_active INTEGER DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
+
+                # جدول سجل العمليات
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS activity_logs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER,
+                        action TEXT NOT NULL,
+                        table_name TEXT,
+                        record_id INTEGER,
+                        old_values TEXT,
+                        new_values TEXT,
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users (id)
+                    )
+                ''')
+
+                # إنشاء الفهارس لتحسين الأداء
+                self.create_indexes(cursor)
+
+                conn.commit()
+                self.create_default_admin()
+
+                # إنشاء دليل الحسابات الافتراضي
+                self.create_default_chart_of_accounts()
+
+                # إدراج بيانات تجريبية للمنتجات
+                self.insert_sample_products()
+
+                self.logger.info("تم إنشاء قاعدة البيانات بنجاح")
+
+        except Exception as e:
+            self.logger.error(f"خطأ في إنشاء قاعدة البيانات: {e}")
+            raise
+
+    def create_default_admin(self):
+        """إنشاء حساب المدير الافتراضي"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # التحقق من وجود مدير
+                cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
+                admin_count = cursor.fetchone()[0]
+
+                if admin_count == 0:
+                    # إنشاء كلمة مرور مشفرة
+                    password = "123"
+                    password_hash = hashlib.sha256(password.encode()).hexdigest()
+
+                    cursor.execute('''
+                        INSERT INTO users (username, password_hash, full_name, role, email)
+                        VALUES (?, ?, ?, ?, ?)
+                    ''', ("123", password_hash, "مدير النظام", "admin", "admin@example.com"))
+
+                    conn.commit()
+                    self.logger.info("تم إنشاء حساب المدير الافتراضي")
+
+        except Exception as e:
+            self.logger.error(f"خطأ في إنشاء المدير الافتراضي: {e}")
+
+    def execute_query(self, query, params=None):
+        """تنفيذ استعلام قاعدة بيانات"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                if params:
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
+                conn.commit()
+                return cursor.fetchall()
+        except Exception as e:
+            self.logger.error(f"خطأ في تنفيذ الاستعلام: {e}")
+            raise
+
+    def fetch_one(self, query, params=None):
+        """جلب سجل واحد"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                if params:
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
+                return cursor.fetchone()
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب السجل: {e}")
+            raise
+
+    def fetch_all(self, query, params=None):
+        """جلب جميع السجلات"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                if params:
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
+                return cursor.fetchall()
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب السجلات: {e}")
+            raise
+
+    def create_indexes(self, cursor):
+        """إنشاء فهارس لتحسين الأداء"""
+        try:
+            # فهارس جدول المنتجات
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_name ON products(name)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_products_active ON products(is_active)")
+
+            # فهارس جدول الفواتير
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_sales_invoices_number ON sales_invoices(invoice_number)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_sales_invoices_date ON sales_invoices(invoice_date)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_sales_invoices_customer ON sales_invoices(customer_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_sales_invoices_status ON sales_invoices(payment_status)")
+
+            # فهارس جدول تفاصيل الفواتير
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_sales_items_invoice ON sales_invoice_items(invoice_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_sales_items_product ON sales_invoice_items(product_id)")
+
+            # فهارس جدول العملاء
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_customers_active ON customers(is_active)")
+
+            # فهارس جدول الموردين
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_suppliers_name ON suppliers(name)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_suppliers_active ON suppliers(is_active)")
+
+            # فهارس جدول المستخدمين
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active)")
+
+            # فهارس جدول دليل الحسابات
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_accounts_code ON chart_of_accounts(account_code)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_accounts_name ON chart_of_accounts(account_name)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_accounts_type ON chart_of_accounts(account_type)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_accounts_parent ON chart_of_accounts(parent_account_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_accounts_active ON chart_of_accounts(is_active)")
+
+            # فهارس جدول القيود المحاسبية
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_journal_entries_number ON journal_entries(entry_number)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_journal_entries_date ON journal_entries(entry_date)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_journal_entries_status ON journal_entries(status)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_journal_entries_reference ON journal_entries(reference_type, reference_id)")
+
+            # فهارس جدول تفاصيل القيود
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_journal_details_entry ON journal_entry_details(journal_entry_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_journal_details_account ON journal_entry_details(account_id)")
+
+            # فهارس جدول فواتير الشراء
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_purchase_invoices_number ON purchase_invoices(invoice_number)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_purchase_invoices_supplier ON purchase_invoices(supplier_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_purchase_invoices_date ON purchase_invoices(invoice_date)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_purchase_invoices_status ON purchase_invoices(payment_status)")
+
+            # فهارس جدول تفاصيل فواتير الشراء
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_purchase_items_invoice ON purchase_invoice_items(invoice_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_purchase_items_product ON purchase_invoice_items(product_id)")
+
+            # فهارس جدول الموظفين
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_employees_name ON employees(name)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_employees_department ON employees(department)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_employees_position ON employees(position)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_employees_active ON employees(is_active)")
+
+            self.logger.info("تم إنشاء الفهارس بنجاح")
+
+        except Exception as e:
+            self.logger.error(f"خطأ في إنشاء الفهارس: {e}")
+
+    def insert_sample_products(self):
+        """إدراج منتجات تجريبية"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # التحقق من وجود منتجات
+                cursor.execute("SELECT COUNT(*) FROM products")
+                product_count = cursor.fetchone()[0]
+
+                if product_count == 0:
+                    sample_products = [
+                        ("كوكا كولا 330مل", "1234567890123", "مشروبات", "علبة", 120.0, 150.0, 10.0, 100.0, "مشروب غازي بطعم الكولا"),
+                        ("بيبسي 330مل", "1234567890124", "مشروبات", "علبة", 115.0, 145.0, 10.0, 80.0, "مشروب غازي بطعم الكولا"),
+                        ("عصير برتقال طبيعي", "1234567890125", "مشروبات", "زجاجة", 180.0, 220.0, 5.0, 50.0, "عصير برتقال طبيعي 100%"),
+                        ("ماء معدني 500مل", "1234567890126", "مشروبات", "زجاجة", 80.0, 100.0, 20.0, 200.0, "ماء معدني طبيعي"),
+                        ("شيبس بطاطس", "1234567890127", "وجبات خفيفة", "كيس", 90.0, 120.0, 15.0, 75.0, "شيبس بطاطس مقرمش"),
+                        ("بسكويت شوكولاتة", "1234567890128", "حلويات", "علبة", 60.0, 80.0, 20.0, 120.0, "بسكويت محشو بالشوكولاتة"),
+                        ("شوكولاتة داكنة", "1234567890129", "حلويات", "قطعة", 200.0, 250.0, 5.0, 30.0, "شوكولاتة داكنة فاخرة"),
+                        ("حليب كامل الدسم", "1234567890130", "منتجات ألبان", "كرتون", 250.0, 300.0, 10.0, 60.0, "حليب طازج كامل الدسم"),
+                        ("جبنة بيضاء", "1234567890131", "منتجات ألبان", "كيلو", 350.0, 400.0, 5.0, 25.0, "جبنة بيضاء طازجة"),
+                        ("لبن زبادي", "1234567890132", "منتجات ألبان", "علبة", 180.0, 220.0, 10.0, 40.0, "لبن زبادي طبيعي"),
+                        ("خبز أبيض", "1234567890133", "مخبوزات", "رغيف", 25.0, 35.0, 50.0, 200.0, "خبز أبيض طازج"),
+                        ("كيك شوكولاتة", "1234567890134", "حلويات", "قطعة", 400.0, 500.0, 3.0, 15.0, "كيك شوكولاتة فاخر")
+                    ]
+
+                    for product in sample_products:
+                        cursor.execute("""
+                            INSERT INTO products
+                            (name, barcode, category, unit, cost_price, selling_price, min_stock, current_stock, description)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, product)
+
+                    conn.commit()
+                    self.logger.info("تم إدراج المنتجات التجريبية بنجاح")
+
+        except Exception as e:
+            self.logger.error(f"خطأ في إدراج المنتجات التجريبية: {e}")
+
+    def create_default_chart_of_accounts(self):
+        """إنشاء دليل الحسابات الافتراضي"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # التحقق من وجود حسابات
+                cursor.execute("SELECT COUNT(*) FROM chart_of_accounts")
+                accounts_count = cursor.fetchone()[0]
+
+                if accounts_count == 0:
+                    # الحسابات الرئيسية
+                    default_accounts = [
+                        # الأصول (Assets)
+                        ("1000", "الأصول", "asset", None, 1, True, "debit"),
+                        ("1100", "الأصول المتداولة", "asset", 1, 2, True, "debit"),
+                        ("1110", "النقدية والبنوك", "asset", 2, 3, False, "debit"),
+                        ("1111", "الصندوق", "asset", 3, 4, False, "debit"),
+                        ("1112", "البنك الأهلي", "asset", 3, 4, False, "debit"),
+                        ("1113", "البنك التجاري", "asset", 3, 4, False, "debit"),
+                        ("1120", "العملاء", "asset", 2, 3, False, "debit"),
+                        ("1130", "المخزون", "asset", 2, 3, False, "debit"),
+                        ("1140", "المصروفات المدفوعة مقدماً", "asset", 2, 3, False, "debit"),
+
+                        ("1200", "الأصول الثابتة", "asset", 1, 2, True, "debit"),
+                        ("1210", "الأراضي والمباني", "asset", 10, 3, False, "debit"),
+                        ("1220", "الأثاث والمعدات", "asset", 10, 3, False, "debit"),
+                        ("1230", "السيارات", "asset", 10, 3, False, "debit"),
+
+                        # الخصوم (Liabilities)
+                        ("2000", "الخصوم", "liability", None, 1, True, "credit"),
+                        ("2100", "الخصوم المتداولة", "liability", 14, 2, True, "credit"),
+                        ("2110", "الموردون", "liability", 15, 3, False, "credit"),
+                        ("2120", "المصروفات المستحقة", "liability", 15, 3, False, "credit"),
+                        ("2130", "الضرائب المستحقة", "liability", 15, 3, False, "credit"),
+
+                        ("2200", "الخصوم طويلة الأجل", "liability", 14, 2, True, "credit"),
+                        ("2210", "القروض طويلة الأجل", "liability", 19, 3, False, "credit"),
+
+                        # حقوق الملكية (Equity)
+                        ("3000", "حقوق الملكية", "equity", None, 1, True, "credit"),
+                        ("3100", "رأس المال", "equity", 21, 2, False, "credit"),
+                        ("3200", "الأرباح المحتجزة", "equity", 21, 2, False, "credit"),
+                        ("3300", "أرباح العام الحالي", "equity", 21, 2, False, "credit"),
+
+                        # الإيرادات (Revenue)
+                        ("4000", "الإيرادات", "revenue", None, 1, True, "credit"),
+                        ("4100", "إيرادات المبيعات", "revenue", 25, 2, False, "credit"),
+                        ("4200", "إيرادات أخرى", "revenue", 25, 2, False, "credit"),
+
+                        # المصروفات (Expenses)
+                        ("5000", "المصروفات", "expense", None, 1, True, "debit"),
+                        ("5100", "تكلفة البضاعة المباعة", "expense", 28, 2, False, "debit"),
+                        ("5200", "مصروفات التشغيل", "expense", 28, 2, True, "debit"),
+                        ("5210", "مصروفات الرواتب", "expense", 30, 3, False, "debit"),
+                        ("5220", "مصروفات الإيجار", "expense", 30, 3, False, "debit"),
+                        ("5230", "مصروفات الكهرباء", "expense", 30, 3, False, "debit"),
+                        ("5240", "مصروفات الهاتف", "expense", 30, 3, False, "debit"),
+                        ("5250", "مصروفات الصيانة", "expense", 30, 3, False, "debit"),
+                        ("5260", "مصروفات أخرى", "expense", 30, 3, False, "debit")
+                    ]
+
+                    # إدراج الحسابات
+                    for i, (code, name, acc_type, parent_ref, level, is_main, nature) in enumerate(default_accounts, 1):
+                        parent_id = None
+                        if parent_ref is not None:
+                            parent_id = parent_ref
+
+                        cursor.execute('''
+                            INSERT INTO chart_of_accounts
+                            (account_code, account_name, account_type, parent_account_id,
+                             account_level, is_main_account, account_nature, is_active)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+                        ''', (code, name, acc_type, parent_id, level, is_main, nature))
+
+                    conn.commit()
+                    self.logger.info("تم إنشاء دليل الحسابات الافتراضي")
+
+        except Exception as e:
+            self.logger.error(f"خطأ في إنشاء دليل الحسابات: {e}")
+
+    def backup_database(self, backup_path=None):
+        """إنشاء نسخة احتياطية من قاعدة البيانات"""
+        try:
+            if not backup_path:
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                backup_path = f"backups/backup_{timestamp}.db"
+
+            # إنشاء مجلد النسخ الاحتياطية إذا لم يكن موجوداً
+            Path(backup_path).parent.mkdir(parents=True, exist_ok=True)
+
+            # نسخ قاعدة البيانات
+            import shutil
+            from pathlib import Path
+            shutil.copy2(self.db_path, backup_path)
+
+            self.logger.info(f"تم إنشاء نسخة احتياطية: {backup_path}")
+            return backup_path
+
+        except Exception as e:
+            self.logger.error(f"خطأ في إنشاء النسخة الاحتياطية: {e}")
+            return None
+
+    def get_database_info(self):
+        """الحصول على معلومات قاعدة البيانات"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                info = {}
+
+                # عدد الجداول
+                cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table'")
+                info['tables_count'] = cursor.fetchone()[0]
+
+                # عدد المنتجات
+                cursor.execute("SELECT COUNT(*) FROM products WHERE is_active = 1")
+                info['products_count'] = cursor.fetchone()[0]
+
+                # عدد الفواتير
+                cursor.execute("SELECT COUNT(*) FROM sales_invoices")
+                info['invoices_count'] = cursor.fetchone()[0]
+
+                # عدد العملاء
+                cursor.execute("SELECT COUNT(*) FROM customers WHERE is_active = 1")
+                info['customers_count'] = cursor.fetchone()[0]
+
+                # حجم قاعدة البيانات
+                db_size = Path(self.db_path).stat().st_size / (1024 * 1024)  # بالميجابايت
+                info['database_size_mb'] = round(db_size, 2)
+
+                return info
+
+        except Exception as e:
+            self.logger.error(f"خطأ في الحصول على معلومات قاعدة البيانات: {e}")
+            return {}

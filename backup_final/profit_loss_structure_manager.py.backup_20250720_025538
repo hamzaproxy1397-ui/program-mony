@@ -1,0 +1,891 @@
+# -*- coding: utf-8 -*-
+"""
+مدير الهيكل التنظيمي لبيان الأرباح والخسائر
+Profit & Loss Statement Structure Manager
+"""
+
+import logging
+from datetime import datetime, date, timedelta
+from database.database_manager import DatabaseManager
+from typing import Dict
+from typing import Optional
+from typing import List, Dict, Optional, Tuple, Any, Union, Callable
+
+class ProfitLossStructureManager:
+    """مدير الهيكل التنظيمي المفصل لبيان الأرباح والخسائر"""
+    
+    def __init__(self, db_manager: DatabaseManager = None):
+        self.db_manager = db_manager or DatabaseManager()
+        self.logger = logging.getLogger(__name__)
+        
+        # تعريف الهيكل التنظيمي
+        self.structure = self._define_profit_loss_structure()
+    
+    def _define_profit_loss_structure(self) -> Dict:
+        """تعريف الهيكل التنظيمي الكامل لبيان الأرباح والخسائر"""
+        return {
+            "revenues": {
+                "title": "الإيرادات (Revenues)",
+                "code_prefix": "41",
+                "type": "credit",
+                "items": {
+                    "goods_sales": {
+                        "title": "مبيعات السلع",
+                        "codes": ["4110", "4111", "4112"],
+                        "description": "إيرادات من بيع البضائع والمنتجات"
+                    },
+                    "services_sales": {
+                        "title": "مبيعات الخدمات", 
+                        "codes": ["4120", "4121", "4122"],
+                        "description": "إيرادات من تقديم الخدمات"
+                    },
+                    "earned_discounts": {
+                        "title": "الخصومات المكتسبة",
+                        "codes": ["4130"],
+                        "description": "خصومات حصلت عليها الشركة من الموردين"
+                    },
+                    "other_operating_revenues": {
+                        "title": "إيرادات تشغيلية أخرى",
+                        "codes": ["4140", "4150"],
+                        "description": "إيرادات تشغيلية متنوعة"
+                    }
+                }
+            },
+            "cost_of_goods_sold": {
+                "title": "تكلفة البضاعة المباعة (COGS)",
+                "code_prefix": "51",
+                "type": "debit",
+                "calculation": {
+                    "opening_inventory": {
+                        "title": "افتتاح المخزون",
+                        "codes": ["1140"],
+                        "description": "قيمة المخزون في بداية الفترة"
+                    },
+                    "purchases": {
+                        "title": "المشتريات",
+                        "codes": ["5110", "5111", "5112"],
+                        "description": "مشتريات البضائع والمواد الخام"
+                    },
+                    "shipping_costs": {
+                        "title": "مصاريف الشحن والتوريد",
+                        "codes": ["5120", "5121"],
+                        "description": "تكاليف نقل وتوريد البضائع"
+                    },
+                    "closing_inventory": {
+                        "title": "إغلاق المخزون",
+                        "codes": ["1140"],
+                        "description": "قيمة المخزون في نهاية الفترة (يطرح)"
+                    }
+                },
+                "formula": "افتتاح المخزون + المشتريات + مصاريف الشحن - إغلاق المخزون"
+            },
+            "operating_expenses": {
+                "title": "المصروفات التشغيلية (Operating Expenses)",
+                "code_prefix": "52",
+                "type": "debit",
+                "categories": {
+                    "salaries_wages": {
+                        "title": "الرواتب والأجور",
+                        "codes": ["5210", "5211", "5212", "5213"],
+                        "subcategories": {
+                            "basic_salaries": "الرواتب الأساسية",
+                            "overtime": "العمل الإضافي", 
+                            "bonuses": "المكافآت والحوافز",
+                            "social_insurance": "التأمينات الاجتماعية"
+                        }
+                    },
+                    "rent_expenses": {
+                        "title": "الإيجارات",
+                        "codes": ["5220", "5221"],
+                        "subcategories": {
+                            "office_rent": "إيجار المكاتب",
+                            "warehouse_rent": "إيجار المستودعات"
+                        }
+                    },
+                    "administrative_expenses": {
+                        "title": "مصاريف إدارية وعمومية",
+                        "codes": ["5230", "5231", "5232", "5233"],
+                        "subcategories": {
+                            "office_supplies": "مستلزمات مكتبية",
+                            "communications": "اتصالات وإنترنت",
+                            "utilities": "كهرباء وماء وغاز",
+                            "professional_fees": "أتعاب مهنية"
+                        }
+                    },
+                    "marketing_expenses": {
+                        "title": "مصاريف تسويقية",
+                        "codes": ["5240", "5241", "5242"],
+                        "subcategories": {
+                            "advertising": "إعلان وترويج",
+                            "exhibitions": "معارض ومؤتمرات",
+                            "customer_service": "خدمة العملاء"
+                        }
+                    },
+                    "maintenance_expenses": {
+                        "title": "مصاريف صيانة",
+                        "codes": ["5250", "5251"],
+                        "subcategories": {
+                            "equipment_maintenance": "صيانة المعدات",
+                            "building_maintenance": "صيانة المباني"
+                        }
+                    },
+                    "depreciation": {
+                        "title": "الإهلاك والاستهلاك",
+                        "codes": ["5260", "5261", "5262"],
+                        "subcategories": {
+                            "equipment_depreciation": "إهلاك المعدات",
+                            "building_depreciation": "إهلاك المباني",
+                            "intangible_amortization": "استهلاك الأصول غير الملموسة"
+                        }
+                    }
+                }
+            },
+            "non_operating_items": {
+                "title": "الإيرادات والمصروفات غير التشغيلية",
+                "code_prefix": "42,53",
+                "income": {
+                    "title": "إيرادات غير تشغيلية",
+                    "code_prefix": "42",
+                    "type": "credit",
+                    "items": {
+                        "interest_income": {
+                            "title": "إيرادات فوائد",
+                            "codes": ["4210"],
+                            "description": "فوائد من الودائع والاستثمارات"
+                        },
+                        "investment_gains": {
+                            "title": "أرباح استثمارات",
+                            "codes": ["4220", "4221"],
+                            "description": "أرباح من بيع استثمارات وأوراق مالية"
+                        },
+                        "foreign_exchange_gains": {
+                            "title": "أرباح تقييم عملات",
+                            "codes": ["4230"],
+                            "description": "أرباح من تقلبات أسعار الصرف"
+                        },
+                        "other_income": {
+                            "title": "إيرادات أخرى",
+                            "codes": ["4290"],
+                            "description": "إيرادات متنوعة غير متكررة"
+                        }
+                    }
+                },
+                "expenses": {
+                    "title": "مصروفات غير تشغيلية",
+                    "code_prefix": "53",
+                    "type": "debit",
+                    "items": {
+                        "interest_expenses": {
+                            "title": "مصاريف فوائد",
+                            "codes": ["5310"],
+                            "description": "فوائد على القروض والتسهيلات"
+                        },
+                        "investment_losses": {
+                            "title": "خسائر استثمارات",
+                            "codes": ["5320"],
+                            "description": "خسائر من بيع استثمارات"
+                        },
+                        "foreign_exchange_losses": {
+                            "title": "خسائر تقييم عملات",
+                            "codes": ["5330"],
+                            "description": "خسائر من تقلبات أسعار الصرف"
+                        },
+                        "exceptional_losses": {
+                            "title": "خسائر/مصاريف غير متكررة",
+                            "codes": ["5390"],
+                            "description": "مصاريف استثنائية وغير متكررة"
+                        }
+                    }
+                }
+            },
+            "taxes": {
+                "title": "الضرائب (Taxes)",
+                "code_prefix": "54",
+                "type": "debit",
+                "items": {
+                    "income_tax": {
+                        "title": "ضريبة دخل",
+                        "codes": ["5410"],
+                        "description": "ضريبة على الأرباح الحالية"
+                    },
+                    "deferred_tax": {
+                        "title": "ضريبة مؤجلة",
+                        "codes": ["5420"],
+                        "description": "ضريبة مؤجلة للفترات القادمة"
+                    }
+                }
+            },
+            "other_comprehensive_income": {
+                "title": "الدخل الشامل الآخر (OCI)",
+                "code_prefix": "39",
+                "type": "mixed",
+                "items": {
+                    "financial_assets_revaluation": {
+                        "title": "فروقات تقييم أصول مالية",
+                        "codes": ["3910"],
+                        "description": "تغيرات في القيمة العادلة للأصول المالية"
+                    },
+                    "foreign_currency_translation": {
+                        "title": "أرباح أو خسائر تحويل عملات أجنبية",
+                        "codes": ["3920"],
+                        "description": "فروقات ترجمة العمليات الأجنبية"
+                    },
+                    "fixed_assets_revaluation": {
+                        "title": "إعادة تقييم أصول ثابتة",
+                        "codes": ["3930"],
+                        "description": "فروقات إعادة تقييم الأصول الثابتة"
+                    },
+                    "tax_effects": {
+                        "title": "تأثيرات ضرائب على عناصر الدخل الشامل",
+                        "codes": ["3940"],
+                        "description": "الأثر الضريبي لعناصر الدخل الشامل الآخر"
+                    }
+                }
+            }
+        }
+    
+    def get_detailed_profit_loss_statement(self, start_date: date, end_date: date) -> Dict:
+        """إنشاء بيان أرباح وخسائر مفصل وفقاً للهيكل التنظيمي"""
+        try:
+            statement = {
+                "period": {
+                    "start_date": start_date.strftime('%Y-%m-%d'),
+                    "end_date": end_date.strftime('%Y-%m-%d'),
+                    "period_days": (end_date - start_date).days + 1
+                },
+                "structure": {}
+            }
+            
+            # 1. حساب الإيرادات المفصلة
+            statement["structure"]["revenues"] = self._calculate_detailed_revenues(start_date, end_date)
+            
+            # 2. حساب تكلفة البضاعة المباعة المفصلة
+            statement["structure"]["cost_of_goods_sold"] = self._calculate_detailed_cogs(start_date, end_date)
+            
+            # 3. حساب مجمل الربح
+            total_revenues = statement["structure"]["revenues"]["total"]
+            total_cogs = statement["structure"]["cost_of_goods_sold"]["total"]
+            statement["structure"]["gross_profit"] = {
+                "title": "مجمل الربح (Gross Profit)",
+                "amount": total_revenues - total_cogs,
+                "percentage": ((total_revenues - total_cogs) / total_revenues * 100) if total_revenues > 0 else 0
+            }
+            
+            # 4. حساب المصروفات التشغيلية المفصلة
+            statement["structure"]["operating_expenses"] = self._calculate_detailed_operating_expenses(start_date, end_date)
+            
+            # 5. حساب الربح التشغيلي
+            gross_profit = statement["structure"]["gross_profit"]["amount"]
+            total_operating_expenses = statement["structure"]["operating_expenses"]["total"]
+            statement["structure"]["operating_profit"] = {
+                "title": "الربح التشغيلي (Operating Profit)",
+                "amount": gross_profit - total_operating_expenses,
+                "percentage": ((gross_profit - total_operating_expenses) / total_revenues * 100) if total_revenues > 0 else 0
+            }
+            
+            # 6. حساب العمليات غير التشغيلية المفصلة
+            statement["structure"]["non_operating"] = self._calculate_detailed_non_operating(start_date, end_date)
+            
+            # 7. حساب الربح قبل الضريبة
+            operating_profit = statement["structure"]["operating_profit"]["amount"]
+            net_non_operating = statement["structure"]["non_operating"]["net"]
+            statement["structure"]["earnings_before_tax"] = {
+                "title": "صافي الربح قبل الضريبة (EBT)",
+                "amount": operating_profit + net_non_operating,
+                "percentage": ((operating_profit + net_non_operating) / total_revenues * 100) if total_revenues > 0 else 0
+            }
+            
+            # 8. حساب الضرائب المفصلة
+            statement["structure"]["taxes"] = self._calculate_detailed_taxes(start_date, end_date)
+            
+            # 9. حساب صافي الربح
+            earnings_before_tax = statement["structure"]["earnings_before_tax"]["amount"]
+            total_taxes = statement["structure"]["taxes"]["total"]
+            statement["structure"]["net_profit"] = {
+                "title": "صافي الربح بعد الضريبة",
+                "amount": earnings_before_tax - total_taxes,
+                "percentage": ((earnings_before_tax - total_taxes) / total_revenues * 100) if total_revenues > 0 else 0
+            }
+            
+            # 10. حساب الدخل الشامل الآخر المفصل
+            statement["structure"]["other_comprehensive_income"] = self._calculate_detailed_oci(start_date, end_date)
+            
+            # 11. حساب الدخل الشامل النهائي
+            net_profit = statement["structure"]["net_profit"]["amount"]
+            total_oci = statement["structure"]["other_comprehensive_income"]["total"]
+            statement["structure"]["total_comprehensive_income"] = {
+                "title": "الدخل الشامل النهائي",
+                "amount": net_profit + total_oci,
+                "percentage": ((net_profit + total_oci) / total_revenues * 100) if total_revenues > 0 else 0
+            }
+            
+            # إضافة معلومات إضافية
+            statement["calculated_at"] = datetime.now().isoformat()
+            statement["currency"] = "SAR"
+            
+            return statement
+            
+        except Exception as e:
+            self.logger.error(f"خطأ في إنشاء بيان الأرباح والخسائر المفصل: {e}")
+            return self._get_empty_statement(start_date, end_date)
+    
+    def _calculate_detailed_revenues(self, start_date: date, end_date: date) -> Dict:
+        """حساب الإيرادات المفصلة"""
+        try:
+            revenues_structure = self.structure["revenues"]
+            result = {
+                "title": revenues_structure["title"],
+                "items": {},
+                "total": 0.0
+            }
+            
+            for item_key, item_config in revenues_structure["items"].items():
+                item_total = 0.0
+                item_details = []
+                
+                for code in item_config["codes"]:
+                    amount = self._get_account_balance_by_code(code, start_date, end_date, "credit")
+                    if amount > 0:
+                        account_info = self._get_account_info_by_code(code)
+                        item_details.append({
+                            "account_code": code,
+                            "account_name": account_info["name"] if account_info else f"حساب {code}",
+                            "amount": amount
+                        })
+                        item_total += amount
+                
+                result["items"][item_key] = {
+                    "title": item_config["title"],
+                    "description": item_config["description"],
+                    "total": item_total,
+                    "details": item_details
+                }
+                result["total"] += item_total
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"خطأ في حساب الإيرادات المفصلة: {e}")
+            return {"title": "الإيرادات", "items": {}, "total": 0.0}
+
+    def _calculate_detailed_cogs(self, start_date: date, end_date: date) -> Dict:
+        """حساب تكلفة البضاعة المباعة المفصلة"""
+        try:
+            cogs_structure = self.structure["cost_of_goods_sold"]
+            result = {
+                "title": cogs_structure["title"],
+                "calculation": {},
+                "total": 0.0,
+                "formula": cogs_structure["formula"]
+            }
+
+            # حساب كل مكون من مكونات تكلفة البضاعة المباعة
+            for calc_key, calc_config in cogs_structure["calculation"].items():
+                calc_total = 0.0
+                calc_details = []
+
+                for code in calc_config["codes"]:
+                    if calc_key == "closing_inventory":
+                        # المخزون الختامي يطرح
+                        amount = self._get_current_inventory_value(code)
+                    elif calc_key == "opening_inventory":
+                        # المخزون الافتتاحي (يمكن حسابه من الفترة السابقة)
+                        amount = self._get_opening_inventory_value(code, start_date)
+                    else:
+                        # المشتريات ومصاريف الشحن
+                        amount = self._get_account_balance_by_code(code, start_date, end_date, "debit")
+
+                    if amount > 0:
+                        account_info = self._get_account_info_by_code(code)
+                        calc_details.append({
+                            "account_code": code,
+                            "account_name": account_info["name"] if account_info else f"حساب {code}",
+                            "amount": amount
+                        })
+                        calc_total += amount
+
+                result["calculation"][calc_key] = {
+                    "title": calc_config["title"],
+                    "description": calc_config["description"],
+                    "total": calc_total,
+                    "details": calc_details
+                }
+
+                # حساب الإجمالي وفقاً للمعادلة
+                if calc_key in ["opening_inventory", "purchases", "shipping_costs"]:
+                    result["total"] += calc_total
+                elif calc_key == "closing_inventory":
+                    result["total"] -= calc_total
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"خطأ في حساب تكلفة البضاعة المباعة: {e}")
+            return {"title": "تكلفة البضاعة المباعة", "calculation": {}, "total": 0.0}
+
+    def _calculate_detailed_operating_expenses(self, start_date: date, end_date: date) -> Dict:
+        """حساب المصروفات التشغيلية المفصلة"""
+        try:
+            expenses_structure = self.structure["operating_expenses"]
+            result = {
+                "title": expenses_structure["title"],
+                "categories": {},
+                "total": 0.0
+            }
+
+            for category_key, category_config in expenses_structure["categories"].items():
+                category_total = 0.0
+                category_details = []
+                subcategories = {}
+
+                for code in category_config["codes"]:
+                    amount = self._get_account_balance_by_code(code, start_date, end_date, "debit")
+                    if amount > 0:
+                        account_info = self._get_account_info_by_code(code)
+                        category_details.append({
+                            "account_code": code,
+                            "account_name": account_info["name"] if account_info else f"حساب {code}",
+                            "amount": amount
+                        })
+                        category_total += amount
+
+                result["categories"][category_key] = {
+                    "title": category_config["title"],
+                    "total": category_total,
+                    "details": category_details,
+                    "subcategories": category_config.get("subcategories", {})
+                }
+                result["total"] += category_total
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"خطأ في حساب المصروفات التشغيلية: {e}")
+            return {"title": "المصروفات التشغيلية", "categories": {}, "total": 0.0}
+
+    def _calculate_detailed_non_operating(self, start_date: date, end_date: date) -> Dict:
+        """حساب العمليات غير التشغيلية المفصلة"""
+        try:
+            non_op_structure = self.structure["non_operating_items"]
+            result = {
+                "title": non_op_structure["title"],
+                "income": {"title": "إيرادات غير تشغيلية", "items": {}, "total": 0.0},
+                "expenses": {"title": "مصروفات غير تشغيلية", "items": {}, "total": 0.0},
+                "net": 0.0
+            }
+
+            # حساب الإيرادات غير التشغيلية
+            for item_key, item_config in non_op_structure["income"]["items"].items():
+                item_total = 0.0
+                item_details = []
+
+                for code in item_config["codes"]:
+                    amount = self._get_account_balance_by_code(code, start_date, end_date, "credit")
+                    if amount > 0:
+                        account_info = self._get_account_info_by_code(code)
+                        item_details.append({
+                            "account_code": code,
+                            "account_name": account_info["name"] if account_info else f"حساب {code}",
+                            "amount": amount
+                        })
+                        item_total += amount
+
+                result["income"]["items"][item_key] = {
+                    "title": item_config["title"],
+                    "description": item_config["description"],
+                    "total": item_total,
+                    "details": item_details
+                }
+                result["income"]["total"] += item_total
+
+            # حساب المصروفات غير التشغيلية
+            for item_key, item_config in non_op_structure["expenses"]["items"].items():
+                item_total = 0.0
+                item_details = []
+
+                for code in item_config["codes"]:
+                    amount = self._get_account_balance_by_code(code, start_date, end_date, "debit")
+                    if amount > 0:
+                        account_info = self._get_account_info_by_code(code)
+                        item_details.append({
+                            "account_code": code,
+                            "account_name": account_info["name"] if account_info else f"حساب {code}",
+                            "amount": amount
+                        })
+                        item_total += amount
+
+                result["expenses"]["items"][item_key] = {
+                    "title": item_config["title"],
+                    "description": item_config["description"],
+                    "total": item_total,
+                    "details": item_details
+                }
+                result["expenses"]["total"] += item_total
+
+            # حساب الصافي
+            result["net"] = result["income"]["total"] - result["expenses"]["total"]
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"خطأ في حساب العمليات غير التشغيلية: {e}")
+            return {"title": "العمليات غير التشغيلية", "income": {}, "expenses": {}, "net": 0.0}
+
+    def _calculate_detailed_taxes(self, start_date: date, end_date: date) -> Dict:
+        """حساب الضرائب المفصلة"""
+        try:
+            taxes_structure = self.structure["taxes"]
+            result = {
+                "title": taxes_structure["title"],
+                "items": {},
+                "total": 0.0
+            }
+
+            for item_key, item_config in taxes_structure["items"].items():
+                item_total = 0.0
+                item_details = []
+
+                for code in item_config["codes"]:
+                    amount = self._get_account_balance_by_code(code, start_date, end_date, "debit")
+                    if amount > 0:
+                        account_info = self._get_account_info_by_code(code)
+                        item_details.append({
+                            "account_code": code,
+                            "account_name": account_info["name"] if account_info else f"حساب {code}",
+                            "amount": amount
+                        })
+                        item_total += amount
+
+                result["items"][item_key] = {
+                    "title": item_config["title"],
+                    "description": item_config["description"],
+                    "total": item_total,
+                    "details": item_details
+                }
+                result["total"] += item_total
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"خطأ في حساب الضرائب: {e}")
+            return {"title": "الضرائب", "items": {}, "total": 0.0}
+
+    def _calculate_detailed_oci(self, start_date: date, end_date: date) -> Dict:
+        """حساب الدخل الشامل الآخر المفصل"""
+        try:
+            oci_structure = self.structure["other_comprehensive_income"]
+            result = {
+                "title": oci_structure["title"],
+                "items": {},
+                "total": 0.0
+            }
+
+            for item_key, item_config in oci_structure["items"].items():
+                item_total = 0.0
+                item_details = []
+
+                for code in item_config["codes"]:
+                    # الدخل الشامل الآخر يمكن أن يكون مدين أو دائن
+                    credit_amount = self._get_account_balance_by_code(code, start_date, end_date, "credit")
+                    debit_amount = self._get_account_balance_by_code(code, start_date, end_date, "debit")
+                    amount = credit_amount - debit_amount
+
+                    if amount != 0:
+                        account_info = self._get_account_info_by_code(code)
+                        item_details.append({
+                            "account_code": code,
+                            "account_name": account_info["name"] if account_info else f"حساب {code}",
+                            "amount": amount
+                        })
+                        item_total += amount
+
+                result["items"][item_key] = {
+                    "title": item_config["title"],
+                    "description": item_config["description"],
+                    "total": item_total,
+                    "details": item_details
+                }
+                result["total"] += item_total
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"خطأ في حساب الدخل الشامل الآخر: {e}")
+            return {"title": "الدخل الشامل الآخر", "items": {}, "total": 0.0}
+
+    def _get_account_balance_by_code(self, account_code: str, start_date: date, end_date: date, balance_type: str) -> float:
+        """جلب رصيد حساب معين حسب الكود والنوع"""
+        try:
+            if balance_type == "credit":
+                query = """
+                    SELECT COALESCE(SUM(jed.credit_amount), 0) as balance
+                    FROM journal_entries je
+                    JOIN journal_entry_details jed ON je.id = jed.journal_entry_id
+                    JOIN chart_of_accounts ca ON jed.account_id = ca.id
+                    WHERE ca.account_code = ?
+                    AND je.entry_date BETWEEN ? AND ?
+                    AND je.status = 'posted'
+                """
+            else:  # debit
+                query = """
+                    SELECT COALESCE(SUM(jed.debit_amount), 0) as balance
+                    FROM journal_entries je
+                    JOIN journal_entry_details jed ON je.id = jed.journal_entry_id
+                    JOIN chart_of_accounts ca ON jed.account_id = ca.id
+                    WHERE ca.account_code = ?
+                    AND je.entry_date BETWEEN ? AND ?
+                    AND je.status = 'posted'
+                """
+
+            result = self.db_manager.fetch_one(query, (account_code, start_date, end_date))
+            return result['balance'] if result else 0.0
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب رصيد الحساب {account_code}: {e}")
+            return 0.0
+
+    def _get_account_info_by_code(self, account_code: str) -> Optional[Dict]:
+        """جلب معلومات الحساب بالكود"""
+        try:
+            query = """
+                SELECT account_name as name, account_type, account_code
+                FROM chart_of_accounts
+                WHERE account_code = ? AND is_active = 1
+            """
+            result = self.db_manager.fetch_one(query, (account_code,))
+            return dict(result) if result else None
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب معلومات الحساب {account_code}: {e}")
+            return None
+
+    def _get_current_inventory_value(self, inventory_code: str) -> float:
+        """جلب قيمة المخزون الحالية"""
+        try:
+            query = """
+                SELECT COALESCE(SUM(current_stock * cost_price), 0) as inventory_value
+                FROM products
+                WHERE is_active = 1
+            """
+            result = self.db_manager.fetch_one(query)
+            return result['inventory_value'] if result else 0.0
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب قيمة المخزون: {e}")
+            return 0.0
+
+    def _get_opening_inventory_value(self, inventory_code: str, start_date: date) -> float:
+        """جلب قيمة المخزون الافتتاحي"""
+        try:
+            # يمكن حساب المخزون الافتتاحي من المخزون في نهاية الفترة السابقة
+            # هذا مثال مبسط - يمكن تطويره أكثر
+            previous_date = start_date.replace(day=1) - timedelta(days=1)
+
+            query = """
+                SELECT COALESCE(current_balance, 0) as opening_balance
+                FROM chart_of_accounts
+                WHERE account_code = ? AND is_active = 1
+            """
+            result = self.db_manager.fetch_one(query, (inventory_code,))
+            return result['opening_balance'] if result else 0.0
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب المخزون الافتتاحي: {e}")
+            return 0.0
+
+    def _get_empty_statement(self, start_date: date, end_date: date) -> Dict:
+        """إرجاع بيان فارغ في حالة الخطأ"""
+        return {
+            "period": {
+                "start_date": start_date.strftime('%Y-%m-%d') if start_date else '',
+                "end_date": end_date.strftime('%Y-%m-%d') if end_date else '',
+                "period_days": 0
+            },
+            "structure": {},
+            "calculated_at": datetime.now().isoformat(),
+            "currency": "SAR",
+            "error": True
+        }
+
+    def generate_structured_statement_text(self, start_date: date, end_date: date) -> str:
+        """إنشاء بيان أرباح وخسائر نصي مهيكل"""
+        try:
+            statement = self.get_detailed_profit_loss_statement(start_date, end_date)
+
+            if statement.get('error'):
+                return "خطأ في إنشاء البيان"
+
+            text = f"""
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    🧾 بيان الأرباح والخسائر المهيكل                         ║
+║                   STRUCTURED PROFIT & LOSS STATEMENT                        ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ الفترة: من {statement['period']['start_date']} إلى {statement['period']['end_date']} ({statement['period']['period_days']} يوم)
+║ العملة: {statement['currency']}
+╠══════════════════════════════════════════════════════════════════════════════╣
+
+1️⃣ الإيرادات (REVENUES)
+"""
+
+            # إضافة تفاصيل الإيرادات
+            revenues = statement['structure'].get('revenues', {})
+            for item_key, item_data in revenues.get('items', {}).items():
+                text += f"   ├── {item_data['title']:<40} {item_data['total']:>15,.2f}\n"
+                for detail in item_data.get('details', []):
+                    text += f"   │   └── {detail['account_name']:<35} {detail['amount']:>10,.2f}\n"
+
+            text += f"   ────────────────────────────────────────────────────────────────────────────\n"
+            text += f"   إجمالي الإيرادات                                    {revenues.get('total', 0):>15,.2f}\n\n"
+
+            # إضافة تكلفة البضاعة المباعة
+            cogs = statement['structure'].get('cost_of_goods_sold', {})
+            text += f"2️⃣ تكلفة البضاعة المباعة (COST OF GOODS SOLD)\n"
+            text += f"   المعادلة: {cogs.get('formula', '')}\n"
+
+            for calc_key, calc_data in cogs.get('calculation', {}).items():
+                sign = "+" if calc_key != "closing_inventory" else "-"
+                text += f"   {sign} {calc_data['title']:<38} {calc_data['total']:>15,.2f}\n"
+
+            text += f"   ────────────────────────────────────────────────────────────────────────────\n"
+            text += f"   إجمالي تكلفة البضاعة المباعة                        ({cogs.get('total', 0):>15,.2f})\n\n"
+
+            # مجمل الربح
+            gross_profit = statement['structure'].get('gross_profit', {})
+            text += f"💰 مجمل الربح (GROSS PROFIT)                          {gross_profit.get('amount', 0):>15,.2f}\n"
+            text += f"   هامش مجمل الربح                                   {gross_profit.get('percentage', 0):>14.2f}%\n\n"
+
+            # المصروفات التشغيلية
+            operating_expenses = statement['structure'].get('operating_expenses', {})
+            text += f"3️⃣ المصروفات التشغيلية (OPERATING EXPENSES)\n"
+
+            for category_key, category_data in operating_expenses.get('categories', {}).items():
+                text += f"   ├── {category_data['title']:<40} ({category_data['total']:>13,.2f})\n"
+                for detail in category_data.get('details', []):
+                    text += f"   │   └── {detail['account_name']:<35} ({detail['amount']:>8,.2f})\n"
+
+            text += f"   ────────────────────────────────────────────────────────────────────────────\n"
+            text += f"   إجمالي المصروفات التشغيلية                        ({operating_expenses.get('total', 0):>15,.2f})\n\n"
+
+            # الربح التشغيلي
+            operating_profit = statement['structure'].get('operating_profit', {})
+            text += f"⚙️ الربح التشغيلي (OPERATING PROFIT)                   {operating_profit.get('amount', 0):>15,.2f}\n"
+            text += f"   هامش الربح التشغيلي                               {operating_profit.get('percentage', 0):>14.2f}%\n\n"
+
+            # العمليات غير التشغيلية
+            non_operating = statement['structure'].get('non_operating', {})
+            text += f"4️⃣ العمليات غير التشغيلية (NON-OPERATING ITEMS)\n"
+
+            # الإيرادات غير التشغيلية
+            text += f"   📈 إيرادات غير تشغيلية:\n"
+            for item_key, item_data in non_operating.get('income', {}).get('items', {}).items():
+                if item_data['total'] > 0:
+                    text += f"   ├── {item_data['title']:<40} {item_data['total']:>15,.2f}\n"
+
+            # المصروفات غير التشغيلية
+            text += f"   📉 مصروفات غير تشغيلية:\n"
+            for item_key, item_data in non_operating.get('expenses', {}).get('items', {}).items():
+                if item_data['total'] > 0:
+                    text += f"   ├── {item_data['title']:<40} ({item_data['total']:>13,.2f})\n"
+
+            text += f"   ────────────────────────────────────────────────────────────────────────────\n"
+            text += f"   صافي العمليات غير التشغيلية                        {non_operating.get('net', 0):>15,.2f}\n\n"
+
+            # الربح قبل الضريبة
+            ebt = statement['structure'].get('earnings_before_tax', {})
+            text += f"💼 الربح قبل الضريبة (EARNINGS BEFORE TAX)             {ebt.get('amount', 0):>15,.2f}\n\n"
+
+            # الضرائب
+            taxes = statement['structure'].get('taxes', {})
+            text += f"5️⃣ الضرائب (TAXES)\n"
+            for item_key, item_data in taxes.get('items', {}).items():
+                if item_data['total'] > 0:
+                    text += f"   ├── {item_data['title']:<40} ({item_data['total']:>13,.2f})\n"
+
+            text += f"   ────────────────────────────────────────────────────────────────────────────\n"
+            text += f"   إجمالي الضرائب                                    ({taxes.get('total', 0):>15,.2f})\n\n"
+
+            # صافي الربح
+            net_profit = statement['structure'].get('net_profit', {})
+            text += f"💎 صافي الربح بعد الضريبة (NET PROFIT)               {net_profit.get('amount', 0):>15,.2f}\n"
+            text += f"   هامش صافي الربح                                   {net_profit.get('percentage', 0):>14.2f}%\n\n"
+
+            # الدخل الشامل الآخر
+            oci = statement['structure'].get('other_comprehensive_income', {})
+            text += f"6️⃣ الدخل الشامل الآخر (OTHER COMPREHENSIVE INCOME)\n"
+            for item_key, item_data in oci.get('items', {}).items():
+                if item_data['total'] != 0:
+                    text += f"   ├── {item_data['title']:<40} {item_data['total']:>15,.2f}\n"
+
+            text += f"   ────────────────────────────────────────────────────────────────────────────\n"
+            text += f"   إجمالي الدخل الشامل الآخر                          {oci.get('total', 0):>15,.2f}\n\n"
+
+            # الدخل الشامل النهائي
+            total_comprehensive = statement['structure'].get('total_comprehensive_income', {})
+            text += f"   ════════════════════════════════════════════════════════════════════════════\n"
+            text += f"✅ الدخل الشامل النهائي (TOTAL COMPREHENSIVE INCOME)   {total_comprehensive.get('amount', 0):>15,.2f}\n"
+            text += f"   النسبة من الإيرادات                                {total_comprehensive.get('percentage', 0):>14.2f}%\n"
+            text += f"   ════════════════════════════════════════════════════════════════════════════\n\n"
+
+            text += f"╚══════════════════════════════════════════════════════════════════════════════╝\n"
+            text += f"تم إنشاء البيان في: {statement['calculated_at']}\n"
+
+            return text
+
+        except Exception as e:
+            self.logger.error(f"خطأ في إنشاء البيان النصي المهيكل: {e}")
+            return f"خطأ في إنشاء البيان: {e}"
+
+    def get_structure_definition(self) -> Dict:
+        """إرجاع تعريف الهيكل التنظيمي"""
+        return self.structure
+
+    def validate_account_codes(self) -> Dict:
+        """التحقق من وجود أكواد الحسابات في النظام"""
+        try:
+            missing_codes = []
+            existing_codes = []
+
+            # جمع جميع الأكواد من الهيكل
+            all_codes = set()
+
+            def collect_codes(structure_part):
+                if isinstance(structure_part, dict):
+                    if 'codes' in structure_part:
+                        all_codes.update(structure_part['codes'])
+                    for value in structure_part.values():
+                        if isinstance(value, (dict, list)):
+                            collect_codes(value)
+                elif isinstance(structure_part, list):
+                    for item in structure_part:
+                        collect_codes(item)
+
+            collect_codes(self.structure)
+
+            # التحقق من وجود الأكواد في قاعدة البيانات
+            for code in all_codes:
+                account_info = self._get_account_info_by_code(code)
+                if account_info:
+                    existing_codes.append({
+                        'code': code,
+                        'name': account_info['name'],
+                        'type': account_info['account_type']
+                    })
+                else:
+                    missing_codes.append(code)
+
+            return {
+                'total_codes': len(all_codes),
+                'existing_codes': existing_codes,
+                'missing_codes': missing_codes,
+                'coverage_percentage': (len(existing_codes) / len(all_codes) * 100) if all_codes else 0
+            }
+
+        except Exception as e:
+            self.logger.error(f"خطأ في التحقق من أكواد الحسابات: {e}")
+            return {
+                'total_codes': 0,
+                'existing_codes': [],
+                'missing_codes': [],
+                'coverage_percentage': 0,
+                'error': str(e)
+            }

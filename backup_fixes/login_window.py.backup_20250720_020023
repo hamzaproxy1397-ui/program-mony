@@ -1,0 +1,274 @@
+# -*- coding: utf-8 -*-
+# cSpell:disable
+"""
+نافذة تسجيل الدخول
+"""
+
+import customtkinter as ctk
+import tkinter as tk
+from tkinter import messagebox
+from auth.auth_manager import AuthManager
+from themes.theme_manager import ThemeManager
+from ui.window_utils import configure_window_fullscreen
+
+class LoginWindow:
+    """نافذة تسجيل الدخول"""
+    
+    def __init__(self):
+        self.auth_manager = AuthManager()
+        self.theme_manager = ThemeManager()
+        self.window = None
+        self.username_entry = None
+        self.password_entry = None
+        self.remember_var = None
+        self.login_callback = None
+        
+    def create_window(self, login_callback=None):
+        """إنشاء نافذة تسجيل الدخول"""
+        self.login_callback = login_callback
+        
+        # إنشاء النافذة الرئيسية
+        self.window = ctk.CTk()
+
+        # إعداد النافذة لتملأ الشاشة
+        configure_window_fullscreen(self.window, "تسجيل الدخول - برنامج ست الكل للمحاسبة")
+        
+        # إنشاء المحتوى
+        self.create_content()
+        
+        # ربط مفتاح Enter
+        self.window.bind('<Return>', lambda event: self.login())
+        
+        return self.window
+    
+    def center_window(self):
+        """توسيط النافذة على الشاشة"""
+        self.window.update_idletasks()
+        width = self.window.winfo_width()
+        height = self.window.winfo_height()
+        x = (self.window.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.window.winfo_screenheight() // 2) - (height // 2)
+        self.window.geometry(f"{width}x{height}+{x}+{y}")
+    
+    def create_content(self):
+        """إنشاء محتوى النافذة"""
+        # الإطار الرئيسي - يملأ الشاشة بالكامل
+        main_frame = self.theme_manager.create_styled_frame(
+            self.window,
+            corner_radius=0,  # بدون زوايا مستديرة لملء الشاشة
+            border_width=0    # بدون حدود لملء الشاشة
+        )
+        main_frame.pack(fill="both", expand=True)
+
+        # إطار المحتوى المتوسط
+        content_container = ctk.CTkFrame(main_frame, fg_color="transparent")
+        content_container.pack(expand=True, fill="both")
+
+        # إطار تسجيل الدخول في الوسط
+        login_container = ctk.CTkFrame(
+            content_container,
+            corner_radius=20,
+            border_width=2,
+            width=600,
+            height=700
+        )
+        login_container.pack(expand=True, pady=50)
+        login_container.pack_propagate(False)
+        
+        # شعار البرنامج
+        logo_frame = ctk.CTkFrame(login_container, fg_color="transparent")
+        logo_frame.pack(pady=(40, 30))
+
+        # عنوان البرنامج
+        title_label = self.theme_manager.create_styled_label(
+            logo_frame,
+            text="برنامج ست الكل للمحاسبة",
+            font_size=32  # خط أكبر لملء الشاشة
+        )
+        title_label.pack(pady=15)
+
+        # عنوان فرعي
+        subtitle_label = self.theme_manager.create_styled_label(
+            logo_frame,
+            text="نظام إدارة المبيعات والمحاسبة",
+            font_size=18  # خط أكبر لملء الشاشة
+        )
+        subtitle_label.configure(text_color=self.theme_manager.get_color("text_secondary"))
+        subtitle_label.pack()
+
+        # إطار تسجيل الدخول
+        login_frame = self.theme_manager.create_styled_frame(
+            login_container,
+            corner_radius=15,
+            border_width=1
+        )
+        login_frame.pack(fill="both", expand=True, padx=40, pady=30)
+        
+        # عنوان تسجيل الدخول
+        login_title = self.theme_manager.create_styled_label(
+            login_frame,
+            text="تسجيل الدخول",
+            font_size=24  # خط أكبر لملء الشاشة
+        )
+        login_title.pack(pady=(30, 40))
+        
+        # حقل اسم المستخدم
+        username_label = self.theme_manager.create_styled_label(
+            login_frame,
+            text="اسم المستخدم:",
+            font_size=12
+        )
+        username_label.pack(anchor="e", padx=20, pady=(0, 5))
+        
+        self.username_entry = self.theme_manager.create_styled_entry(
+            login_frame,
+            placeholder_text="أدخل اسم المستخدم",
+            width=400,  # عرض أكبر لملء الشاشة
+            height=50,  # ارتفاع أكبر لملء الشاشة
+            font_size=16,  # خط أكبر
+            justify="right"
+        )
+        self.username_entry.pack(padx=30, pady=(0, 20))
+        
+        # حقل كلمة المرور
+        password_label = self.theme_manager.create_styled_label(
+            login_frame,
+            text="كلمة المرور:",
+            font_size=12
+        )
+        password_label.pack(anchor="e", padx=20, pady=(0, 5))
+        
+        self.password_entry = self.theme_manager.create_styled_entry(
+            login_frame,
+            placeholder_text="أدخل كلمة المرور",
+            width=400,  # عرض أكبر لملء الشاشة
+            height=50,  # ارتفاع أكبر لملء الشاشة
+            font_size=16,  # خط أكبر
+            show="*",
+            justify="right"
+        )
+        self.password_entry.pack(padx=30, pady=(0, 20))
+        
+        # خيار تذكر كلمة المرور
+        remember_frame = ctk.CTkFrame(login_frame, fg_color="transparent")
+        remember_frame.pack(pady=10)
+        
+        self.remember_var = ctk.BooleanVar()
+        remember_checkbox = ctk.CTkCheckBox(
+            remember_frame,
+            text="تذكر كلمة المرور",
+            variable=self.remember_var,
+            font=("Cairo", 11)
+        )
+        remember_checkbox.pack()
+        
+        # أزرار العمليات
+        buttons_frame = ctk.CTkFrame(login_frame, fg_color="transparent")
+        buttons_frame.pack(pady=20, padx=20, fill="x")
+        
+        # زر تسجيل الدخول
+        login_btn = self.theme_manager.create_styled_button(
+            buttons_frame,
+            text="تسجيل الدخول",
+            command=self.login,
+            button_type="primary",
+            width=300,  # عرض أكبر لملء الشاشة
+            height=50,  # ارتفاع أكبر لملء الشاشة
+            font_size=18  # خط أكبر
+        )
+        login_btn.pack(pady=10)
+
+        # زر إلغاء
+        cancel_btn = self.theme_manager.create_styled_button(
+            buttons_frame,
+            text="إلغاء",
+            command=self.cancel,
+            button_type="secondary",
+            width=300,  # عرض أكبر لملء الشاشة
+            height=45,  # ارتفاع أكبر لملء الشاشة
+            font_size=16  # خط أكبر
+        )
+        cancel_btn.pack(pady=10)
+        
+        # إطار الإعدادات السفلي
+        settings_frame = ctk.CTkFrame(login_container, fg_color="transparent")
+        settings_frame.pack(side="bottom", fill="x", pady=20)
+        
+        # زر تغيير الثيم
+        theme_btn = self.theme_manager.create_styled_button(
+            settings_frame,
+            text=f"الثيم: {self.theme_manager.get_current_theme_name()}",
+            command=self.toggle_theme,
+            button_type="settings",
+            width=150,
+            height=30,
+            font_size=10
+        )
+        theme_btn.pack(side="right", padx=10)
+        
+        # معلومات الإصدار
+        version_label = self.theme_manager.create_styled_label(
+            settings_frame,
+            text="الإصدار 1.0",
+            font_size=10
+        )
+        version_label.configure(text_color=self.theme_manager.get_color("text_secondary"))
+        version_label.pack(side="left", padx=10)
+        
+        # تركيز على حقل اسم المستخدم
+        self.username_entry.focus()
+    
+    def login(self):
+        """تسجيل الدخول"""
+        username = self.username_entry.get().strip()
+        password = self.password_entry.get().strip()
+        
+        # التحقق من البيانات
+        if not username:
+            messagebox.showerror("خطأ", "يرجى إدخال اسم المستخدم")
+            self.username_entry.focus()
+            return
+        
+        if not password:
+            messagebox.showerror("خطأ", "يرجى إدخال كلمة المرور")
+            self.password_entry.focus()
+            return
+        
+        # محاولة تسجيل الدخول
+        result = self.auth_manager.login(username, password)
+        
+        if result['success']:
+            messagebox.showinfo("نجح", result['message'])
+            
+            # إغلاق نافذة تسجيل الدخول
+            self.window.destroy()
+            
+            # استدعاء callback إذا كان موجوداً
+            if self.login_callback:
+                self.login_callback(result['user'])
+        else:
+            messagebox.showerror("خطأ", result['message'])
+            self.password_entry.delete(0, 'end')
+            self.password_entry.focus()
+    
+    def cancel(self):
+        """إلغاء تسجيل الدخول"""
+        self.window.quit()
+    
+    def toggle_theme(self):
+        """تبديل الثيم"""
+        self.theme_manager.toggle_theme()
+        
+        # إعادة إنشاء النافذة بالثيم الجديد
+        self.window.destroy()
+        self.create_window(self.login_callback)
+        self.show()
+    
+    def show(self):
+        """عرض النافذة"""
+        if self.window:
+            self.window.mainloop()
+    
+    def get_auth_manager(self):
+        """الحصول على مدير المصادقة"""
+        return self.auth_manager

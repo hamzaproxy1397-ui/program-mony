@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+أداة تنظيف الاستيرادات المكررة
+Duplicate Import Cleaner
+"""
+
+import re
+from pathlib import Path
+from typing import List, Set
+
+class DuplicateImportCleaner:
+    """منظف الاستيرادات المكررة"""
+
+    def __init__(self):
+        self.project_root = Path(".")
+        self.fixed_files = []
+        self.errors = []
+
+    def clean_file_imports(self, file_path: Path) -> bool:
+        """تنظيف الاستيرادات المكررة في ملف واحد"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            original_content = content
+            lines = content.split('\n')
+            new_lines = []
+            seen_imports = set()
+
+            for line in lines:
+                stripped = line.strip()
+
+                # إذا كان السطر استيراد
+                if (stripped.startswith('from ') and 'import' in stripped) or stripped.startswith('import '):
+                    # تنظيف السطر من التعليقات
+                    clean_import = stripped.split('#')[0].strip()
+
+                    if clean_import not in seen_imports:
+                        seen_imports.add(clean_import)
+                        new_lines.append(line)
+                    else:
+                        print(f"   🗑️ حذف استيراد مكرر: {clean_import}")
+                else:
+                    new_lines.append(line)
+
+            # إذا تم تغيير المحتوى
+            new_content = '\n'.join(new_lines)
+            if new_content != original_content:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(new_content)
+
+                print(f"✅ تم تنظيف: {file_path.name}")
+                return True
+
+            return False
+
+        except Exception as e:
+            error_msg = f"خطأ في تنظيف {file_path}: {e}"
+            print(f"❌ {error_msg}")
+            self.errors.append(error_msg)
+            return False
+
+    def clean_all_python_files(self):
+        """تنظيف جميع ملفات Python"""
+        print("🧹 بدء تنظيف الاستيرادات المكررة...")
+
+        python_files = []
+        for file_path in self.project_root.rglob("*.py"):
+            if any(skip in str(file_path) for skip in ["__pycache__", ".git", "venv", "env"]):
+                continue
+            python_files.append(file_path)
+
+        print(f"📊 تم العثور على {len(python_files)} ملف Python")
+
+        fixed_count = 0
+        for file_path in python_files:
+            if self.clean_file_imports(file_path):
+                fixed_count += 1
+                self.fixed_files.append(str(file_path))
+
+        print(f"\n📊 النتائج:")
+        print(f"   🧹 ملفات تم تنظيفها: {fixed_count}")
+        print(f"   ❌ أخطاء حدثت: {len(self.errors)}")
+
+        if self.errors:
+            print(f"\n⚠️ الأخطاء:")
+            for error in self.errors:
+                print(f"   - {error}")
+
+        return fixed_count
+
+def main():
+    """الدالة الرئيسية"""
+    cleaner = DuplicateImportCleaner()
+    fixed_count = cleaner.clean_all_python_files()
+
+    print(f"\n🎉 تم الانتهاء من تنظيف الاستيرادات المكررة!")
+    print(f"📊 إجمالي الملفات المنظفة: {fixed_count}")
+
+if __name__ == "__main__":
+    main()

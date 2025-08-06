@@ -1,0 +1,515 @@
+# -*- coding: utf-8 -*-
+# cSpell:disable
+"""
+نافذة إدارة شجرة الحسابات المتقدمة
+Advanced Chart of Accounts Tree Management Window
+"""
+
+import customtkinter as ctk
+import tkinter as tk
+from tkinter import messagebox, ttk
+from database.accounts_tree_manager import AccountsTreeManager
+from database.database_manager import DatabaseManager
+from themes.modern_theme import MODERN_COLORS, FONTS
+from ui.window_utils import configure_window_fullscreen
+from typing import List, Dict, Optional, Tuple, Any, Union, Callable
+
+class AccountsTreeWindow:
+    """نافذة إدارة شجرة الحسابات مع خوارزميات متقدمة"""
+    
+    def __init__(self, parent):
+        self.parent = parent
+        self.window = None
+        self.db_manager = DatabaseManager()
+        self.tree_manager = AccountsTreeManager(self.db_manager)
+        self.accounts_tree = None
+        self.selected_account = None
+        
+        self.create_window()
+    
+    def create_window(self):
+        """إنشاء النافذة الرئيسية"""
+        self.window = ctk.CTkToplevel(self.parent)
+        
+        # إعداد النافذة لتملأ الشاشة
+        configure_window_fullscreen(self.window, "إدارة شجرة الحسابات المتقدمة - برنامج ست الكل للمحاسبة")
+        self.window.configure(fg_color=MODERN_COLORS['background'])
+        
+        # جعل النافذة في المقدمة
+        self.window.transient(self.parent)
+        self.window.grab_set()
+        
+        # إنشاء المحتوى
+        self.create_header()
+        self.create_main_content()
+        self.create_buttons()
+        
+        # تحميل البيانات
+        self.load_accounts_tree()
+    
+    def create_header(self):
+        """إنشاء رأس النافذة"""
+        header_frame = ctk.CTkFrame(self.window, height=80, fg_color=MODERN_COLORS['primary'])
+        header_frame.pack(fill="x", padx=10, pady=(10, 0))
+        header_frame.pack_propagate(False)
+        
+        # العنوان
+        title_label = ctk.CTkLabel(
+            header_frame,
+            text="🌳 إدارة شجرة الحسابات المحاسبية",
+            font=(FONTS['arabic'], 24, "bold"),
+            text_color="white"
+        )
+        title_label.pack(side="right", padx=20, pady=20)
+        
+        # معلومات سريعة
+        info_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        info_frame.pack(side="left", padx=20, pady=15)
+        
+        self.accounts_count_label = ctk.CTkLabel(
+            info_frame,
+            text="عدد الحسابات: 0",
+            font=(FONTS['arabic'], 12),
+            text_color="white"
+        )
+        self.accounts_count_label.pack()
+        
+        self.tree_depth_label = ctk.CTkLabel(
+            info_frame,
+            text="عمق الشجرة: 0",
+            font=(FONTS['arabic'], 12),
+            text_color="white"
+        )
+        self.tree_depth_label.pack()
+    
+    def create_main_content(self):
+        """إنشاء المحتوى الرئيسي"""
+        main_frame = ctk.CTkFrame(self.window, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # إطار الشجرة (يسار)
+        tree_frame = ctk.CTkFrame(main_frame)
+        tree_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
+        
+        # عنوان الشجرة
+        tree_title = ctk.CTkLabel(
+            tree_frame,
+            text="🌳 شجرة الحسابات",
+            font=(FONTS['arabic'], 16, "bold")
+        )
+        tree_title.pack(pady=(10, 5))
+        
+        # شريط البحث
+        search_frame = ctk.CTkFrame(tree_frame, fg_color="transparent")
+        search_frame.pack(fill="x", padx=10, pady=5)
+        
+        self.search_entry = ctk.CTkEntry(
+            search_frame,
+            placeholder_text="🔍 البحث في الحسابات...",
+            width=300
+        )
+        self.search_entry.pack(side="right", padx=5)
+        self.search_entry.bind("<KeyRelease>", self.on_search)
+        
+        # فلتر نوع الحساب
+        self.account_type_filter = ctk.CTkComboBox(
+            search_frame,
+            values=["جميع الأنواع", "أصول", "خصوم", "حقوق ملكية", "إيرادات", "مصروفات"],
+            width=150,
+            command=self.on_filter_change
+        )
+        self.account_type_filter.pack(side="left", padx=5)
+        self.account_type_filter.set("جميع الأنواع")
+        
+        # إطار الشجرة مع شريط التمرير
+        tree_container = ctk.CTkFrame(tree_frame)
+        tree_container.pack(fill="both", expand=True, padx=10, pady=5)
+        
+        # إنشاء Treeview للشجرة
+        columns = ("code", "name", "type", "balance", "status")
+        self.accounts_tree = ttk.Treeview(tree_container, columns=columns, show="tree headings")
+        
+        # تعريف الأعمدة
+        self.accounts_tree.heading("#0", text="الهيكل")
+        self.accounts_tree.heading("code", text="الكود")
+        self.accounts_tree.heading("name", text="اسم الحساب")
+        self.accounts_tree.heading("type", text="النوع")
+        self.accounts_tree.heading("balance", text="الرصيد")
+        self.accounts_tree.heading("status", text="الحالة")
+        
+        # تحديد عرض الأعمدة
+        self.accounts_tree.column("#0", width=200)
+        self.accounts_tree.column("code", width=100)
+        self.accounts_tree.column("name", width=200)
+        self.accounts_tree.column("type", width=100)
+        self.accounts_tree.column("balance", width=120)
+        self.accounts_tree.column("status", width=80)
+        
+        # شريط التمرير
+        tree_scrollbar = ttk.Scrollbar(tree_container, orient="vertical", command=self.accounts_tree.yview)
+        self.accounts_tree.configure(yscrollcommand=tree_scrollbar.set)
+        
+        # تخطيط الشجرة
+        self.accounts_tree.pack(side="right", fill="both", expand=True)
+        tree_scrollbar.pack(side="left", fill="y")
+        
+        # ربط الأحداث
+        self.accounts_tree.bind("<<TreeviewSelect>>", self.on_account_select)
+        self.accounts_tree.bind("<Double-1>", self.on_account_double_click)
+        self.accounts_tree.bind("<Button-3>", self.show_context_menu)
+        
+        # إطار التفاصيل (يمين)
+        details_frame = ctk.CTkFrame(main_frame, width=400)
+        details_frame.pack(side="right", fill="y", padx=(5, 0))
+        details_frame.pack_propagate(False)
+        
+        self.create_details_panel(details_frame)
+    
+    def create_details_panel(self, parent):
+        """إنشاء لوحة تفاصيل الحساب"""
+        # عنوان اللوحة
+        details_title = ctk.CTkLabel(
+            parent,
+            text="📋 تفاصيل الحساب",
+            font=(FONTS['arabic'], 16, "bold")
+        )
+        details_title.pack(pady=(10, 20))
+        
+        # إطار النموذج
+        form_frame = ctk.CTkScrollableFrame(parent)
+        form_frame.pack(fill="both", expand=True, padx=10, pady=5)
+        
+        # حقول النموذج
+        self.create_form_fields(form_frame)
+        
+        # أزرار العمليات
+        buttons_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        buttons_frame.pack(fill="x", padx=10, pady=10)
+        
+        # زر إضافة حساب
+        add_btn = ctk.CTkButton(
+            buttons_frame,
+            text="➕ إضافة حساب",
+            command=self.add_account,
+            fg_color=MODERN_COLORS['success'],
+            width=120
+        )
+        add_btn.pack(side="top", pady=2)
+        
+        # زر تعديل حساب
+        edit_btn = ctk.CTkButton(
+            buttons_frame,
+            text="✏️ تعديل",
+            command=self.edit_account,
+            fg_color=MODERN_COLORS['info'],
+            width=120
+        )
+        edit_btn.pack(side="top", pady=2)
+        
+        # زر نقل حساب
+        move_btn = ctk.CTkButton(
+            buttons_frame,
+            text="🔄 نقل",
+            command=self.move_account,
+            fg_color=MODERN_COLORS['warning'],
+            width=120
+        )
+        move_btn.pack(side="top", pady=2)
+        
+        # زر حذف حساب
+        delete_btn = ctk.CTkButton(
+            buttons_frame,
+            text="🗑️ حذف",
+            command=self.delete_account,
+            fg_color=MODERN_COLORS['error'],
+            width=120
+        )
+        delete_btn.pack(side="top", pady=2)
+    
+    def create_form_fields(self, parent):
+        """إنشاء حقول النموذج"""
+        # اسم الحساب
+        ctk.CTkLabel(parent, text="اسم الحساب:", font=(FONTS['arabic'], 12)).pack(anchor="e", pady=(5, 0))
+        self.name_entry = ctk.CTkEntry(parent, placeholder_text="أدخل اسم الحساب")
+        self.name_entry.pack(fill="x", pady=(0, 10))
+        
+        # كود الحساب
+        ctk.CTkLabel(parent, text="كود الحساب:", font=(FONTS['arabic'], 12)).pack(anchor="e", pady=(5, 0))
+        self.code_entry = ctk.CTkEntry(parent, placeholder_text="أدخل كود الحساب")
+        self.code_entry.pack(fill="x", pady=(0, 10))
+        
+        # نوع الحساب
+        ctk.CTkLabel(parent, text="نوع الحساب:", font=(FONTS['arabic'], 12)).pack(anchor="e", pady=(5, 0))
+        self.type_combo = ctk.CTkComboBox(
+            parent,
+            values=["أصول", "خصوم", "حقوق ملكية", "إيرادات", "مصروفات"]
+        )
+        self.type_combo.pack(fill="x", pady=(0, 10))
+        
+        # الحساب الأب
+        ctk.CTkLabel(parent, text="الحساب الأب:", font=(FONTS['arabic'], 12)).pack(anchor="e", pady=(5, 0))
+        self.parent_combo = ctk.CTkComboBox(parent, values=["لا يوجد"])
+        self.parent_combo.pack(fill="x", pady=(0, 10))
+        
+        # الوصف
+        ctk.CTkLabel(parent, text="الوصف:", font=(FONTS['arabic'], 12)).pack(anchor="e", pady=(5, 0))
+        self.description_text = ctk.CTkTextbox(parent, height=80)
+        self.description_text.pack(fill="x", pady=(0, 10))
+        
+        # معلومات إضافية
+        info_frame = ctk.CTkFrame(parent)
+        info_frame.pack(fill="x", pady=10)
+        
+        self.level_label = ctk.CTkLabel(info_frame, text="المستوى: -", font=(FONTS['arabic'], 10))
+        self.level_label.pack(anchor="e", pady=2)
+        
+        self.balance_label = ctk.CTkLabel(info_frame, text="الرصيد: 0.00", font=(FONTS['arabic'], 10))
+        self.balance_label.pack(anchor="e", pady=2)
+        
+        self.leaf_status_label = ctk.CTkLabel(info_frame, text="النوع: -", font=(FONTS['arabic'], 10))
+        self.leaf_status_label.pack(anchor="e", pady=2)
+    
+    def create_buttons(self):
+        """إنشاء أزرار النافذة"""
+        buttons_frame = ctk.CTkFrame(self.window, height=60, fg_color="transparent")
+        buttons_frame.pack(fill="x", padx=10, pady=(0, 10))
+        buttons_frame.pack_propagate(False)
+        
+        # زر فحص سلامة الشجرة
+        validate_btn = ctk.CTkButton(
+            buttons_frame,
+            text="🔍 فحص سلامة الشجرة",
+            command=self.validate_tree,
+            fg_color=MODERN_COLORS['info'],
+            width=150
+        )
+        validate_btn.pack(side="right", padx=5, pady=15)
+        
+        # زر تحديث
+        refresh_btn = ctk.CTkButton(
+            buttons_frame,
+            text="🔄 تحديث",
+            command=self.load_accounts_tree,
+            fg_color=MODERN_COLORS['primary'],
+            width=100
+        )
+        refresh_btn.pack(side="right", padx=5, pady=15)
+        
+        # زر إغلاق
+        close_btn = ctk.CTkButton(
+            buttons_frame,
+            text="❌ إغلاق",
+            command=self.close_window,
+            fg_color=MODERN_COLORS['error'],
+            width=100
+        )
+        close_btn.pack(side="left", padx=5, pady=15)
+        
+        # زر تصدير الشجرة
+        export_btn = ctk.CTkButton(
+            buttons_frame,
+            text="📤 تصدير",
+            command=self.export_tree,
+            fg_color=MODERN_COLORS['success'],
+            width=100
+        )
+        export_btn.pack(side="left", padx=5, pady=15)
+    
+    def load_accounts_tree(self):
+        """تحميل شجرة الحسابات"""
+        try:
+            # مسح الشجرة الحالية
+            for item in self.accounts_tree.get_children():
+                self.accounts_tree.delete(item)
+            
+            # جلب الشجرة من قاعدة البيانات
+            tree_data = self.tree_manager.get_account_tree()
+            
+            # بناء الشجرة في الواجهة
+            self._build_tree_ui(tree_data)
+            
+            # تحديث الإحصائيات
+            self.update_statistics()
+            
+            # تحديث قائمة الحسابات الأب
+            self.update_parent_accounts_list()
+            
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في تحميل شجرة الحسابات: {e}")
+    
+    def _build_tree_ui(self, accounts: List[Dict], parent_item: str = ""):
+        """بناء الشجرة في الواجهة"""
+        for account in accounts:
+            # تحديد أيقونة الحساب
+            icon = "📁" if not account['is_leaf'] else "📄"
+            
+            # تحديد حالة الحساب
+            status = "ورقة" if account['is_leaf'] else "عقدة"
+            
+            # إدراج العنصر
+            item_id = self.accounts_tree.insert(
+                parent_item,
+                "end",
+                text=f"{icon} {account['name']}",
+                values=(
+                    account['code'],
+                    account['name'],
+                    account['account_type'],
+                    f"{account['current_balance']:.2f}",
+                    status
+                ),
+                tags=(account['id'],)
+            )
+            
+            # إضافة الفروع
+            if account.get('children'):
+                self._build_tree_ui(account['children'], item_id)
+    
+    def update_statistics(self):
+        """تحديث إحصائيات الشجرة"""
+        try:
+            # عدد الحسابات
+            total_accounts = len(self.tree_manager.get_leaf_accounts()) + \
+                           len([acc for acc in self.tree_manager.db_manager.fetch_all(
+                               "SELECT * FROM chart_of_accounts WHERE is_leaf = 0 AND is_active = 1")])
+            
+            self.accounts_count_label.configure(text=f"عدد الحسابات: {total_accounts}")
+            
+            # عمق الشجرة
+            max_level = self.tree_manager.db_manager.fetch_one(
+                "SELECT MAX(level) as max_level FROM chart_of_accounts WHERE is_active = 1"
+            )
+            depth = (max_level['max_level'] + 1) if max_level and max_level['max_level'] is not None else 0
+            
+            self.tree_depth_label.configure(text=f"عمق الشجرة: {depth}")
+            
+        except Exception as e:
+            print(f"خطأ في تحديث الإحصائيات: {e}")
+    
+    def update_parent_accounts_list(self):
+        """تحديث قائمة الحسابات الأب"""
+        try:
+            # جلب الحسابات غير الورقية
+            non_leaf_accounts = self.tree_manager.db_manager.fetch_all("""
+                SELECT id, name, code FROM chart_of_accounts 
+                WHERE is_leaf = 0 AND is_active = 1 
+                ORDER BY code
+            """)
+            
+            parent_values = ["لا يوجد"] + [f"{acc['code']} - {acc['name']}" for acc in non_leaf_accounts]
+            self.parent_combo.configure(values=parent_values)
+            
+        except Exception as e:
+            print(f"خطأ في تحديث قائمة الحسابات الأب: {e}")
+    
+    def on_account_select(self, event):
+        """عند اختيار حساب من الشجرة"""
+        try:
+            selected_item = self.accounts_tree.selection()[0]
+            account_id = int(self.accounts_tree.item(selected_item)['tags'][0])
+            
+            # جلب تفاصيل الحساب
+            account = self.tree_manager.db_manager.fetch_one(
+                "SELECT * FROM chart_of_accounts WHERE id = ?", (account_id,)
+            )
+            
+            if account:
+                self.selected_account = dict(account)
+                self.populate_form(self.selected_account)
+            
+        except (IndexError, ValueError):
+            pass
+    
+    def populate_form(self, account: Dict):
+        """ملء النموذج ببيانات الحساب"""
+        # مسح النموذج
+        self.clear_form()
+        
+        # ملء البيانات
+        self.name_entry.insert(0, account['name'])
+        self.code_entry.insert(0, account['code'])
+        self.type_combo.set(account['account_type'])
+        
+        if account['description']:
+            self.description_text.insert("1.0", account['description'])
+        
+        # تحديث المعلومات الإضافية
+        self.level_label.configure(text=f"المستوى: {account['level']}")
+        self.balance_label.configure(text=f"الرصيد: {account['current_balance']:.2f}")
+        
+        leaf_type = "ورقة" if account['is_leaf'] else "عقدة"
+        self.leaf_status_label.configure(text=f"النوع: {leaf_type}")
+    
+    def clear_form(self):
+        """مسح النموذج"""
+        self.name_entry.delete(0, "end")
+        self.code_entry.delete(0, "end")
+        self.type_combo.set("")
+        self.parent_combo.set("لا يوجد")
+        self.description_text.delete("1.0", "end")
+        
+        self.level_label.configure(text="المستوى: -")
+        self.balance_label.configure(text="الرصيد: 0.00")
+        self.leaf_status_label.configure(text="النوع: -")
+
+        self.selected_account = None
+
+    def add_account(self):
+        """إضافة حساب جديد"""
+        try:
+            # جمع البيانات من النموذج
+            name = self.name_entry.get().strip()
+            code = self.code_entry.get().strip()
+            account_type = self.type_combo.get()
+            parent_text = self.parent_combo.get()
+            description = self.description_text.get("1.0", "end").strip()
+
+            # تحديد معرف الحساب الأب
+            parent_id = None
+            if parent_text != "لا يوجد":
+                parent_code = parent_text.split(" - ")[0]
+                parent_account = self.tree_manager.db_manager.fetch_one(
+                    "SELECT id FROM chart_of_accounts WHERE code = ?", (parent_code,)
+                )
+                if parent_account:
+                    parent_id = parent_account['id']
+
+            # إضافة الحساب
+            result = self.tree_manager.add_account(name, code, account_type, parent_id, description)
+
+            if result['success']:
+                messagebox.showinfo("نجح", result['message'])
+                self.load_accounts_tree()
+                self.clear_form()
+            else:
+                error_msg = "\n".join(result['errors'])
+                messagebox.showerror("خطأ", f"فشل في إضافة الحساب:\n{error_msg}")
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في إضافة الحساب: {e}")
+
+    def validate_tree(self):
+        """فحص سلامة شجرة الحسابات"""
+        try:
+            result = self.tree_manager.validate_tree_integrity()
+
+            if result['is_valid']:
+                messagebox.showinfo("فحص الشجرة", "✅ شجرة الحسابات سليمة ومتكاملة!")
+            else:
+                error_msg = "❌ تم اكتشاف مشاكل في شجرة الحسابات:\n\n"
+                error_msg += "\n".join(result['errors'])
+
+                if result['warnings']:
+                    error_msg += "\n\n⚠️ تحذيرات:\n"
+                    error_msg += "\n".join(result['warnings'])
+
+                messagebox.showerror("فحص الشجرة", error_msg)
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في فحص الشجرة: {e}")
+
+    def close_window(self):
+        """إغلاق النافذة"""
+        self.if window and hasattr(window, "destroy"):
+    if window and hasattr(window, "destroy"):
+    window.destroy()

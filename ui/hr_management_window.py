@@ -1,0 +1,2128 @@
+# -*- coding: utf-8 -*-
+# cSpell:disable
+"""
+نافذة إدارة شؤون الموظفين الاحترافية
+Professional HR Management Window
+"""
+
+import customtkinter as ctk
+import tkinter as tk
+from tkinter import messagebox, filedialog, ttk
+from PIL import Image, ImageTk
+import os
+import json
+from datetime import datetime, date
+import sqlite3
+from pathlib import Path
+
+try:
+    from themes.modern_theme import MODERN_COLORS, FONTS
+    from ui.window_utils import configure_window_fullscreen
+    from database.hybrid_database_manager import HybridDatabaseManager
+except ImportError:
+    MODERN_COLORS = {
+        'primary': '#2E8B57',
+        'secondary': '#4682B4',
+        'success': '#28a745',
+        'background': '#f8f9fa',
+        'surface': '#ffffff',
+        'text_primary': '#212529',
+        'text_secondary': '#6c757d',
+        'border': '#dee2e6'
+    }
+    FONTS = {'arabic': 'Arial', 'english': 'Arial'}
+
+# نظام ألوان محسن وعصري للموارد البشرية
+HR_COLORS = {
+    # ألوان أساسية محسنة مع تدرجات
+    'primary_gradient': ['#1e3c72', '#2a5298'],  # تدرج أزرق عميق
+    'secondary_gradient': ['#667eea', '#764ba2'],  # تدرج بنفسجي
+    'success_gradient': ['#11998e', '#38ef7d'],  # تدرج أخضر نعناعي
+    'warning_gradient': ['#f093fb', '#f5576c'],  # تدرج وردي
+    'info_gradient': ['#4facfe', '#00f2fe'],  # تدرج أزرق فاتح
+
+    # ألوان التبويبات المميزة
+    'employees_color': '#2E8B57',  # أخضر للموظفين
+    'attendance_color': '#4169E1',  # أزرق ملكي للحضور
+    'payroll_color': '#FFD700',  # ذهبي للمرتبات
+    'reports_color': '#FF6347',  # أحمر طماطم للتقارير
+    'settings_color': '#9370DB',  # بنفسجي للإعدادات
+
+    # ألوان الخلفيات المحسنة
+    'background_main': '#f0f2f5',  # رمادي فاتح محسن
+    'surface_elevated': '#ffffff',  # أبيض نقي
+    'surface_card': '#fafbfc',  # أبيض مائل للرمادي
+    'surface_hover': '#e8f4fd',  # أزرق فاتح للتفاعل
+
+    # ألوان النصوص المحسنة
+    'text_primary': '#1a202c',  # أسود داكن
+    'text_secondary': '#4a5568',  # رمادي متوسط
+    'text_accent': '#2b6cb0',  # أزرق للنصوص المميزة
+    'text_white': '#ffffff',  # أبيض نقي
+
+    # ألوان الحدود والظلال
+    'border_light': '#e2e8f0',  # حدود فاتحة
+    'border_medium': '#cbd5e0',  # حدود متوسطة
+    'shadow_light': 'rgba(0, 0, 0, 0.1)',  # ظل فاتح
+    'shadow_medium': 'rgba(0, 0, 0, 0.15)',  # ظل متوسط
+    'shadow_strong': 'rgba(0, 0, 0, 0.25)',  # ظل قوي
+}
+
+# أحجام خطوط محسنة (زيادة 15-20%)
+HR_FONTS = {
+    'title_large': 32,  # العناوين الكبيرة
+    'title_medium': 24,  # العناوين المتوسطة
+    'title_small': 20,  # العناوين الصغيرة
+    'heading': 18,  # العناوين الفرعية
+    'body_large': 16,  # النص الأساسي الكبير
+    'body_medium': 14,  # النص الأساسي المتوسط
+    'body_small': 12,  # النص الصغير
+    'caption': 11,  # النص التوضيحي
+}
+
+class HRManagementWindow:
+    """نافذة إدارة شؤون الموظفين الاحترافية"""
+
+    def __init__(self, parent, db_manager=None):
+        self.parent = parent
+        self.db_manager = db_manager or HybridDatabaseManager()
+        self.window = None
+        self.current_employee_id = None
+        self.employee_photo = None
+
+        # إعداد قاعدة البيانات
+        self.setup_database()
+
+        # إنشاء النافذة
+        self.create_window()
+
+    def setup_database(self):
+        """إعداد جداول قاعدة البيانات للموارد البشرية"""
+        try:
+            # جدول الموظفين
+            self.db_manager.execute_query("""
+                CREATE TABLE IF NOT EXISTS employees (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    employee_number TEXT UNIQUE NOT NULL,
+                    full_name TEXT NOT NULL,
+                    national_id TEXT UNIQUE,
+                    phone TEXT,
+                    email TEXT,
+                    address TEXT,
+                    department_id INTEGER,
+                    position_id INTEGER,
+                    hire_date DATE,
+                    birth_date DATE,
+                    basic_salary DECIMAL(10,2),
+                    photo_path TEXT,
+                    status TEXT DEFAULT 'active',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # جدول الأقسام
+            self.db_manager.execute_query("""
+                CREATE TABLE IF NOT EXISTS departments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    manager_id INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # جدول المناصب
+            self.db_manager.execute_query("""
+                CREATE TABLE IF NOT EXISTS positions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    min_salary DECIMAL(10,2),
+                    max_salary DECIMAL(10,2),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # جدول بنود المرتبات
+            self.db_manager.execute_query("""
+                CREATE TABLE IF NOT EXISTS salary_items (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    type TEXT CHECK(type IN ('allowance', 'deduction', 'bonus')),
+                    calculation_type TEXT CHECK(calculation_type IN ('fixed', 'percentage', 'formula')),
+                    value DECIMAL(10,2),
+                    formula TEXT,
+                    is_active BOOLEAN DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # جدول الحضور والانصراف
+            self.db_manager.execute_query("""
+                CREATE TABLE IF NOT EXISTS attendance (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    employee_id INTEGER NOT NULL,
+                    date DATE NOT NULL,
+                    check_in TIME,
+                    check_out TIME,
+                    break_duration INTEGER DEFAULT 0,
+                    overtime_hours DECIMAL(4,2) DEFAULT 0,
+                    status TEXT DEFAULT 'present',
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (employee_id) REFERENCES employees (id)
+                )
+            """)
+
+            # جدول كشوف المرتبات
+            self.db_manager.execute_query("""
+                CREATE TABLE IF NOT EXISTS payroll (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    employee_id INTEGER NOT NULL,
+                    month INTEGER NOT NULL,
+                    year INTEGER NOT NULL,
+                    basic_salary DECIMAL(10,2),
+                    total_allowances DECIMAL(10,2) DEFAULT 0,
+                    total_deductions DECIMAL(10,2) DEFAULT 0,
+                    overtime_amount DECIMAL(10,2) DEFAULT 0,
+                    tax_amount DECIMAL(10,2) DEFAULT 0,
+                    insurance_amount DECIMAL(10,2) DEFAULT 0,
+                    net_salary DECIMAL(10,2),
+                    payment_date DATE,
+                    status TEXT DEFAULT 'pending',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (employee_id) REFERENCES employees (id)
+                )
+            """)
+
+            # إدراج بيانات افتراضية
+            self.insert_default_data()
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في إعداد قاعدة البيانات: {e}")
+
+    def insert_default_data(self):
+        """إدراج بيانات افتراضية"""
+        try:
+            # إدراج أقسام افتراضية
+            departments = [
+                ("الإدارة العامة", "قسم الإدارة والتخطيط"),
+                ("المحاسبة", "قسم المحاسبة والمالية"),
+                ("المبيعات", "قسم المبيعات والتسويق"),
+                ("الموارد البشرية", "قسم شؤون الموظفين"),
+                ("تقنية المعلومات", "قسم الحاسوب والشبكات")
+            ]
+
+            for name, desc in departments:
+                self.db_manager.execute_query(
+                    "INSERT OR IGNORE INTO departments (name, description) VALUES (?, ?)",
+                    (name, desc)
+                )
+
+            # إدراج مناصب افتراضية
+            positions = [
+                ("مدير عام", "المدير العام للشركة", 15000, 25000),
+                ("مدير قسم", "مدير أحد الأقسام", 8000, 15000),
+                ("محاسب", "محاسب مالي", 4000, 8000),
+                ("موظف مبيعات", "موظف في قسم المبيعات", 3000, 6000),
+                ("سكرتير", "سكرتير إداري", 2500, 4500)
+            ]
+
+            for title, desc, min_sal, max_sal in positions:
+                self.db_manager.execute_query(
+                    "INSERT OR IGNORE INTO positions (title, description, min_salary, max_salary) VALUES (?, ?, ?, ?)",
+                    (title, desc, min_sal, max_sal)
+                )
+
+            # إدراج بنود مرتبات افتراضية
+            salary_items = [
+                ("بدل مواصلات", "allowance", "fixed", 200, None),
+                ("بدل طعام", "allowance", "fixed", 150, None),
+                ("مكافأة أداء", "bonus", "percentage", 10, None),
+                ("خصم غياب", "deduction", "formula", 0, "basic_salary / 30 * absent_days"),
+                ("تأمين اجتماعي", "deduction", "percentage", 11, None),
+                ("ضريبة دخل", "deduction", "formula", 0, "calculate_tax(gross_salary)")
+            ]
+
+            for name, type_, calc_type, value, formula in salary_items:
+                self.db_manager.execute_query(
+                    "INSERT OR IGNORE INTO salary_items (name, type, calculation_type, value, formula) VALUES (?, ?, ?, ?, ?)",
+                    (name, type_, calc_type, value, formula)
+                )
+
+        except Exception as e:
+            print(f"خطأ في إدراج البيانات الافتراضية: {e}")
+
+    def create_window(self):
+        """إنشاء النافذة الرئيسية"""
+        self.window = ctk.CTkToplevel(self.parent)
+
+        # إعداد النافذة لتملأ الشاشة
+        configure_window_fullscreen(self.window, "👥 إدارة شؤون الموظفين - برنامج ست الكل للمحاسبة")
+        self.window.configure(fg_color=HR_COLORS['background_main'])
+
+        # جعل النافذة في المقدمة
+        self.window.transient(self.parent)
+        self.window.grab_set()
+
+        # إنشاء الواجهة
+        self.create_interface()
+
+        # تحميل البيانات
+        self.load_employees()
+
+    def create_interface(self):
+        """إنشاء واجهة المستخدم"""
+        # إنشاء الإطار الرئيسي مع تأثيرات بصرية
+        main_frame = ctk.CTkFrame(
+            self.window,
+            fg_color="transparent",
+            corner_radius=0
+        )
+        main_frame.pack(fill="both", expand=True, padx=25, pady=25)
+
+        # شريط العنوان المحسن مع تدرج لوني
+        title_frame = ctk.CTkFrame(
+            main_frame,
+            height=100,
+            fg_color=HR_COLORS['employees_color'],
+            corner_radius=15,
+            border_width=2,
+            border_color=HR_COLORS['border_light']
+        )
+        title_frame.pack(fill="x", pady=(0, 25))
+        title_frame.pack_propagate(False)
+
+        # إطار العنوان الداخلي للتأثيرات
+        title_inner_frame = ctk.CTkFrame(
+            title_frame,
+            fg_color="transparent"
+        )
+        title_inner_frame.pack(expand=True, fill="both", padx=20, pady=15)
+
+        # العنوان الرئيسي مع تحسينات
+        title_label = ctk.CTkLabel(
+            title_inner_frame,
+            text="👥 إدارة شؤون الموظفين",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['title_large'], weight="bold"),
+            text_color=HR_COLORS['text_white']
+        )
+        title_label.pack(side="right", padx=20)
+
+        # العنوان الفرعي
+        subtitle_label = ctk.CTkLabel(
+            title_inner_frame,
+            text="نظام متكامل لإدارة الموارد البشرية",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_large']),
+            text_color=HR_COLORS['text_white']
+        )
+        subtitle_label.pack(side="right", padx=20)
+
+        # إنشاء التبويبات المحسنة
+        self.create_tabs(main_frame)
+
+    def create_tabs(self, parent):
+        """إنشاء التبويبات الرئيسية"""
+        # إنشاء التبويبات المحسنة
+        self.tabview = ctk.CTkTabview(
+            parent,
+            width=1200,
+            height=750,
+            corner_radius=15,
+            border_width=2,
+            border_color=HR_COLORS['border_light'],
+            segmented_button_fg_color=HR_COLORS['surface_elevated'],
+            segmented_button_selected_color=HR_COLORS['employees_color'],
+            segmented_button_selected_hover_color=HR_COLORS['employees_color'],
+            text_color=HR_COLORS['text_primary'],
+            text_color_disabled=HR_COLORS['text_secondary']
+        )
+        self.tabview.pack(fill="both", expand=True)
+
+        # إضافة التبويبات مع أيقونات محسنة
+        self.tab_employees = self.tabview.add("� بيانات الموظفين")
+        self.tab_attendance = self.tabview.add("⏰ الحضور والانصراف")
+        self.tab_payroll = self.tabview.add("💰 المرتبات والأجور")
+        self.tab_reports = self.tabview.add("📊 التقارير والإحصائيات")
+        self.tab_settings = self.tabview.add("⚙️ الإعدادات والتخصيص")
+
+        # تخصيص ألوان التبويبات
+        self.customize_tab_colors()
+
+        # إنشاء محتوى كل تبويب
+        self.create_employees_tab()
+        self.create_attendance_tab()
+        self.create_payroll_tab()
+        self.create_reports_tab()
+        self.create_settings_tab()
+
+    def customize_tab_colors(self):
+        """تخصيص ألوان التبويبات"""
+        try:
+            # تخصيص ألوان كل تبويب حسب المحتوى
+            tab_colors = {
+                "👥 بيانات الموظفين": HR_COLORS['employees_color'],
+                "⏰ الحضور والانصراف": HR_COLORS['attendance_color'],
+                "💰 المرتبات والأجور": HR_COLORS['payroll_color'],
+                "📊 التقارير والإحصائيات": HR_COLORS['reports_color'],
+                "⚙️ الإعدادات والتخصيص": HR_COLORS['settings_color']
+            }
+
+            # تطبيق الألوان (سيتم تطبيقها عند التفاعل)
+            self.tab_colors = tab_colors
+
+        except Exception as e:
+            print(f"خطأ في تخصيص ألوان التبويبات: {e}")
+
+    def create_employees_tab(self):
+        """إنشاء تبويب بيانات الموظفين"""
+        # إطار رئيسي محسن
+        main_frame = ctk.CTkFrame(
+            self.tab_employees,
+            fg_color="transparent",
+            corner_radius=0
+        )
+        main_frame.pack(fill="both", expand=True, padx=15, pady=15)
+
+        # إطار الأزرار العلوية المحسن
+        buttons_frame = ctk.CTkFrame(
+            main_frame,
+            height=80,
+            fg_color=HR_COLORS['surface_elevated'],
+            corner_radius=12,
+            border_width=1,
+            border_color=HR_COLORS['border_light']
+        )
+        buttons_frame.pack(fill="x", pady=(0, 15))
+        buttons_frame.pack_propagate(False)
+
+        # أزرار العمليات المحسنة
+        ctk.CTkButton(
+            buttons_frame,
+            text="➕ إضافة موظف جديد",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_large'], weight="bold"),
+            fg_color=HR_COLORS['success_gradient'][0],
+            hover_color=HR_COLORS['success_gradient'][1],
+            text_color=HR_COLORS['text_white'],
+            width=180,
+            height=50,
+            corner_radius=10,
+            border_width=2,
+            border_color=HR_COLORS['success_gradient'][1],
+            command=self.add_new_employee
+        ).pack(side="right", padx=15, pady=15)
+
+        ctk.CTkButton(
+            buttons_frame,
+            text="✏️ تعديل",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium'], weight="bold"),
+            fg_color=HR_COLORS['primary_gradient'][0],
+            hover_color=HR_COLORS['primary_gradient'][1],
+            text_color=HR_COLORS['text_white'],
+            width=120,
+            height=50,
+            corner_radius=10,
+            border_width=2,
+            border_color=HR_COLORS['primary_gradient'][1],
+            command=self.edit_employee
+        ).pack(side="right", padx=10, pady=15)
+
+        ctk.CTkButton(
+            buttons_frame,
+            text="🗑️ حذف",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium'], weight="bold"),
+            fg_color=HR_COLORS['warning_gradient'][0],
+            hover_color=HR_COLORS['warning_gradient'][1],
+            text_color=HR_COLORS['text_white'],
+            width=120,
+            height=50,
+            corner_radius=10,
+            border_width=2,
+            border_color=HR_COLORS['warning_gradient'][1],
+            command=self.delete_employee
+        ).pack(side="right", padx=10, pady=15)
+
+        # إطار البحث المحسن
+        search_frame = ctk.CTkFrame(
+            buttons_frame,
+            fg_color="transparent"
+        )
+        search_frame.pack(side="left", padx=15, pady=15)
+
+        ctk.CTkLabel(
+            search_frame,
+            text="🔍 البحث:",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_large'], weight="bold"),
+            text_color=HR_COLORS['text_primary']
+        ).pack(side="right", padx=10)
+
+        self.search_entry = ctk.CTkEntry(
+            search_frame,
+            placeholder_text="ابحث بالاسم أو الرقم الوظيفي...",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium']),
+            width=250,
+            height=40,
+            corner_radius=10,
+            border_width=2,
+            border_color=HR_COLORS['border_medium'],
+            fg_color=HR_COLORS['surface_elevated'],
+            text_color=HR_COLORS['text_primary']
+        )
+        self.search_entry.pack(side="right", padx=10)
+        self.search_entry.bind("<KeyRelease>", self.search_employees)
+
+        # إطار المحتوى الرئيسي
+        content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        content_frame.pack(fill="both", expand=True)
+
+        # إطار قائمة الموظفين (يسار) محسن
+        employees_list_frame = ctk.CTkFrame(
+            content_frame,
+            width=450,
+            fg_color=HR_COLORS['surface_elevated'],
+            corner_radius=12,
+            border_width=1,
+            border_color=HR_COLORS['border_light']
+        )
+        employees_list_frame.pack(side="right", fill="y", padx=(0, 15))
+        employees_list_frame.pack_propagate(False)
+
+        # عنوان قائمة الموظفين محسن
+        title_employees_frame = ctk.CTkFrame(
+            employees_list_frame,
+            fg_color=HR_COLORS['employees_color'],
+            corner_radius=10,
+            height=60
+        )
+        title_employees_frame.pack(fill="x", padx=10, pady=10)
+        title_employees_frame.pack_propagate(False)
+
+        ctk.CTkLabel(
+            title_employees_frame,
+            text="📋 قائمة الموظفين",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['title_small'], weight="bold"),
+            text_color=HR_COLORS['text_white']
+        ).pack(expand=True)
+
+        # إنشاء جدول الموظفين
+        self.create_employees_tree(employees_list_frame)
+
+        # إطار تفاصيل الموظف (يمين) محسن
+        details_frame = ctk.CTkFrame(
+            content_frame,
+            fg_color=HR_COLORS['surface_elevated'],
+            corner_radius=12,
+            border_width=1,
+            border_color=HR_COLORS['border_light']
+        )
+        details_frame.pack(side="left", fill="both", expand=True)
+
+        # عنوان التفاصيل محسن
+        title_details_frame = ctk.CTkFrame(
+            details_frame,
+            fg_color=HR_COLORS['employees_color'],
+            corner_radius=10,
+            height=60
+        )
+        title_details_frame.pack(fill="x", padx=10, pady=10)
+        title_details_frame.pack_propagate(False)
+
+        ctk.CTkLabel(
+            title_details_frame,
+            text="👤 تفاصيل الموظف",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['title_small'], weight="bold"),
+            text_color=HR_COLORS['text_white']
+        ).pack(expand=True)
+
+        # إنشاء نموذج تفاصيل الموظف
+        self.create_employee_form(details_frame)
+
+    def create_employees_tree(self, parent):
+        """إنشاء جدول الموظفين"""
+        # إطار الجدول
+        tree_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        tree_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # إنشاء Treeview
+        columns = ("الرقم الوظيفي", "الاسم", "القسم", "المنصب", "الحالة")
+        self.employees_tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=15)
+
+        # تعريف العناوين
+        for col in columns:
+            self.employees_tree.heading(col, text=col)
+            self.employees_tree.column(col, width=80, anchor="center")
+
+        # شريط التمرير
+        scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.employees_tree.yview)
+        self.employees_tree.configure(yscrollcommand=scrollbar.set)
+
+        # تخطيط الجدول
+        self.employees_tree.pack(side="right", fill="both", expand=True)
+        scrollbar.pack(side="left", fill="y")
+
+        # ربط حدث التحديد
+        self.employees_tree.bind("<<TreeviewSelect>>", self.on_employee_select)
+
+    def create_employee_form(self, parent):
+        """إنشاء نموذج تفاصيل الموظف"""
+        # إطار التمرير محسن
+        scroll_frame = ctk.CTkScrollableFrame(
+            parent,
+            width=650,
+            height=550,
+            corner_radius=10,
+            fg_color=HR_COLORS['surface_card'],
+            scrollbar_button_color=HR_COLORS['employees_color'],
+            scrollbar_button_hover_color=HR_COLORS['primary_gradient'][1]
+        )
+        scroll_frame.pack(fill="both", expand=True, padx=15, pady=15)
+
+        # إطار الصورة الشخصية محسن
+        photo_frame = ctk.CTkFrame(
+            scroll_frame,
+            height=180,
+            fg_color="transparent"
+        )
+        photo_frame.pack(fill="x", pady=15)
+
+        # إطار الصورة محسن
+        self.photo_label = ctk.CTkLabel(
+            photo_frame,
+            text="📷\nاضغط لإضافة صورة",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium'], weight="bold"),
+            width=140,
+            height=140,
+            fg_color=HR_COLORS['border_light'],
+            corner_radius=15,
+            text_color=HR_COLORS['text_secondary'],
+            cursor="hand2"
+        )
+        self.photo_label.pack(side="right", padx=25)
+        self.photo_label.bind("<Button-1>", self.select_employee_photo)
+
+        # معلومات أساسية محسنة
+        basic_info_frame = ctk.CTkFrame(
+            scroll_frame,
+            fg_color=HR_COLORS['surface_elevated'],
+            corner_radius=12,
+            border_width=1,
+            border_color=HR_COLORS['border_light']
+        )
+        basic_info_frame.pack(fill="x", pady=15, padx=10)
+
+        # عنوان القسم
+        basic_title_frame = ctk.CTkFrame(
+            basic_info_frame,
+            fg_color=HR_COLORS['info_gradient'][0],
+            corner_radius=8,
+            height=50
+        )
+        basic_title_frame.pack(fill="x", padx=10, pady=10)
+        basic_title_frame.pack_propagate(False)
+
+        ctk.CTkLabel(
+            basic_title_frame,
+            text="📝 المعلومات الأساسية",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['heading'], weight="bold"),
+            text_color=HR_COLORS['text_white']
+        ).pack(expand=True)
+
+        # الصف الأول محسن
+        row1 = ctk.CTkFrame(basic_info_frame, fg_color="transparent")
+        row1.pack(fill="x", pady=15, padx=15)
+
+        # الاسم الكامل
+        ctk.CTkLabel(
+            row1,
+            text="الاسم الكامل:",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium'], weight="bold"),
+            text_color=HR_COLORS['text_primary']
+        ).pack(side="right", padx=10)
+
+        self.name_entry = ctk.CTkEntry(
+            row1,
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium']),
+            width=220,
+            height=40,
+            corner_radius=8,
+            border_width=2,
+            border_color=HR_COLORS['border_medium'],
+            fg_color=HR_COLORS['surface_elevated'],
+            text_color=HR_COLORS['text_primary']
+        )
+        self.name_entry.pack(side="right", padx=10)
+
+        # الرقم الوظيفي
+        ctk.CTkLabel(
+            row1,
+            text="الرقم الوظيفي:",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium'], weight="bold"),
+            text_color=HR_COLORS['text_primary']
+        ).pack(side="left", padx=10)
+
+        self.emp_number_entry = ctk.CTkEntry(
+            row1,
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium']),
+            width=170,
+            height=40,
+            corner_radius=8,
+            border_width=2,
+            border_color=HR_COLORS['border_medium'],
+            fg_color=HR_COLORS['surface_elevated'],
+            text_color=HR_COLORS['text_primary']
+        )
+        self.emp_number_entry.pack(side="left", padx=10)
+
+        # الصف الثاني محسن
+        row2 = ctk.CTkFrame(basic_info_frame, fg_color="transparent")
+        row2.pack(fill="x", pady=10, padx=15)
+
+        # الرقم القومي
+        ctk.CTkLabel(
+            row2,
+            text="الرقم القومي:",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium'], weight="bold"),
+            text_color=HR_COLORS['text_primary']
+        ).pack(side="right", padx=10)
+
+        self.national_id_entry = ctk.CTkEntry(
+            row2,
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium']),
+            width=220,
+            height=40,
+            corner_radius=8,
+            border_width=2,
+            border_color=HR_COLORS['border_medium'],
+            fg_color=HR_COLORS['surface_elevated'],
+            text_color=HR_COLORS['text_primary']
+        )
+        self.national_id_entry.pack(side="right", padx=10)
+
+        # تاريخ الميلاد
+        ctk.CTkLabel(
+            row2,
+            text="تاريخ الميلاد:",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium'], weight="bold"),
+            text_color=HR_COLORS['text_primary']
+        ).pack(side="left", padx=10)
+
+        self.birth_date_entry = ctk.CTkEntry(
+            row2,
+            placeholder_text="YYYY-MM-DD",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium']),
+            width=170,
+            height=40,
+            corner_radius=8,
+            border_width=2,
+            border_color=HR_COLORS['border_medium'],
+            fg_color=HR_COLORS['surface_elevated'],
+            text_color=HR_COLORS['text_primary']
+        )
+        self.birth_date_entry.pack(side="left", padx=10)
+
+        # الصف الثالث
+        row3 = ctk.CTkFrame(basic_info_frame, fg_color="transparent")
+        row3.pack(fill="x", pady=5)
+
+        # رقم الهاتف
+        ctk.CTkLabel(row3, text="رقم الهاتف:", font=ctk.CTkFont(family=FONTS['arabic'], size=12)).pack(side="right", padx=5)
+        self.phone_entry = ctk.CTkEntry(row3, font=ctk.CTkFont(family=FONTS['arabic'], size=12), width=200)
+        self.phone_entry.pack(side="right", padx=5)
+
+        # البريد الإلكتروني
+        ctk.CTkLabel(row3, text="البريد الإلكتروني:", font=ctk.CTkFont(family=FONTS['arabic'], size=12)).pack(side="left", padx=5)
+        self.email_entry = ctk.CTkEntry(row3, font=ctk.CTkFont(family=FONTS['arabic'], size=12), width=200)
+        self.email_entry.pack(side="left", padx=5)
+
+        # العنوان
+        row4 = ctk.CTkFrame(basic_info_frame, fg_color="transparent")
+        row4.pack(fill="x", pady=5)
+
+        ctk.CTkLabel(row4, text="العنوان:", font=ctk.CTkFont(family=FONTS['arabic'], size=12)).pack(side="right", padx=5)
+        self.address_entry = ctk.CTkEntry(row4, font=ctk.CTkFont(family=FONTS['arabic'], size=12), width=400)
+        self.address_entry.pack(side="right", padx=5)
+
+        # معلومات وظيفية
+        job_info_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        job_info_frame.pack(fill="x", pady=10)
+
+        ctk.CTkLabel(
+            job_info_frame,
+            text="💼 المعلومات الوظيفية",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=16, weight="bold"),
+            text_color=MODERN_COLORS['primary']
+        ).pack(anchor="e", pady=5)
+
+        # الصف الأول للمعلومات الوظيفية
+        job_row1 = ctk.CTkFrame(job_info_frame, fg_color="transparent")
+        job_row1.pack(fill="x", pady=5)
+
+        # القسم
+        ctk.CTkLabel(job_row1, text="القسم:", font=ctk.CTkFont(family=FONTS['arabic'], size=12)).pack(side="right", padx=5)
+        self.department_combo = ctk.CTkComboBox(
+            job_row1,
+            font=ctk.CTkFont(family=FONTS['arabic'], size=12),
+            width=200,
+            values=self.get_departments()
+        )
+        self.department_combo.pack(side="right", padx=5)
+
+        # المنصب
+        ctk.CTkLabel(job_row1, text="المنصب:", font=ctk.CTkFont(family=FONTS['arabic'], size=12)).pack(side="left", padx=5)
+        self.position_combo = ctk.CTkComboBox(
+            job_row1,
+            font=ctk.CTkFont(family=FONTS['arabic'], size=12),
+            width=200,
+            values=self.get_positions()
+        )
+        self.position_combo.pack(side="left", padx=5)
+
+        # الصف الثاني للمعلومات الوظيفية
+        job_row2 = ctk.CTkFrame(job_info_frame, fg_color="transparent")
+        job_row2.pack(fill="x", pady=5)
+
+        # تاريخ التعيين
+        ctk.CTkLabel(job_row2, text="تاريخ التعيين:", font=ctk.CTkFont(family=FONTS['arabic'], size=12)).pack(side="right", padx=5)
+        self.hire_date_entry = ctk.CTkEntry(job_row2, placeholder_text="YYYY-MM-DD", font=ctk.CTkFont(family=FONTS['arabic'], size=12), width=200)
+        self.hire_date_entry.pack(side="right", padx=5)
+
+        # الراتب الأساسي
+        ctk.CTkLabel(job_row2, text="الراتب الأساسي:", font=ctk.CTkFont(family=FONTS['arabic'], size=12)).pack(side="left", padx=5)
+        self.salary_entry = ctk.CTkEntry(job_row2, font=ctk.CTkFont(family=FONTS['arabic'], size=12), width=200)
+        self.salary_entry.pack(side="left", padx=5)
+
+        # الحالة
+        job_row3 = ctk.CTkFrame(job_info_frame, fg_color="transparent")
+        job_row3.pack(fill="x", pady=5)
+
+        ctk.CTkLabel(job_row3, text="الحالة:", font=ctk.CTkFont(family=FONTS['arabic'], size=12)).pack(side="right", padx=5)
+        self.status_combo = ctk.CTkComboBox(
+            job_row3,
+            font=ctk.CTkFont(family=FONTS['arabic'], size=12),
+            width=200,
+            values=["نشط", "معطل", "مجمد", "مستقيل"]
+        )
+        self.status_combo.pack(side="right", padx=5)
+
+        # أزرار الحفظ والإلغاء محسنة
+        buttons_frame = ctk.CTkFrame(
+            scroll_frame,
+            fg_color=HR_COLORS['surface_elevated'],
+            corner_radius=12,
+            border_width=1,
+            border_color=HR_COLORS['border_light'],
+            height=80
+        )
+        buttons_frame.pack(fill="x", pady=25, padx=10)
+        buttons_frame.pack_propagate(False)
+
+        ctk.CTkButton(
+            buttons_frame,
+            text="💾 حفظ البيانات",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_large'], weight="bold"),
+            fg_color=HR_COLORS['success_gradient'][0],
+            hover_color=HR_COLORS['success_gradient'][1],
+            text_color=HR_COLORS['text_white'],
+            width=150,
+            height=50,
+            corner_radius=10,
+            border_width=2,
+            border_color=HR_COLORS['success_gradient'][1],
+            command=self.save_employee
+        ).pack(side="left", padx=15, pady=15)
+
+        ctk.CTkButton(
+            buttons_frame,
+            text="🔄 إعادة تعيين",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium'], weight="bold"),
+            fg_color=HR_COLORS['secondary_gradient'][0],
+            hover_color=HR_COLORS['secondary_gradient'][1],
+            text_color=HR_COLORS['text_white'],
+            width=140,
+            height=50,
+            corner_radius=10,
+            border_width=2,
+            border_color=HR_COLORS['secondary_gradient'][1],
+            command=self.reset_form
+        ).pack(side="left", padx=10, pady=15)
+
+        ctk.CTkButton(
+            buttons_frame,
+            text="❌ مسح النموذج",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium'], weight="bold"),
+            fg_color=HR_COLORS['warning_gradient'][0],
+            hover_color=HR_COLORS['warning_gradient'][1],
+            text_color=HR_COLORS['text_white'],
+            width=140,
+            height=50,
+            corner_radius=10,
+            border_width=2,
+            border_color=HR_COLORS['warning_gradient'][1],
+            command=self.clear_form
+        ).pack(side="left", padx=10, pady=15)
+
+    def get_departments(self):
+        """الحصول على قائمة الأقسام"""
+        try:
+            result = self.db_manager.fetch_all("SELECT name FROM departments ORDER BY name")
+            return [row[0] for row in result] if result else []
+        except:
+            return []
+
+    def get_positions(self):
+        """الحصول على قائمة المناصب"""
+        try:
+            result = self.db_manager.fetch_all("SELECT title FROM positions ORDER BY title")
+            return [row[0] for row in result] if result else []
+        except:
+            return []
+
+    def select_employee_photo(self, event=None):
+        """اختيار صورة الموظف"""
+        file_path = filedialog.askopenfilename(
+            title="اختر صورة الموظف",
+            filetypes=[("Image files", "*.png *.jpg *.jpeg *.gif *.bmp")]
+        )
+
+        if file_path:
+            try:
+                # إنشاء مجلد الصور إذا لم يكن موجوداً
+                photos_dir = Path("assets/employee_photos")
+                photos_dir.mkdir(parents=True, exist_ok=True)
+
+                # نسخ الصورة إلى مجلد الصور
+                import shutil
+                filename = f"emp_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+                new_path = photos_dir / filename
+                shutil.copy2(file_path, new_path)
+
+                # تحديث الصورة في الواجهة
+                self.employee_photo = str(new_path)
+                self.update_photo_display()
+
+            except Exception as e:
+                messagebox.showerror("خطأ", f"خطأ في تحميل الصورة: {e}")
+
+    def update_photo_display(self):
+        """تحديث عرض الصورة"""
+        if self.employee_photo and os.path.exists(self.employee_photo):
+            try:
+                image = Image.open(self.employee_photo)
+                image = image.resize((120, 120), Image.Resampling.LANCZOS)
+                photo = ImageTk.PhotoImage(image)
+
+                self.photo_label.configure(image=photo, text="")
+                self.photo_label.image = photo  # حفظ مرجع للصورة
+            except:
+                self.photo_label.configure(image="", text="📷\nخطأ في الصورة")
+        else:
+            self.photo_label.configure(image="", text="📷\nاضغط لإضافة صورة")
+
+    def load_employees(self):
+        """تحميل قائمة الموظفين"""
+        try:
+            # مسح البيانات الحالية
+            for item in self.employees_tree.get_children():
+                self.employees_tree.delete(item)
+
+            # جلب البيانات من قاعدة البيانات
+            query = """
+                SELECT e.id, e.employee_number, e.full_name, d.name as department,
+                       p.title as position, e.status
+                FROM employees e
+                LEFT JOIN departments d ON e.department_id = d.id
+                LEFT JOIN positions p ON e.position_id = p.id
+                ORDER BY e.employee_number
+            """
+
+            employees = self.db_manager.fetch_all(query)
+
+            if employees:
+                for emp in employees:
+                    status_text = {"active": "نشط", "inactive": "معطل", "suspended": "مجمد", "resigned": "مستقيل"}.get(emp[5], emp[5])
+                    self.employees_tree.insert("", "end", values=(
+                        emp[1],  # employee_number
+                        emp[2],  # full_name
+                        emp[3] or "غير محدد",  # department
+                        emp[4] or "غير محدد",  # position
+                        status_text  # status
+                    ), tags=(emp[0],))  # employee_id في tags
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في تحميل البيانات: {e}")
+
+    def on_employee_select(self, event=None):
+        """عند تحديد موظف من القائمة"""
+        selection = self.employees_tree.selection()
+        if selection:
+            item = self.employees_tree.item(selection[0])
+            employee_id = item['tags'][0] if item['tags'] else None
+
+            if employee_id:
+                self.load_employee_details(employee_id)
+
+    def load_employee_details(self, employee_id):
+        """تحميل تفاصيل الموظف"""
+        try:
+            query = """
+                SELECT e.*, d.name as department_name, p.title as position_title
+                FROM employees e
+                LEFT JOIN departments d ON e.department_id = d.id
+                LEFT JOIN positions p ON e.position_id = p.id
+                WHERE e.id = ?
+            """
+
+            employee = self.db_manager.fetch_one(query, (employee_id,))
+
+            if employee:
+                self.current_employee_id = employee_id
+
+                # ملء النموذج بالبيانات
+                self.emp_number_entry.delete(0, "end")
+                self.emp_number_entry.insert(0, employee[1] or "")
+
+                self.name_entry.delete(0, "end")
+                self.name_entry.insert(0, employee[2] or "")
+
+                self.national_id_entry.delete(0, "end")
+                self.national_id_entry.insert(0, employee[3] or "")
+
+                self.phone_entry.delete(0, "end")
+                self.phone_entry.insert(0, employee[4] or "")
+
+                self.email_entry.delete(0, "end")
+                self.email_entry.insert(0, employee[5] or "")
+
+                self.address_entry.delete(0, "end")
+                self.address_entry.insert(0, employee[6] or "")
+
+                self.hire_date_entry.delete(0, "end")
+                self.hire_date_entry.insert(0, employee[9] or "")
+
+                self.birth_date_entry.delete(0, "end")
+                self.birth_date_entry.insert(0, employee[10] or "")
+
+                self.salary_entry.delete(0, "end")
+                self.salary_entry.insert(0, str(employee[11]) if employee[11] else "")
+
+                # تحديد القسم والمنصب
+                if employee[16]:  # department_name
+                    self.department_combo.set(employee[16])
+                if employee[17]:  # position_title
+                    self.position_combo.set(employee[17])
+
+                # تحديد الحالة
+                status_map = {"active": "نشط", "inactive": "معطل", "suspended": "مجمد", "resigned": "مستقيل"}
+                self.status_combo.set(status_map.get(employee[13], "نشط"))
+
+                # تحديث الصورة
+                self.employee_photo = employee[12]  # photo_path
+                self.update_photo_display()
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في تحميل تفاصيل الموظف: {e}")
+
+    def save_employee(self):
+        """حفظ بيانات الموظف"""
+        try:
+            # التحقق من صحة البيانات
+            if not self.name_entry.get().strip():
+                messagebox.showerror("خطأ", "يرجى إدخال اسم الموظف")
+                return
+
+            if not self.emp_number_entry.get().strip():
+                messagebox.showerror("خطأ", "يرجى إدخال الرقم الوظيفي")
+                return
+
+            # الحصول على معرف القسم والمنصب
+            department_id = self.get_department_id(self.department_combo.get())
+            position_id = self.get_position_id(self.position_combo.get())
+
+            # تحويل الحالة
+            status_map = {"نشط": "active", "معطل": "inactive", "مجمد": "suspended", "مستقيل": "resigned"}
+            status = status_map.get(self.status_combo.get(), "active")
+
+            # إعداد البيانات
+            data = (
+                self.emp_number_entry.get().strip(),
+                self.name_entry.get().strip(),
+                self.national_id_entry.get().strip() or None,
+                self.phone_entry.get().strip() or None,
+                self.email_entry.get().strip() or None,
+                self.address_entry.get().strip() or None,
+                department_id,
+                position_id,
+                self.hire_date_entry.get().strip() or None,
+                self.birth_date_entry.get().strip() or None,
+                float(self.salary_entry.get()) if self.salary_entry.get().strip() else 0,
+                self.employee_photo,
+                status
+            )
+
+            if self.current_employee_id:
+                # تحديث موظف موجود
+                query = """
+                    UPDATE employees SET
+                    employee_number=?, full_name=?, national_id=?, phone=?, email=?,
+                    address=?, department_id=?, position_id=?, hire_date=?, birth_date=?,
+                    basic_salary=?, photo_path=?, status=?, updated_at=CURRENT_TIMESTAMP
+                    WHERE id=?
+                """
+                self.db_manager.execute_query(query, data + (self.current_employee_id,))
+                messagebox.showinfo("نجح", "تم تحديث بيانات الموظف بنجاح")
+            else:
+                # إضافة موظف جديد
+                query = """
+                    INSERT INTO employees
+                    (employee_number, full_name, national_id, phone, email, address,
+                     department_id, position_id, hire_date, birth_date, basic_salary,
+                     photo_path, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """
+                self.db_manager.execute_query(query, data)
+                messagebox.showinfo("نجح", "تم إضافة الموظف بنجاح")
+
+            # إعادة تحميل القائمة
+            self.load_employees()
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في حفظ البيانات: {e}")
+
+    def get_department_id(self, department_name):
+        """الحصول على معرف القسم"""
+        if not department_name:
+            return None
+        try:
+            result = self.db_manager.fetch_one("SELECT id FROM departments WHERE name = ?", (department_name,))
+            return result[0] if result else None
+        except:
+            return None
+
+    def get_position_id(self, position_title):
+        """الحصول على معرف المنصب"""
+        if not position_title:
+            return None
+        try:
+            result = self.db_manager.fetch_one("SELECT id FROM positions WHERE title = ?", (position_title,))
+            return result[0] if result else None
+        except:
+            return None
+
+    def add_new_employee(self):
+        """إضافة موظف جديد"""
+        self.current_employee_id = None
+        self.clear_form()
+
+    def edit_employee(self):
+        """تعديل الموظف المحدد"""
+        if not self.current_employee_id:
+            messagebox.showwarning("تحذير", "يرجى تحديد موظف للتعديل")
+
+    def delete_employee(self):
+        """حذف الموظف المحدد"""
+        if not self.current_employee_id:
+            messagebox.showwarning("تحذير", "يرجى تحديد موظف للحذف")
+            return
+
+        if messagebox.askyesno("تأكيد الحذف", "هل أنت متأكد من حذف هذا الموظف؟"):
+            try:
+                self.db_manager.execute_query("DELETE FROM employees WHERE id = ?", (self.current_employee_id,))
+                messagebox.showinfo("نجح", "تم حذف الموظف بنجاح")
+                self.load_employees()
+                self.clear_form()
+            except Exception as e:
+                messagebox.showerror("خطأ", f"خطأ في حذف الموظف: {e}")
+
+    def clear_form(self):
+        """مسح النموذج"""
+        self.current_employee_id = None
+        self.employee_photo = None
+
+        # مسح جميع الحقول
+        for entry in [self.emp_number_entry, self.name_entry, self.national_id_entry,
+                     self.phone_entry, self.email_entry, self.address_entry,
+                     self.hire_date_entry, self.birth_date_entry, self.salary_entry]:
+            entry.delete(0, "end")
+
+        # إعادة تعيين القوائم المنسدلة
+        self.department_combo.set("")
+        self.position_combo.set("")
+        self.status_combo.set("نشط")
+
+        # إعادة تعيين الصورة
+        self.update_photo_display()
+
+    def reset_form(self):
+        """إعادة تعيين النموذج للبيانات الأصلية"""
+        if self.current_employee_id:
+            self.load_employee_details(self.current_employee_id)
+        else:
+            self.clear_form()
+
+    def search_employees(self, event=None):
+        """البحث في الموظفين"""
+        search_term = self.search_entry.get().strip()
+
+        try:
+            # مسح البيانات الحالية
+            for item in self.employees_tree.get_children():
+                self.employees_tree.delete(item)
+
+            # إعداد الاستعلام
+            if search_term:
+                query = """
+                    SELECT e.id, e.employee_number, e.full_name, d.name as department,
+                           p.title as position, e.status
+                    FROM employees e
+                    LEFT JOIN departments d ON e.department_id = d.id
+                    LEFT JOIN positions p ON e.position_id = p.id
+                    WHERE e.full_name LIKE ? OR e.employee_number LIKE ?
+                    ORDER BY e.employee_number
+                """
+                search_pattern = f"%{search_term}%"
+                employees = self.db_manager.fetch_all(query, (search_pattern, search_pattern))
+            else:
+                # إذا كان البحث فارغاً، عرض جميع الموظفين
+                query = """
+                    SELECT e.id, e.employee_number, e.full_name, d.name as department,
+                           p.title as position, e.status
+                    FROM employees e
+                    LEFT JOIN departments d ON e.department_id = d.id
+                    LEFT JOIN positions p ON e.position_id = p.id
+                    ORDER BY e.employee_number
+                """
+                employees = self.db_manager.fetch_all(query)
+
+            # عرض النتائج
+            if employees:
+                for emp in employees:
+                    status_text = {"active": "نشط", "inactive": "معطل", "suspended": "مجمد", "resigned": "مستقيل"}.get(emp[5], emp[5])
+                    self.employees_tree.insert("", "end", values=(
+                        emp[1],  # employee_number
+                        emp[2],  # full_name
+                        emp[3] or "غير محدد",  # department
+                        emp[4] or "غير محدد",  # position
+                        status_text  # status
+                    ), tags=(emp[0],))  # employee_id في tags
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في البحث: {e}")
+
+    def create_attendance_tab(self):
+        """إنشاء تبويب الحضور والانصراف"""
+        # إطار رئيسي محسن
+        main_frame = ctk.CTkFrame(self.tab_attendance, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=15, pady=15)
+
+        # إطار الأزرار العلوية محسن
+        buttons_frame = ctk.CTkFrame(
+            main_frame,
+            height=80,
+            fg_color=HR_COLORS['surface_elevated'],
+            corner_radius=12,
+            border_width=1,
+            border_color=HR_COLORS['border_light']
+        )
+        buttons_frame.pack(fill="x", pady=(0, 15))
+        buttons_frame.pack_propagate(False)
+
+        # أزرار العمليات محسنة
+        ctk.CTkButton(
+            buttons_frame,
+            text="⏰ تسجيل حضور",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_large'], weight="bold"),
+            fg_color=HR_COLORS['success_gradient'][0],
+            hover_color=HR_COLORS['success_gradient'][1],
+            text_color=HR_COLORS['text_white'],
+            width=170,
+            height=50,
+            corner_radius=10,
+            border_width=2,
+            border_color=HR_COLORS['success_gradient'][1],
+            command=self.record_check_in
+        ).pack(side="right", padx=15, pady=15)
+
+        ctk.CTkButton(
+            buttons_frame,
+            text="🚪 تسجيل انصراف",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_large'], weight="bold"),
+            fg_color=HR_COLORS['attendance_color'],
+            hover_color=HR_COLORS['primary_gradient'][1],
+            text_color=HR_COLORS['text_white'],
+            width=170,
+            height=50,
+            corner_radius=10,
+            border_width=2,
+            border_color=HR_COLORS['primary_gradient'][1],
+            command=self.record_check_out
+        ).pack(side="right", padx=10, pady=15)
+
+        ctk.CTkButton(
+            buttons_frame,
+            text="📊 تقرير الحضور",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium'], weight="bold"),
+            fg_color=HR_COLORS['secondary_gradient'][0],
+            hover_color=HR_COLORS['secondary_gradient'][1],
+            text_color=HR_COLORS['text_white'],
+            width=160,
+            height=50,
+            corner_radius=10,
+            border_width=2,
+            border_color=HR_COLORS['secondary_gradient'][1],
+            command=self.show_attendance_report
+        ).pack(side="right", padx=10, pady=15)
+
+        # إطار التاريخ والفلترة
+        filter_frame = ctk.CTkFrame(buttons_frame, fg_color="transparent")
+        filter_frame.pack(side="left", padx=10, pady=10)
+
+        ctk.CTkLabel(
+            filter_frame,
+            text="📅 التاريخ:",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=14)
+        ).pack(side="right", padx=5)
+
+        self.attendance_date_entry = ctk.CTkEntry(
+            filter_frame,
+            placeholder_text="YYYY-MM-DD",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=12),
+            width=150
+        )
+        self.attendance_date_entry.pack(side="right", padx=5)
+        self.attendance_date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
+
+        ctk.CTkButton(
+            filter_frame,
+            text="🔍 عرض",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=12),
+            width=80,
+            height=30,
+            command=self.load_attendance_data
+        ).pack(side="right", padx=5)
+
+        # إطار المحتوى الرئيسي
+        content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        content_frame.pack(fill="both", expand=True)
+
+        # إطار تسجيل الحضور السريع (يسار)
+        quick_attendance_frame = ctk.CTkFrame(content_frame, width=350, fg_color=MODERN_COLORS['surface'])
+        quick_attendance_frame.pack(side="right", fill="y", padx=(0, 10))
+        quick_attendance_frame.pack_propagate(False)
+
+        # عنوان التسجيل السريع
+        ctk.CTkLabel(
+            quick_attendance_frame,
+            text="⚡ تسجيل سريع",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=18, weight="bold"),
+            text_color=MODERN_COLORS['primary']
+        ).pack(pady=10)
+
+        # نموذج التسجيل السريع
+        self.create_quick_attendance_form(quick_attendance_frame)
+
+        # إطار جدول الحضور (يمين)
+        attendance_table_frame = ctk.CTkFrame(content_frame, fg_color=MODERN_COLORS['surface'])
+        attendance_table_frame.pack(side="left", fill="both", expand=True)
+
+        # عنوان الجدول
+        ctk.CTkLabel(
+            attendance_table_frame,
+            text="📋 سجل الحضور والانصراف",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=18, weight="bold"),
+            text_color=MODERN_COLORS['primary']
+        ).pack(pady=10)
+
+        # إنشاء جدول الحضور
+        self.create_attendance_table(attendance_table_frame)
+
+    def create_quick_attendance_form(self, parent):
+        """إنشاء نموذج التسجيل السريع"""
+        form_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        form_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # اختيار الموظف
+        ctk.CTkLabel(
+            form_frame,
+            text="👤 الموظف:",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=14, weight="bold")
+        ).pack(anchor="e", pady=5)
+
+        self.quick_employee_combo = ctk.CTkComboBox(
+            form_frame,
+            font=ctk.CTkFont(family=FONTS['arabic'], size=12),
+            width=300,
+            values=self.get_employees_list()
+        )
+        self.quick_employee_combo.pack(pady=5)
+
+        # الوقت الحالي
+        ctk.CTkLabel(
+            form_frame,
+            text="🕐 الوقت الحالي:",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=14, weight="bold")
+        ).pack(anchor="e", pady=(20, 5))
+
+        self.current_time_label = ctk.CTkLabel(
+            form_frame,
+            text=datetime.now().strftime("%H:%M:%S"),
+            font=ctk.CTkFont(family=FONTS['arabic'], size=20, weight="bold"),
+            text_color=MODERN_COLORS['primary']
+        )
+        self.current_time_label.pack(pady=5)
+
+        # تحديث الوقت كل ثانية
+        self.update_current_time()
+
+        # ملاحظات
+        ctk.CTkLabel(
+            form_frame,
+            text="📝 ملاحظات:",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=14, weight="bold")
+        ).pack(anchor="e", pady=(20, 5))
+
+        self.attendance_notes_entry = ctk.CTkTextbox(
+            form_frame,
+            font=ctk.CTkFont(family=FONTS['arabic'], size=12),
+            width=300,
+            height=80
+        )
+        self.attendance_notes_entry.pack(pady=5)
+
+        # أزرار التسجيل
+        buttons_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
+        buttons_frame.pack(fill="x", pady=20)
+
+        ctk.CTkButton(
+            buttons_frame,
+            text="✅ حضور",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=14, weight="bold"),
+            fg_color=MODERN_COLORS['success'],
+            hover_color="#218838",
+            width=140,
+            height=40,
+            command=lambda: self.quick_attendance_record("check_in")
+        ).pack(pady=5)
+
+        ctk.CTkButton(
+            buttons_frame,
+            text="🚪 انصراف",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=14, weight="bold"),
+            fg_color="#dc3545",
+            hover_color="#c82333",
+            width=140,
+            height=40,
+            command=lambda: self.quick_attendance_record("check_out")
+        ).pack(pady=5)
+
+    def create_attendance_table(self, parent):
+        """إنشاء جدول الحضور"""
+        # إطار الجدول
+        table_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        table_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # إنشاء Treeview
+        columns = ("الموظف", "التاريخ", "وقت الحضور", "وقت الانصراف", "ساعات العمل", "الحالة")
+        self.attendance_tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=15)
+
+        # تعريف العناوين
+        for col in columns:
+            self.attendance_tree.heading(col, text=col)
+            self.attendance_tree.column(col, width=120, anchor="center")
+
+        # شريط التمرير
+        scrollbar_att = ttk.Scrollbar(table_frame, orient="vertical", command=self.attendance_tree.yview)
+        self.attendance_tree.configure(yscrollcommand=scrollbar_att.set)
+
+        # تخطيط الجدول
+        self.attendance_tree.pack(side="right", fill="both", expand=True)
+        scrollbar_att.pack(side="left", fill="y")
+
+        # تحميل البيانات
+        self.load_attendance_data()
+
+    def get_employees_list(self):
+        """الحصول على قائمة الموظفين للحضور"""
+        try:
+            result = self.db_manager.fetch_all(
+                "SELECT employee_number, full_name FROM employees WHERE status = 'active' ORDER BY full_name"
+            )
+            return [f"{row[0]} - {row[1]}" for row in result] if result else []
+        except:
+            return []
+
+    def update_current_time(self):
+        """تحديث الوقت الحالي"""
+        current_time = datetime.now().strftime("%H:%M:%S")
+        self.current_time_label.configure(text=current_time)
+        # تحديث كل ثانية
+        self.window.after(1000, self.update_current_time)
+
+    def quick_attendance_record(self, action):
+        """تسجيل حضور/انصراف سريع"""
+        employee_text = self.quick_employee_combo.get()
+        if not employee_text:
+            messagebox.showerror("خطأ", "يرجى اختيار موظف")
+            return
+
+        try:
+            # استخراج رقم الموظف
+            employee_number = employee_text.split(" - ")[0]
+
+            # الحصول على معرف الموظف
+            employee = self.db_manager.fetch_one(
+                "SELECT id FROM employees WHERE employee_number = ?",
+                (employee_number,)
+            )
+
+            if not employee:
+                messagebox.showerror("خطأ", "لم يتم العثور على الموظف")
+                return
+
+            employee_id = employee[0]
+            today = datetime.now().date()
+            current_time = datetime.now().time()
+            notes = self.attendance_notes_entry.get("1.0", "end-1c").strip()
+
+            if action == "check_in":
+                # تسجيل حضور
+                # التحقق من وجود تسجيل لنفس اليوم
+                existing = self.db_manager.fetch_one(
+                    "SELECT id FROM attendance WHERE employee_id = ? AND date = ?",
+                    (employee_id, today)
+                )
+
+                if existing:
+                    # تحديث وقت الحضور
+                    self.db_manager.execute_query(
+                        "UPDATE attendance SET check_in = ?, notes = ? WHERE employee_id = ? AND date = ?",
+                        (current_time, notes, employee_id, today)
+                    )
+                else:
+                    # إدراج تسجيل جديد
+                    self.db_manager.execute_query(
+                        "INSERT INTO attendance (employee_id, date, check_in, notes) VALUES (?, ?, ?, ?)",
+                        (employee_id, today, current_time, notes)
+                    )
+
+                messagebox.showinfo("نجح", "تم تسجيل الحضور بنجاح")
+
+            elif action == "check_out":
+                # تسجيل انصراف
+                # التحقق من وجود تسجيل حضور لنفس اليوم
+                existing = self.db_manager.fetch_one(
+                    "SELECT id, check_in FROM attendance WHERE employee_id = ? AND date = ?",
+                    (employee_id, today)
+                )
+
+                if existing:
+                    # تحديث وقت الانصراف
+                    self.db_manager.execute_query(
+                        "UPDATE attendance SET check_out = ?, notes = ? WHERE employee_id = ? AND date = ?",
+                        (current_time, notes, employee_id, today)
+                    )
+                    messagebox.showinfo("نجح", "تم تسجيل الانصراف بنجاح")
+                else:
+                    messagebox.showerror("خطأ", "لم يتم العثور على تسجيل حضور لهذا اليوم")
+                    return
+
+            # مسح الملاحظات وإعادة تحميل البيانات
+            self.attendance_notes_entry.delete("1.0", "end")
+            self.load_attendance_data()
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في تسجيل الحضور: {e}")
+
+    def load_attendance_data(self):
+        """تحميل بيانات الحضور"""
+        try:
+            # مسح البيانات الحالية
+            for item in self.attendance_tree.get_children():
+                self.attendance_tree.delete(item)
+
+            # الحصول على التاريخ المحدد
+            selected_date = self.attendance_date_entry.get().strip()
+            if not selected_date:
+                selected_date = datetime.now().strftime("%Y-%m-%d")
+
+            # جلب البيانات
+            query = """
+                SELECT e.full_name, a.date, a.check_in, a.check_out, a.status, a.notes
+                FROM attendance a
+                JOIN employees e ON a.employee_id = e.id
+                WHERE a.date = ?
+                ORDER BY e.full_name
+            """
+
+            attendance_records = self.db_manager.fetch_all(query, (selected_date,))
+
+            if attendance_records:
+                for record in attendance_records:
+                    # حساب ساعات العمل
+                    work_hours = ""
+                    if record[2] and record[3]:  # check_in and check_out
+                        try:
+                            check_in = datetime.strptime(str(record[2]), "%H:%M:%S")
+                            check_out = datetime.strptime(str(record[3]), "%H:%M:%S")
+                            work_duration = check_out - check_in
+                            hours = work_duration.total_seconds() / 3600
+                            work_hours = f"{hours:.2f} ساعة"
+                        except:
+                            work_hours = "غير محسوب"
+
+                    # تحديد الحالة
+                    status = "حاضر" if record[2] else "غائب"
+                    if record[2] and not record[3]:
+                        status = "لم ينصرف"
+
+                    self.attendance_tree.insert("", "end", values=(
+                        record[0],  # employee name
+                        record[1],  # date
+                        record[2] or "لم يحضر",  # check_in
+                        record[3] or "لم ينصرف",  # check_out
+                        work_hours,  # work hours
+                        status  # status
+                    ))
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في تحميل بيانات الحضور: {e}")
+
+    def record_check_in(self):
+        """تسجيل حضور"""
+        # يمكن إضافة نافذة منفصلة لتسجيل الحضور
+        pass
+
+    def record_check_out(self):
+        """تسجيل انصراف"""
+        # يمكن إضافة نافذة منفصلة لتسجيل الانصراف
+        pass
+
+    def show_attendance_report(self):
+        """عرض تقرير الحضور"""
+        # يمكن إضافة نافذة تقرير مفصل
+        pass
+
+    def create_payroll_tab(self):
+        """إنشاء تبويب المرتبات"""
+        # إطار رئيسي محسن
+        main_frame = ctk.CTkFrame(self.tab_payroll, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=15, pady=15)
+
+        # شريط العنوان محسن مع اللون الذهبي
+        title_frame = ctk.CTkFrame(
+            main_frame,
+            height=80,
+            fg_color=HR_COLORS['payroll_color'],
+            corner_radius=15,
+            border_width=2,
+            border_color=HR_COLORS['border_light']
+        )
+        title_frame.pack(fill="x", pady=(0, 15))
+        title_frame.pack_propagate(False)
+
+        ctk.CTkLabel(
+            title_frame,
+            text="💰 إدارة المرتبات والأجور",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['title_medium'], weight="bold"),
+            text_color=HR_COLORS['text_primary']
+        ).pack(expand=True)
+
+        # إطار المحتوى
+        content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        content_frame.pack(fill="both", expand=True)
+
+        # إطار الأزرار والفلاتر (أعلى)
+        controls_frame = ctk.CTkFrame(content_frame, height=80, fg_color=MODERN_COLORS['surface'])
+        controls_frame.pack(fill="x", pady=(0, 10))
+        controls_frame.pack_propagate(False)
+
+        # أزرار العمليات محسنة
+        ctk.CTkButton(
+            controls_frame,
+            text="💰 حساب المرتبات",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_large'], weight="bold"),
+            fg_color=HR_COLORS['success_gradient'][0],
+            hover_color=HR_COLORS['success_gradient'][1],
+            text_color=HR_COLORS['text_white'],
+            width=180,
+            height=50,
+            corner_radius=10,
+            border_width=2,
+            border_color=HR_COLORS['success_gradient'][1],
+            command=self.calculate_payroll
+        ).pack(side="right", padx=15, pady=15)
+
+        ctk.CTkButton(
+            controls_frame,
+            text="📊 كشف مرتبات",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_large'], weight="bold"),
+            fg_color=HR_COLORS['payroll_color'],
+            hover_color="#E6C200",
+            text_color=HR_COLORS['text_primary'],
+            width=170,
+            height=50,
+            corner_radius=10,
+            border_width=2,
+            border_color="#E6C200",
+            command=self.generate_payroll_report
+        ).pack(side="right", padx=10, pady=15)
+
+        # فلتر الشهر والسنة
+        filter_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
+        filter_frame.pack(side="left", padx=10, pady=20)
+
+        ctk.CTkLabel(
+            filter_frame,
+            text="📅 الشهر/السنة:",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=14)
+        ).pack(side="right", padx=5)
+
+        current_date = datetime.now()
+
+        self.payroll_month_combo = ctk.CTkComboBox(
+            filter_frame,
+            font=ctk.CTkFont(family=FONTS['arabic'], size=12),
+            width=100,
+            values=[str(i) for i in range(1, 13)]
+        )
+        self.payroll_month_combo.pack(side="right", padx=5)
+        self.payroll_month_combo.set(str(current_date.month))
+
+        self.payroll_year_combo = ctk.CTkComboBox(
+            filter_frame,
+            font=ctk.CTkFont(family=FONTS['arabic'], size=12),
+            width=100,
+            values=[str(i) for i in range(2020, 2030)]
+        )
+        self.payroll_year_combo.pack(side="right", padx=5)
+        self.payroll_year_combo.set(str(current_date.year))
+
+        # إطار جدول المرتبات
+        payroll_table_frame = ctk.CTkFrame(content_frame, fg_color=MODERN_COLORS['surface'])
+        payroll_table_frame.pack(fill="both", expand=True)
+
+        # عنوان الجدول
+        ctk.CTkLabel(
+            payroll_table_frame,
+            text="📋 كشف المرتبات",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=18, weight="bold"),
+            text_color=MODERN_COLORS['primary']
+        ).pack(pady=10)
+
+        # إنشاء جدول المرتبات
+        self.create_payroll_table(payroll_table_frame)
+
+    def create_payroll_table(self, parent):
+        """إنشاء جدول المرتبات"""
+        # إطار الجدول
+        table_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        table_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # إنشاء Treeview
+        columns = ("الموظف", "الراتب الأساسي", "البدلات", "الخصومات", "الصافي", "الحالة")
+        self.payroll_tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=15)
+
+        # تعريف العناوين
+        for col in columns:
+            self.payroll_tree.heading(col, text=col)
+            self.payroll_tree.column(col, width=120, anchor="center")
+
+        # شريط التمرير
+        scrollbar_pay = ttk.Scrollbar(table_frame, orient="vertical", command=self.payroll_tree.yview)
+        self.payroll_tree.configure(yscrollcommand=scrollbar_pay.set)
+
+        # تخطيط الجدول
+        self.payroll_tree.pack(side="right", fill="both", expand=True)
+        scrollbar_pay.pack(side="left", fill="y")
+
+        # تحميل البيانات
+        self.load_payroll_data()
+
+    def load_payroll_data(self):
+        """تحميل بيانات المرتبات"""
+        try:
+            # مسح البيانات الحالية
+            for item in self.payroll_tree.get_children():
+                self.payroll_tree.delete(item)
+
+            # الحصول على الشهر والسنة المحددين
+            month = int(self.payroll_month_combo.get())
+            year = int(self.payroll_year_combo.get())
+
+            # جلب البيانات
+            query = """
+                SELECT e.full_name, p.basic_salary, p.total_allowances,
+                       p.total_deductions, p.net_salary, p.status
+                FROM payroll p
+                JOIN employees e ON p.employee_id = e.id
+                WHERE p.month = ? AND p.year = ?
+                ORDER BY e.full_name
+            """
+
+            payroll_records = self.db_manager.fetch_all(query, (month, year))
+
+            if payroll_records:
+                for record in payroll_records:
+                    status_text = {"pending": "معلق", "paid": "مدفوع", "cancelled": "ملغي"}.get(record[5], record[5])
+                    self.payroll_tree.insert("", "end", values=(
+                        record[0],  # employee name
+                        f"{record[1]:.2f}" if record[1] else "0.00",  # basic salary
+                        f"{record[2]:.2f}" if record[2] else "0.00",  # allowances
+                        f"{record[3]:.2f}" if record[3] else "0.00",  # deductions
+                        f"{record[4]:.2f}" if record[4] else "0.00",  # net salary
+                        status_text  # status
+                    ))
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في تحميل بيانات المرتبات: {e}")
+
+    def calculate_payroll(self):
+        """حساب المرتبات"""
+        try:
+            month = int(self.payroll_month_combo.get())
+            year = int(self.payroll_year_combo.get())
+
+            # الحصول على جميع الموظفين النشطين
+            employees = self.db_manager.fetch_all(
+                "SELECT id, full_name, basic_salary FROM employees WHERE status = 'active'"
+            )
+
+            if not employees:
+                messagebox.showwarning("تحذير", "لا يوجد موظفين نشطين")
+                return
+
+            calculated_count = 0
+
+            for emp in employees:
+                employee_id, name, basic_salary = emp
+
+                # التحقق من وجود راتب محسوب مسبقاً
+                existing = self.db_manager.fetch_one(
+                    "SELECT id FROM payroll WHERE employee_id = ? AND month = ? AND year = ?",
+                    (employee_id, month, year)
+                )
+
+                if existing:
+                    continue  # تخطي إذا كان محسوباً مسبقاً
+
+                # حساب البدلات والخصومات (مبسط)
+                total_allowances = basic_salary * 0.1  # 10% بدلات
+                total_deductions = basic_salary * 0.15  # 15% خصومات (تأمين + ضرائب)
+                net_salary = basic_salary + total_allowances - total_deductions
+
+                # إدراج في قاعدة البيانات
+                self.db_manager.execute_query("""
+                    INSERT INTO payroll
+                    (employee_id, month, year, basic_salary, total_allowances,
+                     total_deductions, net_salary, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+                """, (employee_id, month, year, basic_salary, total_allowances,
+                      total_deductions, net_salary))
+
+                calculated_count += 1
+
+            messagebox.showinfo("نجح", f"تم حساب مرتبات {calculated_count} موظف")
+            self.load_payroll_data()
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في حساب المرتبات: {e}")
+
+    def generate_payroll_report(self):
+        """إنشاء تقرير المرتبات"""
+        messagebox.showinfo("قريباً", "سيتم إضافة تقرير المرتبات قريباً")
+
+    def create_reports_tab(self):
+        """إنشاء تبويب التقارير"""
+        # إطار رئيسي محسن
+        main_frame = ctk.CTkFrame(self.tab_reports, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=15, pady=15)
+
+        # شريط العنوان محسن مع اللون الأحمر
+        title_frame = ctk.CTkFrame(
+            main_frame,
+            height=80,
+            fg_color=HR_COLORS['reports_color'],
+            corner_radius=15,
+            border_width=2,
+            border_color=HR_COLORS['border_light']
+        )
+        title_frame.pack(fill="x", pady=(0, 25))
+        title_frame.pack_propagate(False)
+
+        ctk.CTkLabel(
+            title_frame,
+            text="📊 التقارير والإحصائيات",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['title_medium'], weight="bold"),
+            text_color=HR_COLORS['text_white']
+        ).pack(expand=True)
+
+        # إطار التقارير
+        reports_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        reports_frame.pack(fill="both", expand=True)
+
+        # تقارير الموظفين محسنة
+        emp_reports_frame = ctk.CTkFrame(
+            reports_frame,
+            fg_color=HR_COLORS['surface_elevated'],
+            corner_radius=12,
+            border_width=1,
+            border_color=HR_COLORS['border_light']
+        )
+        emp_reports_frame.pack(fill="x", pady=15)
+
+        # عنوان القسم
+        emp_title_frame = ctk.CTkFrame(
+            emp_reports_frame,
+            fg_color=HR_COLORS['employees_color'],
+            corner_radius=8,
+            height=50
+        )
+        emp_title_frame.pack(fill="x", padx=10, pady=10)
+        emp_title_frame.pack_propagate(False)
+
+        ctk.CTkLabel(
+            emp_title_frame,
+            text="👥 تقارير الموظفين",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['heading'], weight="bold"),
+            text_color=HR_COLORS['text_white']
+        ).pack(expand=True)
+
+        emp_buttons_frame = ctk.CTkFrame(emp_reports_frame, fg_color="transparent")
+        emp_buttons_frame.pack(fill="x", padx=20, pady=15)
+
+        ctk.CTkButton(
+            emp_buttons_frame,
+            text="📋 قائمة الموظفين",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium'], weight="bold"),
+            fg_color=HR_COLORS['primary_gradient'][0],
+            hover_color=HR_COLORS['primary_gradient'][1],
+            text_color=HR_COLORS['text_white'],
+            width=220,
+            height=50,
+            corner_radius=10,
+            border_width=2,
+            border_color=HR_COLORS['primary_gradient'][1],
+            command=lambda: self.generate_report("employees_list")
+        ).pack(side="right", padx=15)
+
+        ctk.CTkButton(
+            emp_buttons_frame,
+            text="📊 إحصائيات الأقسام",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium'], weight="bold"),
+            fg_color=HR_COLORS['secondary_gradient'][0],
+            hover_color=HR_COLORS['secondary_gradient'][1],
+            text_color=HR_COLORS['text_white'],
+            width=220,
+            height=50,
+            corner_radius=10,
+            border_width=2,
+            border_color=HR_COLORS['secondary_gradient'][1],
+            command=lambda: self.generate_report("departments_stats")
+        ).pack(side="right", padx=15)
+
+        # تقارير الحضور
+        att_reports_frame = ctk.CTkFrame(reports_frame, fg_color=MODERN_COLORS['surface'])
+        att_reports_frame.pack(fill="x", pady=10)
+
+        ctk.CTkLabel(
+            att_reports_frame,
+            text="⏰ تقارير الحضور",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=16, weight="bold"),
+            text_color=MODERN_COLORS['primary']
+        ).pack(pady=10)
+
+        att_buttons_frame = ctk.CTkFrame(att_reports_frame, fg_color="transparent")
+        att_buttons_frame.pack(fill="x", padx=20, pady=10)
+
+        ctk.CTkButton(
+            att_buttons_frame,
+            text="📅 تقرير يومي",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=14),
+            width=200,
+            height=40,
+            command=lambda: self.generate_report("daily_attendance")
+        ).pack(side="right", padx=10)
+
+        ctk.CTkButton(
+            att_buttons_frame,
+            text="📊 تقرير شهري",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=14),
+            width=200,
+            height=40,
+            command=lambda: self.generate_report("monthly_attendance")
+        ).pack(side="right", padx=10)
+
+        # تقارير المرتبات
+        pay_reports_frame = ctk.CTkFrame(reports_frame, fg_color=MODERN_COLORS['surface'])
+        pay_reports_frame.pack(fill="x", pady=10)
+
+        ctk.CTkLabel(
+            pay_reports_frame,
+            text="💰 تقارير المرتبات",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=16, weight="bold"),
+            text_color=MODERN_COLORS['primary']
+        ).pack(pady=10)
+
+        pay_buttons_frame = ctk.CTkFrame(pay_reports_frame, fg_color="transparent")
+        pay_buttons_frame.pack(fill="x", padx=20, pady=10)
+
+        ctk.CTkButton(
+            pay_buttons_frame,
+            text="💰 كشف مرتبات",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=14),
+            width=200,
+            height=40,
+            command=lambda: self.generate_report("payroll_sheet")
+        ).pack(side="right", padx=10)
+
+        ctk.CTkButton(
+            pay_buttons_frame,
+            text="📈 تحليل التكاليف",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=14),
+            width=200,
+            height=40,
+            command=lambda: self.generate_report("cost_analysis")
+        ).pack(side="right", padx=10)
+
+    def create_settings_tab(self):
+        """إنشاء تبويب الإعدادات"""
+        # إطار رئيسي محسن
+        main_frame = ctk.CTkFrame(self.tab_settings, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=15, pady=15)
+
+        # شريط العنوان محسن مع اللون البنفسجي
+        title_frame = ctk.CTkFrame(
+            main_frame,
+            height=80,
+            fg_color=HR_COLORS['settings_color'],
+            corner_radius=15,
+            border_width=2,
+            border_color=HR_COLORS['border_light']
+        )
+        title_frame.pack(fill="x", pady=(0, 25))
+        title_frame.pack_propagate(False)
+
+        ctk.CTkLabel(
+            title_frame,
+            text="⚙️ إعدادات الموارد البشرية",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['title_medium'], weight="bold"),
+            text_color=HR_COLORS['text_white']
+        ).pack(expand=True)
+
+        # إطار المحتوى
+        content_frame = ctk.CTkScrollableFrame(main_frame, width=800, height=500)
+        content_frame.pack(fill="both", expand=True)
+
+        # إعدادات الأقسام
+        dept_frame = ctk.CTkFrame(content_frame, fg_color=MODERN_COLORS['surface'])
+        dept_frame.pack(fill="x", pady=10)
+
+        ctk.CTkLabel(
+            dept_frame,
+            text="🏢 إدارة الأقسام",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=16, weight="bold"),
+            text_color=MODERN_COLORS['primary']
+        ).pack(pady=10)
+
+        # نموذج إضافة قسم
+        dept_form_frame = ctk.CTkFrame(dept_frame, fg_color="transparent")
+        dept_form_frame.pack(fill="x", padx=20, pady=10)
+
+        ctk.CTkLabel(dept_form_frame, text="اسم القسم:", font=ctk.CTkFont(family=FONTS['arabic'], size=12)).pack(side="right", padx=5)
+        self.dept_name_entry = ctk.CTkEntry(dept_form_frame, font=ctk.CTkFont(family=FONTS['arabic'], size=12), width=200)
+        self.dept_name_entry.pack(side="right", padx=5)
+
+        ctk.CTkButton(
+            dept_form_frame,
+            text="➕ إضافة قسم",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium'], weight="bold"),
+            fg_color=HR_COLORS['success_gradient'][0],
+            hover_color=HR_COLORS['success_gradient'][1],
+            text_color=HR_COLORS['text_white'],
+            width=130,
+            height=40,
+            corner_radius=8,
+            border_width=2,
+            border_color=HR_COLORS['success_gradient'][1],
+            command=self.add_department
+        ).pack(side="left", padx=15)
+
+        # إعدادات المناصب
+        pos_frame = ctk.CTkFrame(content_frame, fg_color=MODERN_COLORS['surface'])
+        pos_frame.pack(fill="x", pady=10)
+
+        ctk.CTkLabel(
+            pos_frame,
+            text="💼 إدارة المناصب",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=16, weight="bold"),
+            text_color=MODERN_COLORS['primary']
+        ).pack(pady=10)
+
+        # نموذج إضافة منصب
+        pos_form_frame = ctk.CTkFrame(pos_frame, fg_color="transparent")
+        pos_form_frame.pack(fill="x", padx=20, pady=10)
+
+        ctk.CTkLabel(pos_form_frame, text="المنصب:", font=ctk.CTkFont(family=FONTS['arabic'], size=12)).pack(side="right", padx=5)
+        self.pos_title_entry = ctk.CTkEntry(pos_form_frame, font=ctk.CTkFont(family=FONTS['arabic'], size=12), width=200)
+        self.pos_title_entry.pack(side="right", padx=5)
+
+        ctk.CTkButton(
+            pos_form_frame,
+            text="➕ إضافة منصب",
+            font=ctk.CTkFont(family=FONTS['arabic'], size=HR_FONTS['body_medium'], weight="bold"),
+            fg_color=HR_COLORS['secondary_gradient'][0],
+            hover_color=HR_COLORS['secondary_gradient'][1],
+            text_color=HR_COLORS['text_white'],
+            width=130,
+            height=40,
+            corner_radius=8,
+            border_width=2,
+            border_color=HR_COLORS['secondary_gradient'][1],
+            command=self.add_position
+        ).pack(side="left", padx=15)
+
+    def add_department(self):
+        """إضافة قسم جديد"""
+        dept_name = self.dept_name_entry.get().strip()
+        if not dept_name:
+            messagebox.showerror("خطأ", "يرجى إدخال اسم القسم")
+            return
+
+        try:
+            self.db_manager.execute_query(
+                "INSERT INTO departments (name) VALUES (?)",
+                (dept_name,)
+            )
+            messagebox.showinfo("نجح", "تم إضافة القسم بنجاح")
+            self.dept_name_entry.delete(0, "end")
+
+            # تحديث قائمة الأقسام في النماذج
+            self.department_combo.configure(values=self.get_departments())
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في إضافة القسم: {e}")
+
+    def add_position(self):
+        """إضافة منصب جديد"""
+        pos_title = self.pos_title_entry.get().strip()
+        if not pos_title:
+            messagebox.showerror("خطأ", "يرجى إدخال اسم المنصب")
+            return
+
+        try:
+            self.db_manager.execute_query(
+                "INSERT INTO positions (title) VALUES (?)",
+                (pos_title,)
+            )
+            messagebox.showinfo("نجح", "تم إضافة المنصب بنجاح")
+            self.pos_title_entry.delete(0, "end")
+
+            # تحديث قائمة المناصب في النماذج
+            self.position_combo.configure(values=self.get_positions())
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"خطأ في إضافة المنصب: {e}")
+
+    def generate_report(self, report_type):
+        """إنشاء التقارير"""
+        messagebox.showinfo("قريباً", f"سيتم إضافة تقرير {report_type} قريباً")

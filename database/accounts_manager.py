@@ -1,0 +1,343 @@
+# -*- coding: utf-8 -*-
+"""
+مدير دليل الحسابات
+"""
+
+import logging
+from database.database_manager import DatabaseManager
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import List, Dict, Optional, Tuple, Any, Union, Callable
+
+class AccountsManager:
+    """مدير دليل الحسابات"""
+
+    def __init__(self, db_manager: DatabaseManager = None):
+        self.db_manager = db_manager or DatabaseManager()
+        self.logger = logging.getLogger(__name__)
+
+    def get_all_accounts(self, active_only: bool = True) -> List[Dict]:
+        """جلب جميع الحسابات"""
+        try:
+            query = """
+                SELECT a.*, p.account_name as parent_name
+                FROM chart_of_accounts a
+                LEFT JOIN chart_of_accounts p ON a.parent_account_id = p.id
+            """
+            params = []
+
+            if active_only:
+                query += " WHERE a.is_active = 1"
+
+            query += " ORDER BY a.account_code"
+
+            accounts = self.db_manager.fetch_all(query, params)
+            return [dict(account) for account in accounts]
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب الحسابات: {e}")
+            return []
+
+    def get_account_by_id(self, account_id: int) -> Optional[Dict]:
+        """جلب حساب بالمعرف"""
+        try:
+            query = """
+                SELECT a.*, p.account_name as parent_name
+                FROM chart_of_accounts a
+                LEFT JOIN chart_of_accounts p ON a.parent_account_id = p.id
+                WHERE a.id = ?
+            """
+            account = self.db_manager.fetch_one(query, (account_id,))
+            return dict(account) if account else None
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب الحساب: {e}")
+            return None
+
+    def get_account_by_code(self, account_code: str) -> Optional[Dict]:
+        """جلب حساب برقم الحساب"""
+        try:
+            query = """
+                SELECT a.*, p.account_name as parent_name
+                FROM chart_of_accounts a
+                LEFT JOIN chart_of_accounts p ON a.parent_account_id = p.id
+                WHERE a.account_code = ? AND a.is_active = 1
+            """
+            account = self.db_manager.fetch_one(query, (account_code,))
+            return dict(account) if account else None
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب الحساب: {e}")
+            return None
+
+    def create_account(self, account_data: Dict) -> Dict:
+        """إنشاء حساب جديد"""
+        try:
+            # التحقق من صحة البيانات
+            validation = self._validate_account_data(account_data)
+            if not validation['is_valid']:
+                return {
+                    'success': False,
+                    'errors': validation['errors']
+                }
+
+            # التحقق من عدم تكرار رقم الحساب
+            existing = self.get_account_by_code(account_data['account_code'])
+            if existing:
+                return {
+                    'success': False,
+                    'errors': ['رقم الحساب موجود بالفعل']
+                }
+
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+
+                cursor.execute('''
+                    INSERT INTO chart_of_accounts 
+                    (account_code, account_name, account_type, parent_account_id,
+                     account_level, is_main_account, account_nature, is_active, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    account_data['account_code'],
+                    account_data['account_name'],
+                    account_data['account_type'],
+                    account_data.get('parent_account_id'),
+                    account_data.get('account_level', 1),
+                    account_data.get('is_main_account', False),
+                    account_data['account_nature'],
+                    account_data.get('is_active', True),
+                    account_data.get('created_by')
+                ))
+
+                account_id = cursor.lastrowid
+                conn.commit()
+
+                self.logger.info(f"تم إنشاء الحساب: {account_data['account_name']}")
+
+                return {
+                    'success': True,
+                    'account_id': account_id,
+                    'message': 'تم إنشاء الحساب بنجاح'
+                }
+
+        except Exception as e:
+            self.logger.error(f"خطأ في إنشاء الحساب: {e}")
+            return {
+                'success': False,
+                'errors': [f'خطأ في إنشاء الحساب: {str(e)}']
+            }
+
+    def update_account(self, account_id: int, account_data: Dict) -> Dict:
+        """تحديث حساب"""
+        try:
+            # التحقق من وجود الحساب
+            existing = self.get_account_by_id(account_id)
+            if not existing:
+                return {
+                    'success': False,
+                    'errors': ['الحساب غير موجود']
+                }
+
+            # التحقق من صحة البيانات
+            validation = self._validate_account_data(account_data)
+            if not validation['is_valid']:
+                return {
+                    'success': False,
+                    'errors': validation['errors']
+                }
+
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+
+                cursor.execute('''
+                    UPDATE chart_of_accounts 
+                    SET account_code = ?, account_name = ?, account_type = ?,
+                        parent_account_id = ?, account_level = ?, is_main_account = ?,
+                        account_nature = ?, is_active = ?
+                    WHERE id = ?
+                ''', (
+                    account_data['account_code'],
+                    account_data['account_name'],
+                    account_data['account_type'],
+                    account_data.get('parent_account_id'),
+                    account_data.get('account_level', 1),
+                    account_data.get('is_main_account', False),
+                    account_data['account_nature'],
+                    account_data.get('is_active', True),
+                    account_id
+                ))
+
+                conn.commit()
+
+                self.logger.info(f"تم تحديث الحساب: {account_data['account_name']}")
+
+                return {
+                    'success': True,
+                    'message': 'تم تحديث الحساب بنجاح'
+                }
+
+        except Exception as e:
+            self.logger.error(f"خطأ في تحديث الحساب: {e}")
+            return {
+                'success': False,
+                'errors': [f'خطأ في تحديث الحساب: {str(e)}']
+            }
+
+    def delete_account(self, account_id: int) -> Dict:
+        """حذف حساب (إلغاء تفعيل)"""
+        try:
+            # التحقق من وجود الحساب
+            existing = self.get_account_by_id(account_id)
+            if not existing:
+                return {
+                    'success': False,
+                    'errors': ['الحساب غير موجود']
+                }
+
+            # التحقق من عدم وجود حركات على الحساب
+            if self._has_transactions(account_id):
+                return {
+                    'success': False,
+                    'errors': ['لا يمكن حذف حساب يحتوي على حركات']
+                }
+
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+
+                cursor.execute('''
+                    UPDATE chart_of_accounts 
+                    SET is_active = 0
+                    WHERE id = ?
+                ''', (account_id,))
+
+                conn.commit()
+
+                self.logger.info(f"تم حذف الحساب: {existing['account_name']}")
+
+                return {
+                    'success': True,
+                    'message': 'تم حذف الحساب بنجاح'
+                }
+
+        except Exception as e:
+            self.logger.error(f"خطأ في حذف الحساب: {e}")
+            return {
+                'success': False,
+                'errors': [f'خطأ في حذف الحساب: {str(e)}']
+            }
+
+    def update_account_balance(self, account_id: int, debit_amount: float = 0, 
+                              credit_amount: float = 0) -> Dict:
+        """تحديث رصيد الحساب"""
+        try:
+            account = self.get_account_by_id(account_id)
+            if not account:
+                return {
+                    'success': False,
+                    'errors': ['الحساب غير موجود']
+                }
+
+            with self.db_manager.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # تحديث الأرصدة
+                new_debit = account['debit_balance'] + debit_amount
+                new_credit = account['credit_balance'] + credit_amount
+
+                # حساب الرصيد الحالي حسب طبيعة الحساب
+                if account['account_nature'] == 'debit':
+                    new_current_balance = new_debit - new_credit
+                else:
+                    new_current_balance = new_credit - new_debit
+
+                cursor.execute('''
+                    UPDATE chart_of_accounts 
+                    SET debit_balance = ?, credit_balance = ?, current_balance = ?
+                    WHERE id = ?
+                ''', (new_debit, new_credit, new_current_balance, account_id))
+
+                conn.commit()
+
+                return {
+                    'success': True,
+                    'new_balance': new_current_balance,
+                    'message': 'تم تحديث رصيد الحساب'
+                }
+
+        except Exception as e:
+            self.logger.error(f"خطأ في تحديث رصيد الحساب: {e}")
+            return {
+                'success': False,
+                'errors': [f'خطأ في تحديث الرصيد: {str(e)}']
+            }
+
+    def get_accounts_by_type(self, account_type: str) -> List[Dict]:
+        """جلب الحسابات حسب النوع"""
+        try:
+            query = """
+                SELECT * FROM chart_of_accounts 
+                WHERE account_type = ? AND is_active = 1
+                ORDER BY account_code
+            """
+            accounts = self.db_manager.fetch_all(query, (account_type,))
+            return [dict(account) for account in accounts]
+
+        except Exception as e:
+            self.logger.error(f"خطأ في جلب الحسابات: {e}")
+            return []
+
+    def search_accounts(self, search_term: str) -> List[Dict]:
+        """البحث في الحسابات"""
+        try:
+            query = """
+                SELECT a.*, p.account_name as parent_name
+                FROM chart_of_accounts a
+                LEFT JOIN chart_of_accounts p ON a.parent_account_id = p.id
+                WHERE (a.account_code LIKE ? OR a.account_name LIKE ?) 
+                AND a.is_active = 1
+                ORDER BY a.account_code
+            """
+            search_pattern = f"%{search_term}%"
+            accounts = self.db_manager.fetch_all(query, (search_pattern, search_pattern))
+            return [dict(account) for account in accounts]
+
+        except Exception as e:
+            self.logger.error(f"خطأ في البحث: {e}")
+            return []
+
+    def _validate_account_data(self, account_data: Dict) -> Dict:
+        """التحقق من صحة بيانات الحساب"""
+        errors = []
+
+        # التحقق من الحقول المطلوبة
+        required_fields = ['account_code', 'account_name', 'account_type', 'account_nature']
+        for field in required_fields:
+            if not account_data.get(field):
+                errors.append(f'{field} مطلوب')
+
+        # التحقق من نوع الحساب
+        valid_types = ['asset', 'liability', 'equity', 'revenue', 'expense']
+        if account_data.get('account_type') not in valid_types:
+            errors.append('نوع الحساب غير صحيح')
+
+        # التحقق من طبيعة الحساب
+        valid_natures = ['debit', 'credit']
+        if account_data.get('account_nature') not in valid_natures:
+            errors.append('طبيعة الحساب غير صحيحة')
+
+        return {
+            'is_valid': len(errors) == 0,
+            'errors': errors
+        }
+
+    def _has_transactions(self, account_id: int) -> bool:
+        """التحقق من وجود حركات على الحساب"""
+        try:
+            query = "SELECT COUNT(*) FROM journal_entry_details WHERE account_id = ?"
+            result = self.db_manager.fetch_one(query, (account_id,))
+            return result[0] > 0 if result else False
+
+        except Exception as e:
+            self.logger.error(f"خطأ في التحقق من الحركات: {e}")
+            return True  # في حالة الخطأ، نمنع الحذف

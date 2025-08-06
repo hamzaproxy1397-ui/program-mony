@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+تشغيل برنامج ست الكل للمحاسبة مباشرة
+"""
+
+import sys
+import logging
+from pathlib import Path
+import re
+
+# إضافة مسار المشروع
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
+
+def run_accounting_app():
+    """تشغيل برنامج المحاسبة مباشرة"""
+    print("🚀 تشغيل برنامج ست الكل للمحاسبة...")
+
+    try:
+        # إعداد نظام السجلات
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler('logs/app.log', encoding='utf-8'),
+                logging.StreamHandler()
+            ]
+        )
+
+        # تهيئة وبدء تشغيل نظام الجدولة التلقائية
+        from core.scheduler_manager import SchedulerManager
+        scheduler_manager = SchedulerManager()
+        scheduler_manager.start_scheduler()
+        logging.info("تم تشغيل نظام الجدولة التلقائية للنسخ الاحتياطي")
+
+        # استيراد وتشغيل التطبيق الرئيسي
+        from ui.main_window import MainApplication
+
+        # إنشاء مثيل من التطبيق الرئيسي
+        app = MainApplication()
+        # تمرير مدير الجدولة للتطبيق
+        app.scheduler_manager = scheduler_manager
+
+        print("✅ تم تهيئة البرنامج بنجاح")
+        print("📱 فتح نافذة تسجيل الدخول...")
+        print("🔑 بيانات تسجيل الدخول الافتراضية:")
+        print("   اسم المستخدم: 123")
+        print("   كلمة المرور: 123")
+
+        # تشغيل التطبيق
+        app.run()
+
+    except Exception as e:
+        print(f"❌ خطأ في تشغيل البرنامج: {e}")
+        logging.error(f"خطأ في تشغيل البرنامج: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    run_accounting_app()
