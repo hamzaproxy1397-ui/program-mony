@@ -81,6 +81,10 @@ def main():
         if scheduler_manager:
             app.scheduler_manager = scheduler_manager
 
+        # إعداد النافذة لتملأ الشاشة
+        if configure_window_fullscreen and hasattr(app, 'window'):
+            configure_window_fullscreen(app.window, "برنامج ست الكل للمحاسبة")
+
         # تشغيل التطبيق (وكذلك دخول الحلقة الرئيسية للواجهة الرسومية)
         app.run()
 
