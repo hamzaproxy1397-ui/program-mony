@@ -1,3 +1,14 @@
+from ui.components.window_utils import configure_window_fullscreen
+
+def run(self):
+    """تشغيل التطبيق"""
+    try:
+        self.initialize_core_components()
+        self.show_welcome_window()
+        # تطبيق ملأ الشاشة على النافذة الرئيسية
+        configure_window_fullscreen(self.welcome_window, "برنامج ست الكل للمحاسبة")
+    except Exception as e:
+        self.handle_startup_error(e)
 # -*- coding: utf-8 -*-
 # cSpell:disable
 """

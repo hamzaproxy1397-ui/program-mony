@@ -34,6 +34,13 @@ except ImportError:
         print("💡 تأكد من وجود ملف ui/views/main_window.py أو ui/main_window.py")
         sys.exit(1)
 
+# استيراد أدوات النوافذ
+try:
+    from ui.components.window_utils import configure_window_fullscreen
+except ImportError as e:
+    print(f"تحذير: فشل في استيراد أدوات النوافذ: {e}")
+    configure_window_fullscreen = None
+
 # إعداد نظام السجلات Logging الخاص بالتطبيق
 logging.basicConfig(
     level=logging.INFO,  # تعيين مستوى السجلات إلى INFO لعرض الرسائل المهمة
